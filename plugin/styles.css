@@ -1,0 +1,1613 @@
+/* Spacing follows Obsidian's size scale. Fractional steps preserve the compact
+   design at default density. Icon geometry, touch-target minima, viewport limits,
+   optical offsets remain deliberate fixed sizes. */
+.ot-root {
+  padding: 0 !important;
+}
+.ot-shell {
+  position: relative;
+  display: flex;
+  height: 100%;
+  color: var(--text-normal);
+  font-size: 15px;
+}
+.ot-main {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: var(--file-margins);
+}
+.ot-paper {
+  max-width: var(--file-line-width);
+  margin: 0 auto;
+  padding: 0 0 var(--size-4-4);
+  font-size: var(--font-text-size);
+}
+.ot-list-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--size-4-4);
+}
+.ot-list-heading .inline-title {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+}
+.ot-paper h2 {
+  font-size: 19px;
+  letter-spacing: -0.3px;
+  font-weight: 650;
+  margin: 0 0 calc(var(--size-4-1) * 2.5);
+}
+.ot-section + .ot-section {
+  margin-top: calc(var(--size-4-1) * 7.5);
+}
+/* Task objects follow the compact row / open card interaction model. */
+.ot-task {
+  position: relative;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  outline: none;
+  user-select: none;
+}
+.ot-task.is-selected:not(.is-expanded) {
+  background: color-mix(in srgb, var(--interactive-accent) 23%, transparent);
+}
+.ot-task-line {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  gap: calc(var(--size-4-1) * 2.5);
+  padding: calc(var(--size-4-1) * 0.75) calc(var(--size-4-1) * 2.5);
+  cursor: default;
+}
+.ot-task-line input[type='checkbox'] {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  border-radius: 4px;
+  cursor: default;
+}
+.ot-task-title {
+  flex: 1;
+  font-size: 15px;
+  line-height: 1.6;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ot-note-icon svg {
+  width: 12px;
+  height: 12px;
+  color: var(--text-faint);
+}
+.ot-project-badge {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+.ot-task.is-done .ot-task-title {
+  text-decoration: line-through;
+  color: var(--text-faint);
+}
+.ot-task.is-expanded {
+  background: var(--background-primary);
+  border-color: var(--background-modifier-border);
+  box-shadow:
+    0 3px 12px #00000012,
+    0 1px 3px #0000000a;
+  margin: calc(var(--size-4-1) * 3.75) calc(-1 * calc(var(--size-4-1) * 2.5));
+  padding: var(--size-4-3) calc(var(--size-4-1) * 2.5) calc(var(--size-4-1) * 2.5);
+  user-select: text;
+  animation: ot-open 130ms ease-out;
+}
+.ot-task.is-expanded .ot-task-line {
+  padding-top: 0;
+}
+.ot-task input.ot-title-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.6;
+  height: 30px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  border-radius: 0;
+}
+.ot-task-editor {
+  padding: 0 var(--size-4-3) 0 calc(15px + var(--size-4-2) * 2 + var(--size-2-1) * 2);
+}
+.ot-task textarea.ot-task-notes {
+  display: block;
+  width: 100%;
+  min-height: 30px;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.65;
+  font: inherit;
+  font-size: 14px;
+  padding: var(--size-2-1) 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+.ot-task-notes::placeholder {
+  color: var(--text-faint);
+}
+.ot-card-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+  align-items: flex-end;
+  margin-top: calc(var(--size-4-1) * 5.5);
+  min-height: 27px;
+}
+.ot-card-icons {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-left: auto;
+}
+.ot-root button.ot-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--size-4-1) * 0.75);
+  width: 24px;
+  height: 25px;
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  color: var(--text-faint);
+}
+.ot-root button.ot-icon-button:hover,
+.ot-root button.ot-icon-button:focus-visible {
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+}
+.ot-icon-button svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.5px;
+}
+.ot-card-badges {
+  display: flex;
+  gap: calc(var(--size-4-1) * 1.25);
+  flex-wrap: wrap;
+}
+.ot-root button.ot-chip {
+  padding: var(--size-2-1) var(--size-2-3);
+  height: 23px;
+  font-size: 11px;
+  background: var(--background-secondary);
+  border: none;
+  box-shadow: none;
+  color: var(--text-muted);
+}
+.ot-popover {
+  position: absolute;
+  bottom: 42px;
+  right: 15px;
+  z-index: 20;
+  width: min(300px, 95%);
+  padding: calc(var(--size-4-1) * 2.5);
+  border-radius: 9px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: 0 7px 25px #00000024;
+}
+.ot-popover input {
+  width: 100%;
+  margin: calc(var(--size-4-1) * 0.75) 0 calc(var(--size-4-1) * 1.75);
+}
+.ot-checklist:not(:empty) {
+  margin-top: calc(var(--size-4-1) * 3.5);
+}
+.ot-checklist-row {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--size-4-1) * 2.25);
+  border-top: 1px solid var(--background-modifier-border);
+  min-height: 31px;
+}
+.ot-checklist-row input[type='checkbox'] {
+  border-radius: 50%;
+  height: 13px;
+  width: 13px;
+}
+.ot-checklist-row input:not([type='checkbox']) {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  flex: 1;
+  min-width: 0;
+  padding: calc(var(--size-4-1) * 0.75) 0;
+}
+.ot-save-error {
+  margin: var(--size-4-3);
+  color: var(--text-error);
+  font-size: 12px;
+}
+.ot-save-error button {
+  display: block;
+  margin-top: var(--size-4-2);
+}
+.ot-capture:focus {
+  background: var(--background-primary-alt) !important;
+}
+.ot-drop-end {
+  position: relative;
+  min-height: 6px;
+}
+.ot-task.is-dragging {
+  opacity: 0.45;
+}
+.ot-task.is-over::before,
+.ot-drop-end.is-over::before {
+  content: '';
+  display: block;
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--interactive-accent);
+}
+@keyframes ot-open {
+  from {
+    opacity: 0.6;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ot-task.is-expanded {
+    animation: none;
+  }
+}
+@media (max-width: 520px) {
+  .ot-shell {
+    flex-direction: column;
+  }
+  .ot-paper {
+    padding: calc(var(--size-4-1) * 6.25) calc(var(--size-4-1) * 4.5) var(--size-4-4);
+  }
+  .ot-task-editor {
+    padding: 0 calc(var(--size-4-1) * 2.5) 0 calc(15px + var(--size-4-2) * 2 + var(--size-2-1) * 2);
+  }
+}
+
+/* Task widgets inside the native Markdown editor. */
+.ot-native {
+  white-space: normal;
+  padding: var(--size-2-1) 0;
+}
+.ot-native .ot-task {
+  margin: 0;
+}
+.ot-native .ot-task:focus {
+  background: var(--background-modifier-hover);
+  outline: none;
+}
+.ot-native .ot-task.is-expanded {
+  margin: var(--size-4-2) 0;
+}
+.ot-native .ot-task-title {
+  white-space: pre-wrap;
+}
+
+/* Only the native embed duplicating an adjacent task card is suppressed. */
+.cm-content > .internal-embed.ot-duplicate-task-embed {
+  display: none !important;
+}
+
+.ot-popover.ot-date-picker {
+  width: 290px;
+  padding: var(--size-4-2);
+  border-radius: 12px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border-hover);
+  box-shadow:
+    0 16px 48px #0003,
+    0 3px 10px #0002;
+  z-index: 50;
+  overflow-y: auto;
+  color: var(--text-normal);
+  font-size: 13px;
+}
+.ot-date-picker button {
+  box-shadow: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.ot-date-search {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: calc(var(--size-4-1) * 0.75) calc(var(--size-4-1) * 1.25) calc(var(--size-4-1) * 2.25);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.ot-date-glyph {
+  display: flex;
+  color: var(--text-muted);
+}
+.ot-date-glyph svg {
+  width: 16px;
+  height: 16px;
+}
+.ot-date-picker .ot-date-search input {
+  min-width: 0;
+  width: 100%;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  font-size: 14px;
+}
+.ot-date-picker .ot-date-clear {
+  display: flex;
+  padding: calc(var(--size-4-1) * 0.75);
+  height: 22px;
+  color: var(--text-faint);
+}
+.ot-date-clear[hidden] {
+  display: none;
+}
+.ot-date-clear svg {
+  width: 14px;
+  height: 14px;
+}
+.ot-date-quick {
+  padding: var(--size-2-3) 0;
+}
+.ot-date-picker .ot-date-shortcut {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: flex-start;
+  gap: calc(var(--size-4-1) * 2.5);
+  padding: calc(var(--size-4-1) * 1.75) calc(var(--size-4-1) * 2.25);
+  height: 34px;
+  border-radius: 6px;
+  text-align: left;
+}
+.ot-date-picker button:hover {
+  background: var(--background-modifier-hover);
+}
+.ot-date-picker button:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+.ot-quick-icon {
+  display: flex;
+}
+.ot-quick-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.ot-quick-star {
+  color: #e5b841;
+}
+.ot-quick-sunrise {
+  color: #d99b61;
+}
+.ot-quick-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.ot-calendar {
+  border-top: 1px solid var(--background-modifier-border);
+  padding: var(--size-4-2) var(--size-4-1) var(--size-4-1);
+}
+.ot-calendar-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 calc(var(--size-4-1) * 0.75) calc(var(--size-4-1) * 1.75);
+}
+.ot-calendar-month {
+  font-size: 12px;
+  font-weight: 600;
+}
+.ot-calendar-nav {
+  display: flex;
+  gap: var(--size-2-1);
+}
+.ot-date-picker .ot-calendar-nav button {
+  display: flex;
+  padding: var(--size-4-1);
+  width: 26px;
+  height: 26px;
+  color: var(--text-muted);
+}
+.ot-calendar-nav svg {
+  width: 15px;
+  height: 15px;
+}
+.ot-calendar-weekdays,
+.ot-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--size-2-1);
+}
+.ot-calendar-weekdays {
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 10px;
+  padding-bottom: calc(var(--size-4-1) * 1.25);
+}
+.ot-date-picker .ot-calendar-day {
+  height: 30px;
+  padding: 0;
+  border-radius: 7px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.ot-date-picker .ot-calendar-day.is-outside {
+  color: var(--text-faint);
+  opacity: 0.5;
+}
+.ot-date-picker .ot-calendar-day.is-today {
+  color: var(--interactive-accent);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--interactive-accent);
+}
+.ot-date-picker .ot-calendar-day.is-picked {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  opacity: 1;
+}
+.ot-date-bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--size-4-1);
+  border-top: 1px solid var(--background-modifier-border);
+  padding-top: var(--size-2-3);
+  margin-top: var(--size-4-1);
+}
+.ot-date-picker .ot-date-bottom button {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: calc(var(--size-4-1) * 1.25) var(--size-4-2);
+}
+.ot-date-help {
+  color: var(--text-faint);
+  font-size: 10px;
+  padding: calc(var(--size-4-1) * 1.75) var(--size-4-2) calc(var(--size-4-1) * 0.75);
+}
+.ot-date-result {
+  padding: var(--size-2-3) 0;
+}
+.ot-date-picker .ot-date-match {
+  width: 100%;
+  text-align: left;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  padding: var(--size-4-2);
+  height: auto;
+  white-space: normal;
+}
+.ot-date-invalid {
+  display: block;
+  color: var(--text-muted);
+  padding: var(--size-2-3);
+  font-size: 12px;
+}
+
+.ot-popover.ot-date-picker[popover] {
+  margin: 0;
+  inset: auto;
+  max-width: calc(100vw - 16px);
+}
+
+.ot-native .ot-task:focus:not(.is-expanded) {
+  background: color-mix(in srgb, var(--interactive-accent) 20%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--interactive-accent) 45%, transparent);
+  outline-offset: -1px;
+}
+
+/* Compact details stay visible while a task is collapsed. */
+.ot-task:not(.is-expanded) .ot-task-title {
+  flex: 0 1 auto;
+}
+.ot-task-line > .ot-note-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: calc(-1 * var(--size-4-1));
+  color: var(--text-faint);
+}
+.ot-note-icon > span:first-child {
+  display: inline-flex;
+}
+.ot-row-indicators {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--size-4-3);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.ot-row-date {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+.ot-row-date > span:first-child {
+  display: inline-flex;
+}
+.ot-row-date svg {
+  width: 12px;
+  height: 12px;
+}
+.ot-row-when {
+  color: var(--text-accent);
+}
+.ot-row-deadline.is-overdue {
+  color: var(--text-error);
+}
+.ot-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (max-width: 520px) {
+  .ot-task-line {
+    flex-wrap: wrap;
+  }
+  .ot-row-indicators {
+    gap: var(--size-4-2);
+  }
+}
+
+.ot-native.ot-pointer-dragging {
+  opacity: 0.35;
+}
+.ot-task-drag-active,
+.ot-task-drag-active * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+.ot-task-drag-ghost {
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+  padding: calc(var(--size-4-1) * 2.25) calc(var(--size-4-1) * 3.5);
+  max-width: 380px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 7px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  box-shadow: 0 8px 24px #0003;
+  font-size: 14px;
+}
+.ot-task-drop-marker {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  height: 2px;
+  background: var(--interactive-accent);
+  border-radius: 2px;
+}
+.ot-task-drop-marker::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: -2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--interactive-accent);
+}
+
+.ot-today-marker,
+.ot-today-marker > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.ot-today-marker {
+  color: #d8a622;
+  margin-right: calc(-1 * var(--size-4-1));
+}
+.ot-today-marker svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+.ot-task.is-done .ot-today-marker {
+  opacity: 0.45;
+}
+
+/* List shortcuts live with Obsidian's file explorer. */
+/* Match Obsidian's native tree rows; themes control density and typography. */
+.ot-list-links {
+  flex-shrink: 0;
+  padding: var(--size-4-1) var(--size-4-3) var(--size-4-2);
+  margin-bottom: var(--size-4-1);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.ot-list-links button.ot-list-link {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: var(--nav-item-padding);
+  border: none;
+  box-shadow: none;
+  border-radius: var(--nav-item-radius);
+  background: transparent;
+  color: var(--nav-item-color);
+  font-size: var(--nav-item-size);
+  font-weight: var(--nav-item-weight);
+  line-height: var(--line-height-tight);
+  text-align: left;
+}
+/* Counters use native typography and colors without increasing row height. */
+.ot-list-link > .tree-item-inner {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ot-list-count {
+  margin-inline-start: auto;
+  flex-shrink: 0;
+  min-width: 1.5em;
+  padding-inline: var(--size-2-2);
+  border-radius: 1em;
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+  font-size: var(--font-smallest);
+  font-weight: var(--font-medium);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  text-align: center;
+}
+.ot-list-count[hidden] {
+  display: none;
+}
+.ot-list-link.is-active .ot-list-count {
+  color: var(--nav-item-color-active);
+}
+/* Separate active planning lists from the archive group. */
+.ot-list-links button.ot-list-link[data-list='logbook'] {
+  margin-top: var(--size-4-2);
+}
+.ot-list-links button.ot-list-link:hover {
+  background: var(--nav-item-background-hover);
+  color: var(--nav-item-color-hover);
+}
+.ot-list-links button.ot-list-link.is-active {
+  background: var(--nav-item-background-active);
+  color: var(--nav-item-color-active);
+  font-weight: var(--nav-item-weight-active);
+}
+.ot-list-links button:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+.ot-list-link-icon {
+  display: flex;
+  flex-shrink: 0;
+  margin-inline-end: var(--size-2-3);
+  color: #5b9de9;
+}
+.ot-list-link[data-list='inbox'] .ot-list-link-icon {
+  color: var(--interactive-accent);
+}
+.ot-list-link-icon svg {
+  width: 16px;
+  height: 16px;
+}
+.ot-list-link[data-list='today'] .ot-list-link-icon {
+  color: #e7b94c;
+}
+.ot-list-link[data-list='today'] svg {
+  fill: currentColor;
+}
+.ot-list-link.is-over {
+  outline: 2px solid var(--interactive-accent);
+}
+/* Consecutive references already occupy block rows; Markdown's soft break
+   must not introduce an extra blank line between them in Reading view. */
+.ot-reading-task + br {
+  display: none;
+}
+
+/* Capture reuses the expanded task card, without a second form or heading. */
+.ot-group button.ot-capture {
+  display: block;
+  padding: calc(var(--size-4-1) * 1.25) 0;
+  margin: var(--size-4-1) 0 0 calc(15px + var(--size-4-2) + var(--size-2-1));
+  height: auto;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.ot-group button.ot-capture:hover {
+  color: var(--text-normal);
+}
+.modal.ot-capture-modal {
+  width: min(600px, calc(100vw - 40px));
+  padding: 0;
+  border-radius: 8px;
+}
+.ot-capture-modal .modal-close-button,
+.ot-capture-modal .modal-header {
+  display: none;
+}
+.ot-capture-modal .modal-content {
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+.ot-capture-modal .ot-task.is-expanded {
+  margin: 0;
+  border: none;
+  box-shadow: none;
+  padding: calc(var(--size-4-1) * 4.5) calc(var(--size-4-1) * 3.5) calc(var(--size-4-1) * 3.5);
+  animation: none;
+}
+.ot-list-link[data-list='upcoming'] .ot-list-link-icon {
+  color: #df6869;
+}
+.ot-list-link[data-list='anytime'] .ot-list-link-icon {
+  color: #54a8ab;
+}
+.ot-list-link[data-list='someday'] .ot-list-link-icon {
+  color: #bb9870;
+}
+.ot-native.ot-hidden-task {
+  display: none !important;
+}
+.ot-list-link[data-list='logbook'] .ot-list-link-icon {
+  color: #6da970;
+}
+.ot-list-link[data-list='trash'] .ot-list-link-icon {
+  color: var(--text-muted);
+}
+.ot-archive-date {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+.ot-root button.ot-restore {
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  color: var(--text-accent);
+  font-size: 12px;
+}
+.ot-paper button.ot-project-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-3);
+  max-width: 100%;
+  padding: 0;
+  height: auto;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  white-space: normal;
+}
+.ot-paper button.ot-project-link:hover,
+.ot-project-link:hover .ot-paper button.ot-project-link:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+/* Separate the capture-only group as well as loose tasks from projects. */
+.ot-paper > .ot-group:not(:empty) + .ot-section {
+  margin-top: calc(var(--size-4-1) * 7.5);
+}
+.ot-note-drop-target {
+  background: var(--background-modifier-hover) !important;
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+.ot-task.ot-cut-task {
+  opacity: 0.45;
+}
+
+/* Repeating templates are blue; generated copies retain a quiet provenance mark. */
+.ot-repeat-indicator {
+  display: inline-flex;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+.ot-repeat-indicator.is-template {
+  color: var(--text-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+  border-radius: 50%;
+  padding: calc(var(--size-4-1) * 0.75);
+}
+.ot-repeat-indicator svg {
+  width: 14px;
+  height: 14px;
+}
+.ot-root button.ot-repeat-rule,
+.ot-root button.ot-repeat-source {
+  display: block;
+  padding: var(--size-2-3) 0;
+  margin-top: var(--size-4-3);
+  height: auto;
+  text-align: left;
+  white-space: normal;
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.ot-root button.ot-repeat-rule {
+  color: var(--text-accent);
+}
+.modal.ot-repeat-modal {
+  width: min(560px, calc(100vw - 32px));
+}
+.ot-repeat-modes {
+  display: flex;
+  gap: var(--size-4-1);
+  padding: var(--size-4-1);
+  background: var(--background-secondary);
+  border-radius: 8px;
+}
+.ot-repeat-modes button {
+  flex: 1;
+  box-shadow: none;
+  border: 0;
+  background: transparent;
+}
+.ot-repeat-modes button[aria-pressed='true'] {
+  background: var(--background-primary);
+  box-shadow: 0 1px 4px #0002;
+}
+.ot-repeat-explanation,
+.ot-repeat-preview {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ot-repeat-field,
+.ot-repeat-pattern {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin: calc(var(--size-4-1) * 3.5) 0;
+  flex-wrap: wrap;
+}
+.ot-repeat-field > span:first-child {
+  min-width: 80px;
+}
+.ot-repeat-field input[type='number'] {
+  width: 68px;
+}
+.ot-repeat-pattern > span:first-child {
+  width: 30px;
+  color: var(--text-muted);
+}
+.ot-repeat-pattern select {
+  max-width: 150px;
+}
+.ot-repeat-deadline {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin: var(--size-4-5) 0 var(--size-4-3);
+}
+.ot-repeat-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-6);
+}
+.ot-repeat-preview {
+  min-height: 40px;
+  margin-top: var(--size-4-5);
+  padding-top: var(--size-4-3);
+  border-top: 1px solid var(--background-modifier-border);
+}
+.ot-repeat-preview[role='alert'] {
+  color: var(--text-error);
+}
+
+/* Task actions remain reachable with the sidebar closed, including on touch. */
+/* Things-style destination picker: compact rows, not a stack of form buttons. */
+.ot-move-container .modal-bg {
+  opacity: 0;
+}
+.modal.ot-move-modal {
+  position: fixed;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  box-shadow:
+    0 12px 40px #0003,
+    0 2px 8px #0001;
+  overflow: hidden;
+}
+.ot-move-modal .modal-header,
+.ot-move-modal .modal-close-button {
+  display: none;
+}
+.ot-move-modal .modal-content {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.ot-move-search {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-3) calc(var(--size-4-1) * 3.5) calc(var(--size-4-1) * 2.5);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.ot-move-search-icon {
+  display: flex;
+  color: var(--text-faint);
+}
+.ot-move-search-icon svg {
+  width: 15px;
+  height: 15px;
+}
+.ot-move-modal input[type='search'] {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 26px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none !important;
+  font-size: 14px;
+}
+.ot-move-results {
+  max-height: min(55vh, 400px);
+  overflow-y: auto;
+  padding: var(--size-2-3);
+  overscroll-behavior: contain;
+}
+.ot-move-modal button.ot-move-option {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: calc(var(--size-4-1) * 2.5);
+  width: 100%;
+  height: auto;
+  min-height: 32px;
+  padding: var(--size-2-3) calc(var(--size-4-1) * 2.25);
+  margin: 0;
+  text-align: left;
+  border: 0;
+  border-radius: 5px;
+  box-shadow: none;
+  background: transparent;
+  color: var(--text-normal);
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+}
+.ot-move-modal button.ot-move-option:hover,
+.ot-move-modal button.ot-move-option:focus-visible {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  outline: none;
+}
+.ot-move-icon,
+.ot-move-current {
+  display: flex;
+  flex-shrink: 0;
+}
+.ot-move-icon svg,
+.ot-move-current svg {
+  width: 16px;
+  height: 16px;
+}
+.ot-move-icon.is-anytime,
+.ot-move-icon.is-project {
+  color: #4388d9;
+}
+.ot-move-icon.is-inbox {
+  color: var(--interactive-accent);
+}
+.ot-move-icon.is-today {
+  color: #d9a421;
+}
+.ot-move-icon.is-upcoming {
+  color: #d46b73;
+}
+.ot-move-icon.is-someday {
+  color: #b69a69;
+}
+.ot-move-option:hover .ot-move-icon,
+.ot-move-option:focus-visible .ot-move-icon {
+  color: inherit;
+}
+.ot-move-label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.ot-move-label > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ot-move-option small {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.ot-move-option:hover small,
+.ot-move-option:focus-visible small {
+  color: inherit;
+  opacity: 0.8;
+}
+.ot-move-current {
+  color: var(--text-muted);
+}
+.ot-move-divider {
+  height: 1px;
+  margin: var(--size-2-3) var(--size-4-2);
+  background: var(--background-modifier-border);
+}
+.ot-move-empty {
+  padding: var(--size-4-4) calc(var(--size-4-1) * 2.5);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.ot-move-modal [role='alert']:not(:empty) {
+  padding: calc(var(--size-4-1) * 2.5) calc(var(--size-4-1) * 3.5);
+  color: var(--text-error);
+  font-size: 13px;
+}
+.ot-move-modal .ot-move-back {
+  background: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.ot-move-date-label {
+  margin: var(--size-4-3) calc(var(--size-4-1) * 2.5) var(--size-4-2);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.ot-move-modal input[type='date'] {
+  margin: 0 calc(var(--size-4-1) * 2.5) calc(var(--size-4-1) * 3.5);
+  width: calc(100% - var(--size-4-1) * 5);
+}
+.ot-move-modal .ot-move-schedule {
+  display: block;
+  margin: 0 calc(var(--size-4-1) * 2.5) var(--size-4-2);
+  width: calc(100% - var(--size-4-1) * 5);
+}
+@media (max-width: 600px) {
+  .ot-move-container .modal-bg {
+    opacity: 0.15;
+  }
+  .modal.ot-move-modal {
+    top: auto !important;
+    left: 8px !important;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: calc(100vw - 16px);
+    max-width: none;
+    border-radius: 16px;
+  }
+  .ot-move-search {
+    padding: calc(var(--size-4-1) * 3.5) calc(var(--size-4-1) * 4.5);
+  }
+  .ot-move-modal input[type='search'] {
+    font-size: 16px;
+  }
+  .ot-move-results {
+    max-height: min(55dvh, 440px);
+    padding: var(--size-2-3) var(--size-4-2) calc(var(--size-4-1) * 2.5);
+  }
+  .ot-move-modal button.ot-move-option {
+    min-height: 44px;
+    font-size: 15px;
+    padding: calc(var(--size-4-1) * 2.5);
+  }
+}
+@media (max-width: 600px), (pointer: coarse) {
+  .ot-task .ot-icon-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .ot-card-icons {
+    flex-wrap: wrap;
+  }
+}
+.ot-list-link[hidden] {
+  display: none !important;
+}
+
+/* Things-style progress pies: a filled sector, not a generic note icon. */
+.ot-project-progress {
+  display: inline-flex;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--interactive-accent);
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+.ot-project-progress > svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  overflow: visible;
+}
+.nav-file-title > .ot-project-progress {
+  margin-right: var(--size-2-3);
+  align-self: center;
+}
+.ot-move-option:hover .ot-project-progress,
+.ot-move-option:focus-visible .ot-project-progress {
+  color: inherit;
+}
+
+/* Keep narrow layouts readable: one outer gutter and a stable task title column. */
+@media (max-width: 520px) {
+  .ot-main {
+    padding: var(--size-4-6) var(--size-4-4);
+  }
+  .ot-paper {
+    padding: 0 0 60px;
+  }
+  .ot-list-heading {
+    gap: var(--size-4-3);
+  }
+  .ot-task.is-expanded > .ot-task-line {
+    flex-wrap: nowrap;
+  }
+}
+
+/* In Things, Someday is recognizable by its quiet, dashed checkbox. */
+.ot-task.is-someday .ot-task-line > input[type='checkbox']:not(:checked) {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  box-shadow: none;
+  border: 1px dashed var(--text-faint);
+  border-radius: 4px;
+}
+.ot-task.is-someday .ot-task-line > input[type='checkbox']:not(:checked):hover {
+  border-color: var(--text-muted);
+}
+.ot-task.is-someday .ot-task-line > input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 3px;
+}
+.ot-list-heading-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: #5b9de9;
+}
+.ot-list-heading-icon.is-inbox {
+  color: var(--interactive-accent);
+}
+.ot-list-heading-icon svg {
+  width: 26px;
+  height: 26px;
+}
+.ot-list-heading-icon.is-today {
+  color: #e7b94c;
+}
+.ot-list-heading-icon.is-today svg {
+  fill: currentColor;
+}
+.ot-list-heading-icon.is-upcoming {
+  color: #df6869;
+}
+.ot-list-heading-icon.is-anytime {
+  color: #54a8ab;
+}
+.ot-list-heading-icon.is-someday {
+  color: #bb9870;
+}
+.ot-list-heading-icon.is-logbook {
+  color: #6da970;
+}
+.ot-list-heading-icon.is-trash {
+  color: var(--text-muted);
+}
+.ot-list-heading .inline-title {
+  margin-bottom: 0;
+}
+.ot-task > .ot-project-badge {
+  margin: calc(-1 * var(--size-2-1)) calc(var(--size-4-1) * 2.5) var(--size-2-3)
+    calc(15px + var(--size-4-2) * 2 + var(--size-2-1) * 2);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.ot-checklist-indicator {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-faint);
+}
+.ot-checklist-indicator svg {
+  width: 13px;
+  height: 13px;
+}
+@media (max-width: 520px) {
+  .ot-list-heading {
+    flex-wrap: wrap;
+    column-gap: calc(var(--size-4-1) * 2.5);
+    row-gap: var(--size-4-1);
+  }
+  .ot-list-heading .inline-title {
+    overflow-wrap: anywhere;
+  }
+  .ot-task > .ot-project-badge {
+    margin-left: 44px;
+  }
+}
+
+.ot-task-details {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-3);
+  flex-shrink: 0;
+}
+.ot-task-details > .ot-note-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (max-width: 600px) {
+  .ot-card-footer {
+    flex-wrap: wrap;
+  }
+  .ot-card-badges {
+    flex-basis: 100%;
+  }
+}
+
+.ot-section[data-date] button.ot-drop-end {
+  border-radius: 4px;
+}
+.ot-section[data-date] .ot-drop-end.is-over {
+  background: var(--background-modifier-hover);
+}
+
+/* Size host-theme checkmarks to our actual checkbox, instead of its default 16px glyph. */
+.ot-task-line > input[type='checkbox']::after,
+.ot-checklist-row > input[type='checkbox']::after {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  -webkit-mask-size: 72% 72%;
+  mask-size: 72% 72%;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+.ot-checklist-row > input[type='checkbox'] {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+.ot-checklist-row > input[type='checkbox']:checked + input {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+.ot-root button.ot-icon-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ot-task.is-over.is-over-after::before {
+  top: auto;
+  bottom: -2px;
+}
+.ot-occurrence-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.ot-root button.ot-checklist-grip {
+  flex-shrink: 0;
+  cursor: grab;
+  touch-action: none;
+}
+.ot-checklist-row.is-checklist-target {
+  box-shadow: inset 0 2px var(--interactive-accent);
+}
+/* A held touch signals that the row is ready to drag without disabling scrolling. */
+.ot-task.ot-touch-held {
+  outline: 1px solid var(--interactive-accent);
+  outline-offset: -1px;
+}
+.ot-task:not(.is-expanded) {
+  -webkit-touch-callout: none;
+}
+/* Compact phone rows use long-press for actions. Optional icons consume space only when present. */
+@media (max-width: 520px) {
+  .ot-task:not(.is-expanded) > .ot-task-line {
+    display: flex;
+    flex-wrap: wrap;
+    min-height: 44px;
+    gap: var(--size-2-1) var(--size-2-3);
+    padding: var(--size-2-1) var(--size-4-2);
+  }
+  .ot-task:not(.is-expanded):has(> .ot-project-badge) > .ot-task-line {
+    min-height: 30px;
+  }
+  .ot-task-line > .ot-task-title {
+    line-height: var(--line-height-tight);
+  }
+  .ot-task > .ot-project-badge {
+    margin: 0 var(--size-4-2) var(--size-4-1) calc(var(--size-4-2) + 15px + var(--size-2-3));
+  }
+  .ot-task-line > .ot-row-indicators,
+  .ot-task-line > .ot-occurrence-label {
+    flex-basis: 100%;
+    margin-left: calc(15px + var(--size-2-3));
+  }
+  .ot-task.is-expanded > .ot-task-line {
+    padding-right: var(--size-4-2);
+  }
+  .ot-task.is-expanded .ot-task-editor {
+    padding-left: calc(15px + var(--size-4-2) * 2 + var(--size-2-1) * 2);
+    padding-right: 0;
+  }
+  .ot-card-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--size-4-1);
+    margin-top: var(--size-4-2);
+    margin-left: calc(-1 * (15px + var(--size-4-2) * 2 + var(--size-2-1) * 2));
+  }
+  .ot-card-badges {
+    padding-left: calc(15px + var(--size-4-2) * 2 + var(--size-2-1) * 2);
+  }
+  .ot-card-icons {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0;
+    margin: 0;
+    width: 100%;
+  }
+  .ot-root .ot-card-icons > button.ot-icon-button {
+    min-width: 0;
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+/* Reference-led hierarchy: the list name is sufficient; task content follows. */
+.ot-list-heading {
+  margin-bottom: var(--size-4-6);
+}
+.ot-paper h2 {
+  font-size: var(--font-ui-small);
+  font-weight: 600;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: var(--size-4-1);
+  margin-bottom: var(--size-4-2);
+}
+.ot-evening-section > h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-3);
+  color: var(--text-normal);
+}
+.ot-evening-icon {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+.ot-evening-icon svg {
+  width: 15px;
+  height: 15px;
+}
+.ot-paper .ot-day-heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-2-3);
+}
+.ot-day-number {
+  font-size: var(--font-ui-large);
+  color: var(--text-normal);
+}
+.ot-day-name {
+  color: var(--text-muted);
+}
+.ot-task:not(.is-expanded):has(> .ot-project-badge) > .ot-task-line {
+  min-height: 28px;
+  padding-bottom: 0;
+}
+.ot-task > .ot-project-badge {
+  margin-bottom: var(--size-4-2);
+}
+.ot-checklist-grip {
+  opacity: 0;
+}
+.ot-checklist-row:hover .ot-checklist-grip,
+.ot-checklist-row:focus-within .ot-checklist-grip {
+  opacity: 1;
+}
+@media (max-width: 600px), (pointer: coarse) {
+  .ot-checklist-grip {
+    opacity: 1;
+  }
+}
+@media (max-width: 520px) {
+  .ot-task:not(.is-expanded):has(> .ot-project-badge) > .ot-task-line {
+    min-height: 30px;
+  }
+  .ot-task > .ot-project-badge {
+    margin-bottom: var(--size-4-2);
+  }
+  .ot-task-line > .ot-occurrence-label {
+    flex-basis: auto;
+    margin-left: auto;
+  }
+  .ot-task-line > .ot-row-indicators {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+.ot-today-marker.is-evening {
+  color: var(--text-muted);
+}
+.ot-today-marker.is-evening svg {
+  fill: none;
+}
+
+/* Quick Find: quiet list rows, contextual subtitles, and host theme colors. */
+.modal.ot-search-modal {
+  width: min(560px, calc(100vw - var(--size-4-4)));
+  max-width: calc(100vw - var(--size-4-4));
+  padding: var(--size-4-4);
+}
+.ot-search-modal .modal-content {
+  margin: 0;
+}
+.ot-search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding-right: var(--size-4-6);
+}
+.ot-search-bar svg,
+.ot-search-icon svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+}
+.ot-search-bar input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--font-ui-medium);
+}
+.ot-search-results {
+  max-height: min(55vh, 440px);
+  overflow: auto;
+  margin-block: var(--size-4-3);
+}
+.ot-search-result {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-3);
+  padding: var(--size-4-2) var(--size-4-3);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+.ot-search-result:hover {
+  background: var(--background-modifier-hover);
+}
+.ot-search-result[aria-selected='true'] {
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+}
+.ot-search-text {
+  min-width: 0;
+}
+.ot-search-title {
+  overflow-wrap: anywhere;
+}
+.ot-search-context,
+.ot-search-status,
+.ot-search-scope {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.ot-search-scope:not(:empty) {
+  margin-top: var(--size-4-2);
+}
+.ot-search-scope {
+  display: flex;
+  gap: var(--size-4-2);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ot-search-context {
+  margin-top: var(--size-2-1);
+}
+.ot-search-more {
+  width: 100%;
+}
+.ot-search-modal .ot-search-more[hidden] {
+  display: none !important;
+}
+.ot-search-status {
+  padding-top: var(--size-4-2);
+}
+@media (max-width: 600px) {
+  .modal.ot-search-modal {
+    align-self: flex-start;
+    margin-top: var(--size-4-8);
+  }
+  .ot-search-result {
+    min-height: 44px;
+  }
+}
+
+.ot-waiting-marker {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  color: var(--text-muted);
+}
+.ot-waiting-marker svg {
+  width: var(--icon-size, 16px);
+  height: var(--icon-size, 16px);
+  max-width: 16px;
+  max-height: 16px;
+}
+
+/* Neutral midpoint requested for Waiting For in both light and dark themes. */
+.ot-list-link[data-list='waiting'] .ot-list-link-icon,
+.ot-list-heading-icon.is-waiting,
+.ot-move-option .ot-move-icon.is-waiting,
+.ot-waiting-marker,
+.ot-waiting-section .ot-evening-icon,
+.ot-search-icon svg.lucide-send-horizontal {
+  color: #808080;
+}

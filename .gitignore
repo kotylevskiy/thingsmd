@@ -1,0 +1,15 @@
+node_modules/
+dist/
+artifacts/
+vaults/
+
+# macOS metadata and resource forks
+.DS_Store
+.AppleDouble/
+.LSOverride
+._*
+__MACOSX/
+.Spotlight-V100/
+.Trashes/
+.fseventsd/
+.VolumeIcon.icns
