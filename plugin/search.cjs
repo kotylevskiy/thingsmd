@@ -128,27 +128,32 @@ module.exports = function install(plugin) {
         row.scrollIntoView({ block: 'nearest' });
       } else this.input.removeAttribute('aria-activedescendant');
     }
-    async choose(r) {
-      if (!r || this.opening) return;
-      this.opening = true;
-      try {
-        await plugin.revealSearchResult(r);
-        this.close();
-      } catch (e) {
-        new Notice(e.message);
-      } finally {
-        this.opening = false;
-      }
+    choose(r) {
+      if (!r || this.opening) return this.opening;
+      this.opening = (async () => {
+        try {
+          await plugin.revealSearchResult(r);
+          this.close();
+        } catch (error) {
+          new Notice(error.message);
+        } finally {
+          this.opening = null;
+        }
+      })();
+      return this.opening;
     }
     onClose() {
       this.version++;
       for (const e of this.events || []) plugin.app.workspace.offref(e);
       for (const e of this.vaultEvents || []) plugin.app.vault.offref(e);
-      plugin.searchModal = null;
+      if (plugin.searchModal === this) plugin.searchModal = null;
       this.contentEl.empty();
     }
   }
   plugin.openSearch = async (initial = '') => {
+    // A destination can render before navigation finishes. Reopening must wait
+    // for the previous selection to close, rather than focus a retiring dialog.
+    if (plugin.searchModal?.opening) await plugin.searchModal.opening;
     if (plugin.searchModal) {
       plugin.searchModal.input.focus();
       return;

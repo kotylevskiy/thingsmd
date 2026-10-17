@@ -1,3 +1,4 @@
+import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault();
@@ -11,7 +12,8 @@ const row = () => active.locator(`.ot-task[data-task-id="${id}"]:visible`);
 const modal = () => page.locator('.ot-move-modal');
 const menuItem = (name) => page.locator('.menu').getByText(name, { exact: true });
 const waitMeta = (patch) =>
-  page.waitForFunction(
+  waitForAsync(
+    page,
     async ({ id, patch }) => {
       const t = (await app.plugins.getPlugin('thingsmd').taskRecords()).find(
         (t) => t.meta.id === id,
@@ -69,11 +71,13 @@ try {
     .getByRole('button', { name: b.slice(0, -3), exact: true })
     .click();
   await waitMeta({ project: b });
+  await modal().waitFor({ state: 'detached' });
   const state = await page.evaluate(
     async ({ id, a, b }) => {
       const p = app.plugins.getPlugin('thingsmd');
       return {
         a: app.workspace.activeLeaf.view.editor.getValue(),
+        aDisk: await app.vault.adapter.read(a),
         b: await app.vault.read(app.vault.getAbstractFileByPath(b)),
         task: (await p.taskRecords()).find((t) => t.meta.id === id),
       };
@@ -81,6 +85,7 @@ try {
     { id, a, b },
   );
   assert.equal(state.a, 'Before A\nAfter A\n');
+  assert.equal(state.aDisk, state.a, 'Source editor and saved file agree after moving');
   assert.ok(state.b.includes(id));
   assert.equal(state.task.body, 'Keep this draft when moving.');
   await page.evaluate(async (b) => {
@@ -97,12 +102,13 @@ try {
   await row().click({ button: 'right' });
   await menuItem('Move…').click();
   await modal().getByRole('button', { name: 'Upcoming', exact: true }).click();
-  await modal().getByLabel('Scheduled date').fill('2099-05-15');
-  await modal().getByRole('button', { name: 'Schedule', exact: true }).click();
+  await modal().getByLabel('When date', { exact: true }).fill('2099-05-15');
+  await modal().getByLabel('When date', { exact: true }).press('Enter');
   await waitMeta({ when: '2099-05-15' });
   await row().click({ button: 'right' });
   await menuItem('Today').click();
   await waitMeta({ when: 'today' });
+  await row().locator('.ot-today-marker').waitFor();
   await row().click({ button: 'right' });
   await menuItem('Move to Trash').click();
   await waitMeta({ deleted: true });

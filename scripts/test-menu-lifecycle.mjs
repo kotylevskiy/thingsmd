@@ -1,3 +1,4 @@
+import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault();
@@ -69,7 +70,8 @@ try {
     );
     assert.equal(await page.locator('.menu:visible').count(), 1);
     await page.locator('.menu:visible').getByText('Mark as Waiting', { exact: true }).click();
-    await page.waitForFunction(
+    await waitForAsync(
+      page,
       async (ids) => {
         const ts = await app.plugins.getPlugin('thingsmd').taskRecords();
         return (

@@ -1,3 +1,4 @@
+import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault, settingsPage as findSettingsPage } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault();
@@ -69,10 +70,12 @@ try {
   await page.locator('.ot-move-modal').waitFor();
   await page.keyboard.press('Escape');
   await command('show-anytime');
+  await active.getByRole('heading', { name: 'Anytime', exact: true }).waitFor();
   await row(1).waitFor();
   await row(1).focus();
   await command('move-task-up');
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async (id) =>
       Number.isFinite(
         (await app.plugins.getPlugin('thingsmd').taskRecords()).find((t) => t.meta.id === id).meta
@@ -115,15 +118,24 @@ try {
     await row(0).locator('.ot-waiting-marker').waitFor({ state: 'detached' });
     await row(0).focus();
     await command('move-task-down');
-    await page.waitForFunction(
-      async ({ path, id }) => {
+    await waitForAsync(
+      page,
+      async ({ path, id, before }) => {
         const text = await app.vault.read(app.vault.getAbstractFileByPath(path));
-        return text.indexOf(id) > text.indexOf('![[.thingsmd-storage/');
+        return text.includes(before) && text.indexOf(id) > text.indexOf(before);
       },
-      { path: state.path, id: state.tasks[0].meta.id },
+      { path: state.path, id: state.tasks[0].meta.id, before: state.tasks[1].meta.id },
     );
     await row(0).focus();
     await command('move-task-up');
+    await waitForAsync(
+      page,
+      async ({ path, first, second }) => {
+        const text = await app.vault.read(app.vault.getAbstractFileByPath(path));
+        return text.includes(first) && text.indexOf(second) > text.indexOf(first);
+      },
+      { path: state.path, first: state.tasks[0].meta.id, second: state.tasks[1].meta.id },
+    );
   }
   await command('capture');
   await capture.getByLabel('Task title', { exact: true }).fill(prefix + ' Project');
@@ -139,6 +151,7 @@ try {
   state.tasks.push(projectTask);
   assert.equal(projectTask.meta.project, state.path);
   await command('show-today');
+  await active.getByRole('heading', { name: 'Today', exact: true }).waitFor();
   await row(0).focus();
   await command('task-context-menu');
   await page.locator('.menu').getByText('Mark as Waiting', { exact: true }).waitFor();

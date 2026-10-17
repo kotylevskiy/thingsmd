@@ -1,3 +1,4 @@
+import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault();
@@ -33,11 +34,15 @@ try {
   const modal = page.locator('.ot-repeat-modal');
   await modal.waitFor();
   await modal.getByLabel('Repeat unit', { exact: true }).selectOption('day');
-  await modal.getByLabel('Next repeat date', { exact: true }).fill('2099-01-15');
+  await modal.getByLabel('Next repeat date', { exact: true }).click();
+  await modal.getByRole('textbox', { name: 'Date', exact: true }).fill('2099-01-15');
+  await modal.getByRole('textbox', { name: 'Date', exact: true }).press('Enter');
   await modal.getByLabel('Add deadlines', { exact: true }).check();
   await modal.getByLabel('Days earlier', { exact: true }).fill('5');
   await modal.getByLabel('Repeat ends', { exact: true }).selectOption('date');
-  await modal.getByLabel('Repeat end date', { exact: true }).fill('2099-01-17');
+  await modal.getByLabel('Repeat end date', { exact: true }).click();
+  await modal.getByRole('textbox', { name: 'Date', exact: true }).fill('2099-01-17');
+  await modal.getByRole('textbox', { name: 'Date', exact: true }).press('Enter');
   await page.screenshot({ path: 'artifacts/repeat-dialog.png' });
   await modal.getByRole('button', { name: 'OK', exact: true }).click();
   await modal.waitFor({ state: 'hidden' });
@@ -45,7 +50,8 @@ try {
   await template().waitFor();
   assert.equal(await template().locator('.ot-repeat-indicator.is-template').count(), 1);
   await template().getByRole('checkbox').check();
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async (id) =>
       (await app.plugins.getPlugin('thingsmd').taskRecords()).some(
         (t) => t.meta.id === id && t.meta.repeat.next === '2099-01-16',
@@ -70,7 +76,8 @@ try {
   await active.locator('.ot-task-notes').fill('Future copies use these notes');
   await active.getByRole('button', { name: 'Repeating rule', exact: true }).click();
   await page.getByText('Pause', { exact: true }).click();
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async (id) =>
       (await app.plugins.getPlugin('thingsmd').taskRecords()).find((t) => t.meta.id === id)?.meta
         .repeat.paused,
@@ -79,7 +86,8 @@ try {
   await template().dblclick();
   await active.getByRole('button', { name: 'Repeating rule', exact: true }).click();
   await page.getByText('Resume', { exact: true }).click();
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async (id) =>
       !(await app.plugins.getPlugin('thingsmd').taskRecords()).find((t) => t.meta.id === id)?.meta
         .repeat.paused,
@@ -100,13 +108,15 @@ try {
     .click();
   await active.getByRole('button', { name: 'Repeating rule', exact: true }).waitFor();
   await active.locator('.ot-title-input').press('Enter');
+  await active.locator('.ot-title-input').waitFor({ state: 'hidden' });
   // Fixed-schedule rescheduling presents the Things exception/rule decision.
   await template().dblclick();
   await active.locator('.is-expanded').getByRole('button', { name: 'When', exact: true }).click();
   await active.getByLabel('When date', { exact: true }).fill('2099-02-10');
   await active.getByLabel('When date', { exact: true }).press('Enter');
   await page.getByRole('button', { name: 'Make Exception', exact: true }).click();
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async (id) =>
       (await app.plugins.getPlugin('thingsmd').taskRecords()).some(
         (t) => t.meta.repeatSource === id && t.meta.when === '2099-02-10',

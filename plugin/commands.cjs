@@ -1,5 +1,5 @@
 const { dayAfter } = require('./local-date.cjs');
-const { LISTS } = require('./lists.cjs');
+const { LISTS, isListAvailable } = require('./lists.cjs');
 const { Notice } = require('obsidian');
 const { referenceRanges } = require('./task-references.cjs');
 module.exports = function (plugin) {
@@ -129,11 +129,7 @@ module.exports = function (plugin) {
       id: 'show-' + key,
       name: 'Show ' + name,
       checkCallback: (checking) => {
-        if (
-          (key === 'inbox' && plugin.settings.captureDestination === 'daily-note') ||
-          (key === 'trash' && plugin.settings.trashRetention === 'immediately')
-        )
-          return false;
+        if (!isListAvailable(key, plugin.settings)) return false;
         if (!checking)
           safe(async () => {
             await plugin.openList(key);

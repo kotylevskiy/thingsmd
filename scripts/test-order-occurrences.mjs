@@ -1,3 +1,4 @@
+import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault();
@@ -30,7 +31,8 @@ try {
   extras.sort((a, b) => a.meta.id.localeCompare(b.meta.id));
   await row(extras[2].meta.id).click();
   await page.evaluate(() => app.commands.executeCommandById('thingsmd:move-task-up'));
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async (id) =>
       Number.isFinite(
         (await app.plugins.getPlugin('thingsmd').taskRecords()).find((t) => t.meta.id === id).meta
@@ -165,18 +167,28 @@ try {
   await page.screenshot({ path: 'artifacts/upcoming-two-occurrences.png' });
   await page.evaluate(() => app.workspace.leftSplit.collapse());
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.waitForTimeout(350);
-  await due.scrollIntoViewIfNeeded();
+  // Resize and background refresh can replace the row. Resolve and scroll in
+  // one browser operation rather than holding an element during a stability wait.
+  await due.evaluate((element) => element.scrollIntoView({ block: 'nearest' }));
   await page.screenshot({ path: 'artifacts/upcoming-two-occurrences-mobile.png' });
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.evaluate(() => app.workspace.leftSplit.expand());
   const original = await page.evaluate((note) => app.vault.adapter.read(note), note);
   assert.equal(original, tasks.map((t) => `![[${t.file.path}]]`).join('\n'));
   const date = await active.locator('section[data-date]').first().getAttribute('data-date');
-  await row(ids[0])
-    .filter({ has: page.locator('.ot-occurrence-label', { hasText: 'Deadline' }) })
-    .dragTo(active.locator(`section[data-date="${date}"] .ot-capture`));
-  await page.waitForFunction(
+  // Begin the native drag before scrolling to a distant day. dragTo() can
+  // scroll the source away before the browser has emitted dragstart.
+  await due.hover({ position: { x: 80, y: 10 } });
+  const sourceBox = await due.boundingBox();
+  await page.mouse.down();
+  await page.mouse.move(sourceBox.x + 100, sourceBox.y + 10, { steps: 4 });
+  await active.locator('.ot-task.is-dragging').waitFor();
+  const drop = active.locator(`section[data-date="${date}"] .ot-capture`);
+  await drop.hover();
+  await drop.hover();
+  await page.mouse.up();
+  await waitForAsync(
+    page,
     async ({ id, date }) => {
       const t = (await app.plugins.getPlugin('thingsmd').taskRecords()).find(
         (t) => t.meta.id === id,

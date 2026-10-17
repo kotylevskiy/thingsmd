@@ -1,3 +1,4 @@
+import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault();
@@ -64,7 +65,8 @@ try {
   await page.screenshot({ path: 'artifacts/upcoming-capture.png' });
   const target = active.locator(`section[data-date="${dates[2]}"] .ot-drop-end`);
   await row().dragTo(target);
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async ({ id, when }) =>
       (await app.plugins.getPlugin('thingsmd').taskRecords()).find((t) => t.meta.id === id).meta
         .when === when,

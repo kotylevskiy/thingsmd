@@ -69,7 +69,9 @@ try {
   await row.dblclick();
   await row.getByRole('button', { name: 'Repeat', exact: true }).click();
   const modal = page.locator('.ot-repeat-modal');
-  await modal.getByLabel('Next repeat date', { exact: true }).fill('2099-01-01');
+  await modal.getByLabel('Next repeat date', { exact: true }).click();
+  await modal.getByRole('textbox', { name: 'Date', exact: true }).fill('2099-01-01');
+  await modal.getByRole('textbox', { name: 'Date', exact: true }).press('Enter');
   for (const unit of ['day', 'week', 'month', 'year']) {
     await modal.getByLabel('Repeat unit', { exact: true }).selectOption(unit);
     await modal.getByLabel('Repeat interval', { exact: true }).fill('2');
@@ -90,7 +92,9 @@ try {
   assert.equal(await modal.getByLabel('Repeat ends', { exact: true }).count(), 0);
   await modal.getByRole('button', { name: 'Regularly', exact: true }).click();
   await modal.getByLabel('Repeat ends', { exact: true }).selectOption('date');
-  await modal.getByLabel('Repeat end date', { exact: true }).fill('2100-01-01');
+  await modal.getByLabel('Repeat end date', { exact: true }).click();
+  await modal.getByRole('textbox', { name: 'Date', exact: true }).fill('2100-01-01');
+  await modal.getByRole('textbox', { name: 'Date', exact: true }).press('Enter');
   await modal.getByLabel('Repeat ends', { exact: true }).selectOption('never');
   await modal.getByLabel('Add deadlines', { exact: true }).check();
   await modal.getByLabel('Days earlier', { exact: true }).fill('3');

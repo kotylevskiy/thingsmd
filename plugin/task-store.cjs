@@ -1,8 +1,8 @@
 const { WriteQueue } = require('./write-queue.cjs');
 const { parseYaml, stringifyYaml } = require('obsidian');
 const { TASKS } = require('./lists.cjs');
-const { today } = require('./local-date.cjs');
-const { referenceRanges } = require('./task-references.cjs');
+const { normalizeSchedule } = require('./task-schedule.cjs');
+const { taskReferences } = require('./task-references.cjs');
 const uid = () => crypto.randomUUID();
 function decode(text) {
   const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
@@ -13,6 +13,17 @@ function decode(text) {
 }
 const encode = ({ meta, body }) => `---\n${stringifyYaml(meta)}---\n${body}`;
 
+// A purge or external sync may delete a listed file before its read finishes.
+// Skip only missing paths; an existing file's I/O errors must still surface.
+async function readDuringScan(adapter, path, read) {
+  try {
+    return await read();
+  } catch (error) {
+    if (!(await adapter.exists(path))) return null;
+    throw error;
+  }
+}
+
 const methods = {
   async readTask(file) {
     return this.app.vault.adapter.read(typeof file === 'string' ? file : file.path);
@@ -21,39 +32,54 @@ const methods = {
     const adapter = this.app.vault.adapter;
     if (!(await adapter.exists(TASKS))) return [];
     const { files } = await adapter.list(TASKS);
-    return Promise.all(
+    const records = await Promise.all(
       files
         .filter((path) => path.endsWith('.md'))
         .sort()
-        .map(async (path) => ({
-          file: { path, basename: path.split('/').pop().slice(0, -3) },
-          ...decode(await adapter.read(path)),
-        })),
+        .map(async (path) => {
+          const text = await readDuringScan(adapter, path, () => adapter.read(path));
+          return text === null
+            ? null
+            : {
+                file: { path, basename: path.split('/').pop().slice(0, -3) },
+                ...decode(text),
+              };
+        }),
     );
+    return records.filter(Boolean);
   },
   async records() {
     const tasks = await this.taskRecords();
-    const notes = await Promise.all(
-      this.app.vault.getMarkdownFiles().map(async (file) => {
-        const record = decode(await this.app.vault.read(file));
-        return {
-          file,
-          ...record,
-          meta: {
-            ...record.meta,
-            type: 'things-project',
-            id: record.meta.id || file.path,
-            title: record.meta.title || file.basename,
-          },
-        };
-      }),
-    );
+    const notes = (
+      await Promise.all(
+        this.app.vault.getMarkdownFiles().map(async (file) => {
+          const text = await readDuringScan(this.app.vault.adapter, file.path, () =>
+            this.app.vault.read(file),
+          );
+          if (text === null) return null;
+          const record = decode(text);
+          return {
+            file,
+            ...record,
+            meta: {
+              ...record.meta,
+              type: 'things-project',
+              id: record.meta.id || file.path,
+              title: record.meta.title || file.basename,
+            },
+          };
+        }),
+      )
+    ).filter(Boolean);
     // Placement is determined by references in ordinary notes, not a folder or
     // a mandatory project frontmatter property. Keep it separate from disk metadata.
-    for (const task of tasks)
-      task.references = notes
-        .filter((note) => referenceRanges(note.body, task.file.path).length > 0)
-        .map((note) => note.file.path);
+    const references = new Map();
+    for (const note of notes)
+      for (const path of new Set(taskReferences(note.body).map((reference) => reference.path))) {
+        if (!references.has(path)) references.set(path, []);
+        references.get(path).push(note.file.path);
+      }
+    for (const task of tasks) task.references = references.get(task.file.path) || [];
     return [...notes, ...tasks];
   },
   async update(file, fn) {
@@ -78,7 +104,7 @@ const methods = {
   },
   async createTask(fields, id = uid(), body = '') {
     if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error('Invalid task id');
-    if (fields.when === 'evening') fields = { ...fields, when: 'today', evening: today() };
+    fields = normalizeSchedule(fields);
     const adapter = this.app.vault.adapter;
     if (!(await adapter.exists(TASKS))) await adapter.mkdir(TASKS);
     const path = `${TASKS}/${id}.md`;
@@ -86,6 +112,7 @@ const methods = {
       if (await adapter.exists(path)) throw new Error('Task already exists');
       const record = {
         meta: {
+          title: '',
           status: 'todo',
           is_waiting: false,
           created: new Date().toISOString(),

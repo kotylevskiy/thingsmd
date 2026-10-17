@@ -1,3 +1,4 @@
+import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault, settingsPage as findSettingsPage } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault();
@@ -36,7 +37,8 @@ try {
     ],
   );
   await settingsPage.getByLabel('Logbook frequency', { exact: true }).selectOption('manually');
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async () => (await app.plugins.getPlugin('thingsmd').loadData())?.logbook === 'manually',
   );
   await settingsPage.screenshot({ path: 'artifacts/archive-settings.png' });

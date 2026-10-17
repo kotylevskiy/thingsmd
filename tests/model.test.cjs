@@ -34,8 +34,8 @@ test('Things list membership separates Inbox from planned or filed tasks', () =>
   assert.deepEqual(lists({ meta: { when: '2026-10-20', project: 'Note.md' } }), ['upcoming']);
   assert.deepEqual(lists({ meta: { when: 'anytime' } }), ['anytime']);
   assert.deepEqual(lists({ meta: { when: 'someday', project: 'Note.md' } }), ['someday']);
-  assert.deepEqual(lists({ meta: { deadline: '2026-10-20' } }), ['upcoming', 'anytime']);
-  assert.deepEqual(lists({ meta: { deadline: '2026-10-15' } }), ['today', 'anytime']);
+  assert.deepEqual(lists({ meta: { deadline: '2026-10-20' } }), ['inbox']);
+  assert.deepEqual(lists({ meta: { deadline: '2026-10-15' } }), ['inbox', 'today']);
   assert.deepEqual(upcomingDates({ when: '2026-10-20', deadline: '2026-10-20' }, day), [
     '2026-10-20',
   ]);

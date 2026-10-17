@@ -1,5 +1,5 @@
 const { dayKey, parseDate } = require('./local-date.cjs');
-function datePicker(pop, { kind, value, onSelect, setIcon }) {
+function datePicker(pop, { kind, value, onSelect, setIcon, inline = false, allowClear = true }) {
   const doc = pop.ownerDocument;
   const now = new Date();
   const today = dayKey(now);
@@ -9,18 +9,23 @@ function datePicker(pop, { kind, value, onSelect, setIcon }) {
   let focused = initial;
   pop.empty();
   pop.addClass('ot-date-picker');
-  pop.setAttribute('popover', 'manual');
-  pop.showPopover();
-  pop.setAttribute('aria-label', kind === 'when' ? 'When' : 'Deadline');
+  if (!inline) {
+    pop.setAttribute('popover', 'manual');
+    pop.showPopover();
+  }
+  pop.setAttribute(
+    'aria-label',
+    kind === 'when' ? 'When' : kind === 'deadline' ? 'Deadline' : 'Date',
+  );
   const row = pop.closest('.ot-task');
   const close = () => {
     pop.remove();
-    row.querySelector('.ot-title-input')?.focus({ preventScroll: true });
+    row?.querySelector('.ot-title-input')?.focus({ preventScroll: true });
   };
   pop.close = close;
   const choose = (date) => {
     onSelect(kind === 'when' && date === today ? 'today' : date);
-    close();
+    if (!inline) close();
   };
   const makeButton = (parent, text, cls, action, label) => {
     const b = parent.createEl('button', {
@@ -37,14 +42,14 @@ function datePicker(pop, { kind, value, onSelect, setIcon }) {
   const input = top.createEl('input', {
     attr: {
       type: 'text',
-      'aria-label': kind === 'when' ? 'When date' : 'Deadline date',
-      placeholder: kind === 'when' ? 'When?' : 'Deadline?',
+      'aria-label': kind === 'when' ? 'When date' : kind === 'deadline' ? 'Deadline date' : 'Date',
+      placeholder: kind === 'when' ? 'When?' : kind === 'deadline' ? 'Deadline?' : 'Choose a date',
       autocomplete: 'off',
     },
   });
   const clear = makeButton(top, '', 'ot-date-clear', () => choose(null), 'Clear date');
   setIcon(clear, 'x');
-  clear.hidden = !value;
+  clear.hidden = !value || !allowClear;
   const result = pop.createDiv({ cls: 'ot-date-result', attr: { 'aria-live': 'polite' } });
   result.hidden = true;
   const quick = pop.createDiv('ot-date-quick');
@@ -169,7 +174,7 @@ function datePicker(pop, { kind, value, onSelect, setIcon }) {
     draw();
   }
   draw();
-  if (value) {
+  if (value && allowClear) {
     const bottom = pop.createDiv('ot-date-bottom');
     makeButton(
       bottom,
@@ -204,6 +209,7 @@ function datePicker(pop, { kind, value, onSelect, setIcon }) {
   // a calendar day after the user has already started keyboard navigation.
   input.focus({ preventScroll: true });
   // Keep the popover within the editor viewport, including short windows.
+  if (inline) return;
   requestAnimationFrame(() => {
     if (!pop.isConnected) return;
     const bounds = row.getBoundingClientRect();

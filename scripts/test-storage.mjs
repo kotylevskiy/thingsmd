@@ -1,3 +1,4 @@
+import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault();
@@ -45,7 +46,8 @@ try {
       app.fileManager.renameFile(app.vault.getAbstractFileByPath(note), renamed),
     { note, renamed },
   );
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async ({ task, renamed }) =>
       (await app.plugins.getPlugin('thingsmd').taskRecords()).find((t) => t.file.path === task)
         ?.meta.project === renamed,
@@ -69,8 +71,29 @@ try {
     task,
   );
   assert.deepEqual(refs, [renamed]);
+  const deletionRace = await page.evaluate(async (path) => {
+    const p = app.plugins.getPlugin('thingsmd'),
+      adapter = app.vault.adapter,
+      read = adapter.read;
+    let removed = false;
+    // Remove the actual fixture file after the directory scan has found it.
+    adapter.read = async function (filePath, ...args) {
+      if (filePath === path && !removed) {
+        removed = true;
+        await adapter.remove(path);
+      }
+      return read.call(this, filePath, ...args);
+    };
+    try {
+      const tasks = await p.taskRecords();
+      return { removed, indexed: tasks.some((t) => t.file.path === path) };
+    } finally {
+      adapter.read = read;
+    }
+  }, task);
+  assert.deepEqual(deletionRace, { removed: true, indexed: false });
   console.log(
-    'PASS: ordinary note without project metadata, hidden Markdown task, external update polling, note rename, reference indexing, and plugin reload.',
+    'PASS: ordinary note without project metadata, hidden Markdown task, external update polling, note rename, reference indexing, reload, and deletion during an actual file scan.',
   );
 } finally {
   await page.evaluate(

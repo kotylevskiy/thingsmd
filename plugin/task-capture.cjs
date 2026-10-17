@@ -1,16 +1,38 @@
 const { Modal } = require('obsidian');
 const TaskEditor = require('./task-editor.cjs');
+const { inInbox } = require('./model.cjs');
+const { button, removeModalCloseButton, closePopover } = require('./dom.cjs');
 class TaskCapture extends Modal {
   constructor(plugin, fields) {
     super(plugin.app);
     this.plugin = plugin;
     this.fields = { project: null, order: Date.now(), ...fields };
     this.returnFocus = document.activeElement;
+    const view = this.app.workspace.activeLeaf?.view;
+    if (view?.page === 'inbox' && !this.fields.is_waiting && inInbox({ meta: this.fields })) {
+      this.inboxView = view;
+      this.inboxVisit = view.inboxSession?.seen;
+    }
   }
   onOpen() {
     this.modalEl.addClass('ot-capture-modal');
+    removeModalCloseButton(this.modalEl);
     this.contentEl.addClass('ot-root');
     this.modalEl.setAttribute('aria-label', 'New task');
+    // Obsidian normally closes modals from backdrop mouse/touch handlers.
+    // Intercept only this capture's backdrop before those handlers run.
+    this.backdropEvents = new AbortController();
+    const container = this.containerEl || this.modalEl.parentElement;
+    for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend'])
+      container.addEventListener(
+        type,
+        (event) => {
+          if (this.modalEl.contains(event.target)) return;
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        },
+        { capture: true, passive: false, signal: this.backdropEvents.signal },
+      );
     const row = this.contentEl.createDiv('ot-task is-expanded');
     const line = row.createDiv('ot-task-line');
     const check = line.createEl('input', { attr: { type: 'checkbox', 'aria-label': 'Completed' } });
@@ -18,9 +40,9 @@ class TaskCapture extends Modal {
     card.queueTaskSave = () => {
       card.taskDraft.dirty = true;
     };
-    card.finishTask = () => this.close();
+    card.finishTask = () => this.save();
     card.openRepeat = async () => {
-      if ((await this.close()) && this.createdTask)
+      if ((await this.save()) && this.createdTask)
         await this.plugin.showRepeat(this.createdTask.meta.id);
     };
     card.taskEditor(row, line, { meta: { title: '', ...this.fields }, body: '' });
@@ -30,23 +52,42 @@ class TaskCapture extends Modal {
         this.contentEl.ownerDocument.activeElement !== line.querySelector('.ot-title-input')
       )
         return;
-      this.close();
+      this.save();
       return false;
     });
+    const dismiss = () => {
+      if (!closePopover(this.contentEl)) this.close();
+    };
     this.scope.register([], 'Escape', () => {
-      const pop = this.contentEl.querySelector('.ot-popover');
-      if (pop) {
-        if (pop.close) pop.close();
-        else pop.remove();
-      } else this.close();
+      dismiss();
       return false;
     });
+    this.scope.register(['Mod'], 'Enter', () => {
+      this.save();
+      return false;
+    });
+    const taskKeydown = row.onkeydown;
+    row.onkeydown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        dismiss();
+      } else taskKeydown(event);
+    };
+    const actions = this.contentEl.createDiv('ot-capture-actions');
+    button(actions, 'Cancel', () => this.close());
+    button(actions, 'Save', () => this.save(), 'mod-cta');
     check.onchange = () => {
       this.completed = check.checked;
     };
     queueMicrotask(() => line.querySelector('.ot-title-input')?.focus());
   }
-  async close() {
+  close() {
+    if (this.saving) return this.saving;
+    super.close();
+    return true;
+  }
+  async save() {
     if (this.saving) return this.saving;
     const draft = this.card?.taskDraft;
     if (!draft) {
@@ -71,7 +112,7 @@ class TaskCapture extends Modal {
         const fields = {
           ...this.fields,
           ...values,
-          title: values.title.trim() || 'New task',
+          title: values.title.trim(),
           status: this.completed ? 'done' : 'todo',
           ...(destination ? { project: destination } : {}),
         };
@@ -84,14 +125,16 @@ class TaskCapture extends Modal {
           this.createdTask =
             (await this.plugin.taskRecords()).find((t) => t.meta.id === this.createdTask.meta.id) ||
             this.createdTask;
-          const view = this.app.workspace
-            .getLeavesOfType('markdown')
-            .find((l) => l.view.file?.path === destination && l.view.getMode() === 'source')?.view;
-          await view?.save();
         }
         super.close();
         const view = this.app.workspace.activeLeaf?.view;
         if (view?.getViewType() === 'things-project-view') {
+          if (
+            view === this.inboxView &&
+            view.page === 'inbox' &&
+            this.inboxVisit === view.inboxSession?.seen
+          )
+            this.inboxVisit?.add(this.createdTask.meta.id);
           await view.render();
           const row = [...view.contentEl.querySelectorAll('.ot-task')].find(
             (r) => r.dataset.taskId === this.createdTask.meta.id,
@@ -119,6 +162,7 @@ class TaskCapture extends Modal {
     return this.saving;
   }
   onClose() {
+    this.backdropEvents?.abort();
     this.card?.cancelChecklistDrag?.();
     this.contentEl.empty();
     this.plugin.captureModal = null;

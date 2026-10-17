@@ -1,3 +1,4 @@
+import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault();
@@ -30,6 +31,7 @@ try {
   assert.equal(await active.locator('.internal-embed').count(), 0);
   const first = active.locator(`.ot-native[data-task-path="${tasks[0]}"]:visible`);
   await first.locator('.ot-task').dblclick();
+  assert.equal(await page.evaluate(() => app.workspace.activeLeaf.view.getMode()), 'preview');
   await first.locator('.ot-title-input').fill('Reading updated');
   await first.locator('.ot-title-input').press('Tab');
   assert.equal(
@@ -63,7 +65,8 @@ try {
   await page.mouse.move(to.x + 100, to.y + 2, { steps: 12 });
   await page.locator('.ot-task-drop-marker').waitFor();
   await page.mouse.up();
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async ({ fixture, tasks }) => {
       const text = await app.vault.read(app.vault.getAbstractFileByPath(fixture));
       return text.indexOf(tasks[1]) < text.indexOf(tasks[0]);
@@ -90,6 +93,9 @@ try {
   console.log(
     'PASS: Reading view shares task editing, Tab/Enter, Today picker, completion, arrow selection, pointer drag, persisted notes, and Live Preview state.',
   );
+} catch (error) {
+  await page.screenshot({ path: 'artifacts/reading-failure.png' });
+  throw error;
 } finally {
   await page.evaluate(
     async ({ fixture, tasks }) => {

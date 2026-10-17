@@ -1,17 +1,18 @@
-const { referenceRanges } = require('./task-references.cjs');
+const { taskReferences } = require('./task-references.cjs');
 function projectProgress(records) {
-  const result = new Map(),
-    tasks = records.filter(
-      (t) => t.meta.type !== 'things-project' && !t.meta.deleted && !t.meta.repeat,
-    );
-  for (const note of records.filter((t) => t.meta.type === 'things-project')) {
-    const seen = new Set();
+  const result = new Map();
+  const tasks = new Map(
+    records
+      .filter((task) => task.meta.type === 'things-task' && !task.meta.deleted && !task.meta.repeat)
+      .map((task) => [task.file.path, task]),
+  );
+  for (const note of records.filter((record) => record.meta.type === 'things-project')) {
+    const paths = new Set(taskReferences(note.body || '').map((reference) => reference.path));
     let total = 0,
       done = 0;
-    for (const task of tasks) {
-      if (seen.has(task.file.path) || !referenceRanges(note.body || '', task.file.path).length)
-        continue;
-      seen.add(task.file.path);
+    for (const path of paths) {
+      const task = tasks.get(path);
+      if (!task) continue;
       total++;
       if (task.meta.status === 'done') done++;
     }

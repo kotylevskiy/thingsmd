@@ -28,7 +28,7 @@ test('sidebar counts unfinished Inbox and Today tasks once, including evening an
       '2026-10-16',
       { logbook: 'manually', captureDestination: 'inbox' },
     ),
-    { inbox: 1, today: 6 },
+    { inbox: 2, today: 6 },
   );
 });
 test('empty lists have zero counts and reached dates enter Today', () => {

@@ -1,14 +1,10 @@
-const TaskEditor = require('./task-editor.cjs');
-const { taskIndicators } = require('./task-indicators.cjs');
-const { taskState } = require('./task-presentation.cjs');
+const { taskReferences } = require('./task-references.cjs');
 const { nextFence } = require('./markdown-fence.cjs');
 const {
   editorLivePreviewField,
   editorInfoField,
   Notice,
-  Scope,
   MarkdownRenderChild,
-  Platform,
 } = require('obsidian');
 const { StateField, StateEffect, Prec } = require('@codemirror/state');
 const { EditorView, Decoration, WidgetType } = require('@codemirror/view');
@@ -70,231 +66,17 @@ module.exports = async function installNative(plugin) {
       return this.path === other.path;
     }
     toDOM(view) {
-      const root = document.createElement('div');
-      root.className = 'ot-root ot-native';
-      root.contentEditable = 'false';
-      root.dataset.taskPath = this.path;
-      for (const event of ['mousedown', 'click', 'dblclick'])
-        root.addEventListener(event, (e) => e.stopPropagation());
-      const card = new TaskEditor(plugin, root, async () => {
-        if (card.scope) {
-          plugin.app.keymap.popScope(card.scope);
-          card.scope = null;
-        }
-        card.signature = null;
-        await card.render();
-      });
-      card.render = async () => {
-        if (card.taskDraft) return;
-        const task = lookup(this.path);
-        card.currentTask = task;
-        const signature = task
-          ? JSON.stringify([task.meta, task.body, isHidden(task.meta)])
-          : 'missing';
-        if (card.signature === signature && root.childElementCount) return;
-        card.signature = signature;
-        root.empty();
-        root.classList.toggle('ot-hidden-task', !!task && isHidden(task.meta));
-        if (task && isHidden(task.meta)) {
-          view?.requestMeasure();
-          return;
-        }
-        if (!task) {
-          root.createSpan({ text: 'Task file unavailable' });
-          return;
-        }
-        const row = root.createDiv({
-          cls: `ot-task ${task.meta.status === 'done' ? 'is-done' : ''}`,
-          attr: { tabindex: '0', 'data-task-id': task.meta.id },
-        });
-        const labelId = `ot-task-label-${crypto.randomUUID()}`;
-        row.setAttribute('aria-labelledby', labelId);
-        const line = row.createDiv('ot-task-line');
-        const check = line.createEl('input', {
-          attr: { type: 'checkbox', 'aria-labelledby': labelId },
-        });
-        check.checked = task.meta.status === 'done';
-        check.disabled = !!task.meta.repeat && !task.meta.repeat.next;
-        taskState(row, task.meta);
-        check.onchange = () =>
-          plugin
-            .patchTask(task, { status: check.checked ? 'done' : 'todo' })
-            .catch((e) => new Notice(e.message));
-        line.createSpan({
-          cls: 'ot-task-title',
-          text: task.meta.title || 'New task',
-          attr: { id: labelId },
-        });
-        taskIndicators(line, task);
-        const open = () => {
-          if (card.taskDraft) return;
-          // Keep Obsidian's link-opening shortcuts away from the hidden reference.
-          if (view) {
-            const sourceLine = view.state.doc.lineAt(view.posAtDOM(root));
-            view.dispatch({
-              selection: { anchor: Math.min(sourceLine.to + 1, view.state.doc.length) },
-            });
-          }
-          row.addClass('is-expanded');
-          line.querySelector('.ot-task-title').remove();
-          line
-            .querySelectorAll(
-              '.ot-task-details,.ot-row-indicators,.ot-today-marker,.ot-repeat-indicator',
-            )
-            .forEach((el) => el.remove());
-          card.taskEditor(row, line, lookup(this.path) || task);
-          card.scope = new Scope(plugin.app.scope);
-          card.scope.register([], 'Enter', (event) => {
-            if (
-              event.isComposing ||
-              root.ownerDocument.activeElement !== line.querySelector('.ot-title-input')
-            )
-              return;
-            card.finishTask().then((ok) => {
-              if (ok) root.querySelector('.ot-task')?.focus({ preventScroll: true });
-            });
-            return false;
-          });
-          card.scope.register([], 'Escape', () => {
-            const pop = root.querySelector('.ot-popover');
-            if (pop) {
-              if (pop.close) pop.close();
-              else pop.remove();
-            } else
-              card.finishTask().then((ok) => {
-                if (ok) root.querySelector('.ot-task')?.focus({ preventScroll: true });
-              });
-            return false;
-          });
-          plugin.app.keymap.pushScope(card.scope);
-          line.querySelector('.ot-title-input').id = labelId;
-          line.querySelector('.ot-title-input').focus();
-          view?.requestMeasure();
-        };
-        row.ondblclick = (e) => {
-          if (!e.target.closest('input,button')) open();
-        };
-        row.onclick = (e) => {
-          if (!e.target.closest('input,button,textarea')) {
-            row.focus();
-            if (Platform.isMobile || e.pointerType === 'touch') open();
-          }
-        };
-        row.onkeydown = (e) => {
-          if (e.target !== row) return;
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            e.stopPropagation();
-            open();
-          } else if (
-            !view &&
-            !e.altKey &&
-            !e.metaKey &&
-            !e.ctrlKey &&
-            !e.shiftKey &&
-            ['ArrowDown', 'ArrowUp'].includes(e.key)
-          ) {
-            const rows = [
-              ...root
-                .closest('.markdown-preview-view')
-                .querySelectorAll('.ot-native:not(.ot-hidden-task) .ot-task'),
-            ];
-            const next = rows[rows.indexOf(row) + (e.key === 'ArrowDown' ? 1 : -1)];
-            e.preventDefault();
-            e.stopPropagation();
-            next?.focus();
-          }
-        };
-        if (openOnCreate.delete(this.path))
-          queueMicrotask(() => {
-            if (root.isConnected) open();
-          });
-        view?.requestMeasure();
-      };
-      card.saveTaskDraft = async () => {
-        try {
-          await pendingWrites.get(this.path);
-          if (card.taskDraft) card.taskDraft.task.file = lookup(this.path).file;
-          return await TaskEditor.prototype.saveTaskDraft.call(card);
-        } catch (error) {
-          new Notice(error.message);
-          return false;
-        }
-      };
-      card.finishTask = async () => {
-        if (!(await card.flushTaskDraft())) return false;
-        if (card.taskDraft) {
-          const updated = card.taskDraft.task;
+      return require('./native-task-card.cjs')(plugin, this.path, view, {
+        lookup,
+        isHidden,
+        pendingWrites,
+        openOnCreate,
+        onSaved: (updated) => {
           records = records.map((r) => (r.file.path === updated.file.path ? updated : r));
-        }
-        if (card.scope) {
-          plugin.app.keymap.popScope(card.scope);
-          card.scope = null;
-        }
-        card.taskDraft = null;
-        card.editing = false;
-        card.signature = null;
-        await card.render();
-        return true;
-      };
-      const blur = () =>
-        setTimeout(() => {
-          if (card.taskDraft && !root.contains(root.ownerDocument.activeElement)) card.finishTask();
-        }, 0);
-      root.addEventListener('focusout', blur);
-      const key = (e) => {
-        if (!root.contains(e.target)) return;
-        if (
-          !card.taskDraft &&
-          e.target.matches('.ot-task') &&
-          ['Backspace', 'Delete'].includes(e.key) &&
-          !e.metaKey &&
-          !e.ctrlKey &&
-          !e.altKey
-        ) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          const task = lookup(this.path);
-          card.currentTask = task;
-          if (task) plugin.trashTask(task).catch((error) => new Notice(error.message));
-          return;
-        }
-        if (!card.taskDraft) return;
-        if (
-          e.key === 'Escape' ||
-          (e.key === 'Enter' && e.target.matches('.ot-title-input') && !e.isComposing)
-        ) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          const pop = root.querySelector('.ot-popover');
-          if (e.key === 'Escape' && pop) {
-            if (pop.close) pop.close();
-            else pop.remove();
-            return;
-          }
-          card.finishTask().then((ok) => {
-            if (ok) root.querySelector('.ot-task')?.focus({ preventScroll: true });
-          });
-        }
-      };
-      root.ownerDocument.defaultView.addEventListener('keydown', key, true);
-      card.dispose = () => {
-        if (card.disposed) return;
-        card.disposed = true;
-        card.cancelChecklistDrag?.();
-        if (card.scope) {
-          plugin.app.keymap.popScope(card.scope);
-          card.scope = null;
-        }
-        root.ownerDocument.defaultView.removeEventListener('keydown', key, true);
-        clearTimeout(card.saveTimer);
-        card.saveTaskDraft();
-        cards.delete(card);
-      };
-      root._thingsCard = card;
-      cards.add(card);
-      card.render();
-      return root;
+        },
+        onMount: (card) => cards.add(card),
+        onDispose: (card) => cards.delete(card),
+      });
     }
     destroy(dom) {
       dom._thingsCard?.dispose();
@@ -315,7 +97,6 @@ module.exports = async function installNative(plugin) {
       const source = embed.getAttribute('src') || '';
       if (!/^\.thingsmd-storage\/[^#|]+$/.test(source)) continue;
       const path = source.endsWith('.md') ? source : source + '.md';
-      if (!lookup(path)) continue;
       const section = context.getSectionInfo(embed);
       if (!section) continue;
       const lines = section.text.split('\n');
@@ -326,6 +107,8 @@ module.exports = async function installNative(plugin) {
       if (offset < 0) continue;
       const lineNumber = section.lineStart + offset;
       usedLines.add(lineNumber);
+      // Keep a placeholder when rendering outruns the async task index. The
+      // shared card refresh fills it in without reopening the note.
       const root = new TaskWidget(path).toDOM(null);
       root.classList.add('ot-reading-task');
       embed.replaceWith(root);
@@ -356,30 +139,14 @@ module.exports = async function installNative(plugin) {
   const build = (state) => {
     if (!state.field(editorLivePreviewField, false)) return Decoration.none;
     const ranges = [];
-    let fence = null;
-    let yaml = false;
-    for (let i = 1; i <= state.doc.lines; i++) {
-      const line = state.doc.line(i);
-      if (i === 1 && line.text === '---') {
-        yaml = true;
-        continue;
-      }
-      if (yaml) {
-        if (line.text === '---') yaml = false;
-        continue;
-      }
-      const previousFence = fence;
-      fence = nextFence(fence, line.text);
-      if (previousFence || fence) continue;
-      const match = line.text.match(/^!\[\[(\.thingsmd-storage\/[^\]|]+?)(?:\.md)?\]\]$/);
-      if (match && lookup(`${match[1]}.md`))
-        ranges.push(
-          Decoration.replace({
-            widget: new TaskWidget(`${match[1]}.md`),
-            block: true,
-            inclusive: true,
-          }).range(line.from, line.to),
-        );
+    for (const reference of taskReferences(state.doc.toString())) {
+      ranges.push(
+        Decoration.replace({
+          widget: new TaskWidget(reference.path),
+          block: true,
+          inclusive: true,
+        }).range(reference.from, state.doc.lineAt(reference.from).to),
+      );
     }
     return Decoration.set(ranges);
   };
@@ -419,7 +186,8 @@ module.exports = async function installNative(plugin) {
               if (
                 from === line.from &&
                 decoration.spec.widget instanceof TaskWidget &&
-                !isHidden(lookup(decoration.spec.widget.path)?.meta || {})
+                !!lookup(decoration.spec.widget.path) &&
+                !isHidden(lookup(decoration.spec.widget.path).meta)
               )
                 found = true;
             });

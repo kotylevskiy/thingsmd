@@ -28,7 +28,10 @@ try {
     });
     return tasks.map((t) => t.file.path);
   }, note);
-  await page.locator('.workspace-leaf.mod-active .ot-native').first().waitFor();
+  for (const path of paths)
+    await page
+      .locator(`.workspace-leaf.mod-active .ot-native[data-task-path="${path}"] .ot-task`)
+      .waitFor();
   await page.evaluate(() => {
     const e = app.workspace.activeLeaf.view.editor;
     e.setCursor({ line: 0, ch: 2 });

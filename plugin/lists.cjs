@@ -12,4 +12,15 @@ const LISTS = [
 ];
 const PAGES = [...LISTS, ['repeating', 'Repeating', 'repeat']];
 
-module.exports = { VIEW, TASKS, LISTS, PAGES };
+function isListAvailable(page, settings) {
+  return (
+    !(page === 'inbox' && settings.captureDestination === 'daily-note') &&
+    !(page === 'trash' && settings.trashRetention === 'immediately')
+  );
+}
+function resolveList(page, settings) {
+  if (!PAGES.some(([key]) => key === page)) page = 'inbox';
+  if (page === 'trash' && !isListAvailable(page, settings)) page = 'inbox';
+  return isListAvailable(page, settings) ? page : 'today';
+}
+module.exports = { VIEW, TASKS, LISTS, PAGES, isListAvailable, resolveList };

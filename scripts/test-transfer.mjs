@@ -1,3 +1,4 @@
+import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault();
@@ -55,13 +56,14 @@ try {
   );
   const listRow = (id) => active.locator(`.ot-task[data-task-id="${id}"]`);
   await listRow(ids[0]).dragTo(page.locator(`.nav-file-title[data-path="${a}"]`));
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async ({ id, a }) =>
       (await app.plugins.getPlugin('thingsmd').taskRecords()).find((t) => t.meta.id === id)?.meta
         .project === a,
     { id: ids[0], a },
   );
-  await listRow(ids[0]).waitFor({ state: 'hidden' });
+  await active.locator(`.ot-inbox-moved .ot-task[data-task-id="${ids[0]}"]`).waitFor();
   assert.match(await read(a), new RegExp(ids[0]));
   assert.equal((await record(ids[0])).body, 'Task notes');
   await listRow(ids[1]).click();
@@ -78,7 +80,8 @@ try {
     e.focus();
   });
   await page.keyboard.press('Meta+v');
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async ({ id, b }) =>
       (await app.plugins.getPlugin('thingsmd').taskRecords()).find((t) => t.meta.id === id)?.meta
         .project === b,
@@ -100,7 +103,8 @@ try {
     e.focus();
   });
   await page.keyboard.press('Meta+v');
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async (prefix) =>
       (await app.plugins.getPlugin('thingsmd').taskRecords()).filter(
         (t) => t.meta.title === prefix + ' Cut',
@@ -130,11 +134,25 @@ try {
   await page.mouse.move(target.x + 60, target.y + target.height / 2, { steps: 16 });
   await page.locator('.ot-note-drop-target').waitFor();
   await page.mouse.up();
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async ({ id, a }) =>
       (await app.plugins.getPlugin('thingsmd').taskRecords()).find((t) => t.meta.id === id)?.meta
         .project === a,
     { id: ids[1], a },
+  );
+  await waitForAsync(
+    page,
+    async ({ a, b, id }) => {
+      const read = async (path) => {
+        const view = app.workspace
+          .getLeavesOfType('markdown')
+          .find((leaf) => leaf.view.file?.path === path && leaf.view.getMode() === 'source')?.view;
+        return view ? view.editor.getValue() : app.vault.adapter.read(path);
+      };
+      return !(await read(b)).includes(id) && (await read(a)).includes(id);
+    },
+    { a, b, id: ids[1] },
   );
   assert.ok(!(await read(b)).includes(ids[1]));
   assert.match(await read(a), new RegExp(ids[1]));

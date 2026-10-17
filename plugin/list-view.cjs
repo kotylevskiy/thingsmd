@@ -1,4 +1,5 @@
 const TaskEditor = require('./task-editor.cjs');
+const InboxSession = require('./inbox-session.cjs');
 const { taskIndicators } = require('./task-indicators.cjs');
 const { ItemView, Notice, Platform, setIcon } = require('obsidian');
 const {
@@ -11,9 +12,9 @@ const {
 } = require('./model.cjs');
 const { taskState } = require('./task-presentation.cjs');
 const { compareList, listInsertion } = require('./list-order.cjs');
-const { VIEW, PAGES } = require('./lists.cjs');
+const { VIEW, PAGES, resolveList } = require('./lists.cjs');
 const { today, dayAfter } = require('./local-date.cjs');
-const { button } = require('./dom.cjs');
+const { button, closePopover } = require('./dom.cjs');
 class ThingsMDView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -26,6 +27,7 @@ class ThingsMDView extends ItemView {
       }
     });
     this.page = 'inbox';
+    this.inboxSession = new InboxSession();
     // Allow normal file navigation to replace this view in the same tab.
     this.navigation = true;
     this.expanded = null;
@@ -46,11 +48,9 @@ class ThingsMDView extends ItemView {
     return { page: this.page };
   }
   async setState(state, result) {
-    if (state.page === 'trash' && this.plugin.settings.trashRetention === 'immediately')
-      state = { ...state, page: 'inbox' };
-    if (state.page === 'inbox' && this.plugin.settings.captureDestination === 'daily-note')
-      state = { ...state, page: 'today' };
-    this.page = PAGES.some(([key]) => key === state.page) ? state.page : 'inbox';
+    state = { ...state, page: resolveList(state.page, this.plugin.settings) };
+    if (state.page !== this.page) this.inboxSession.reset();
+    this.page = state.page;
     await super.setState(state, result);
     await this.render();
   }
@@ -80,11 +80,7 @@ class ThingsMDView extends ItemView {
         if (this.taskDraft && e.key === 'Escape') {
           e.preventDefault();
           e.stopImmediatePropagation();
-          const pop = this.contentEl.querySelector('.ot-popover');
-          if (pop) {
-            if (pop.close) pop.close();
-            else pop.remove();
-          } else this.finishTask();
+          if (!closePopover(this.contentEl)) this.finishTask();
           return;
         }
         if (e.target.closest('input,textarea,select,button,.ot-date-picker')) return;
@@ -104,8 +100,10 @@ class ThingsMDView extends ItemView {
   }
   async onClose() {
     this.closed = true;
+    this.inboxSession.reset();
     this.generation = (this.generation || 0) + 1;
     clearTimeout(this.refreshTimer);
+    for (const row of this.contentEl.querySelectorAll('.ot-task')) row._otTouchDrag?.cancel();
     await this.taskEditorController.flushTaskDraft();
   }
   async run(action) {
@@ -123,12 +121,13 @@ class ThingsMDView extends ItemView {
     }
   }
   async navigate(page) {
-    if (page === 'trash' && this.plugin.settings.trashRetention === 'immediately') page = 'inbox';
-    if (page === 'inbox' && this.plugin.settings.captureDestination === 'daily-note')
-      page = 'today';
+    page = resolveList(page, this.plugin.settings);
     if (this.taskDraft && !(await this.finishTask(false))) return;
-    if (page !== this.page) this.selected = null;
-    this.page = PAGES.some(([key]) => key === page) ? page : 'inbox';
+    if (page !== this.page) {
+      this.selected = null;
+      this.inboxSession.reset();
+    }
+    this.page = page;
     this.expanded = null;
     this.leaf.updateHeader();
     this.plugin.mountListLinks();
@@ -292,6 +291,23 @@ class ThingsMDView extends ItemView {
         this.group(section, tasks, key);
       }
     } else this.group(paper, active, null);
+    if (this.page === 'inbox') {
+      const moved = this.inboxSession.update(
+        this.tasks,
+        active,
+        today(),
+        this.plugin.settings.logbook,
+      );
+      if (moved.length) {
+        const section = paper.createEl('section', { cls: 'ot-section ot-inbox-moved' });
+        section.createEl('h2', {
+          text: `${moved.length} ${moved.length === 1 ? 'to-do was' : 'to-dos were'} moved out of the Inbox`,
+        });
+        const group = section.createDiv('ot-group');
+        group.dataset.orderKey = 'inbox';
+        for (const task of moved) this.taskRow(group, task);
+      }
+    }
     main.scrollTop = scroll;
   }
   group(parent, tasks, sectionId) {
@@ -393,137 +409,7 @@ class ThingsMDView extends ItemView {
         'aria-expanded': String(expanded),
       },
     });
-    row.draggable = !expanded && !['trash', 'logbook'].includes(this.page);
-    row.ondragstart = (e) => {
-      if (this.editing || e.target.closest('input,textarea')) {
-        e.preventDefault();
-        return;
-      }
-      this.selectTask(task.meta.id, occurrence);
-      this.dragging = true;
-      e.dataTransfer.setData('text/ot-task', task.meta.id);
-      e.dataTransfer.setData('text/ot-occurrence', occurrence);
-      e.dataTransfer.effectAllowed = 'move';
-      row.addClass('is-dragging');
-      this.contentEl.addClass('ot-dragging');
-    };
-    if (!expanded && !['trash', 'logbook', 'repeating'].includes(this.page)) {
-      let target = null,
-        ghost = null,
-        frame;
-      const clean = () => {
-        cancelAnimationFrame(frame);
-        target?.classList.remove('is-over', 'is-over-after');
-        target = null;
-        ghost?.remove();
-        ghost = null;
-        this.dragging = false;
-        row.removeClass('is-dragging');
-      };
-      let x, y;
-      const locate = () => {
-        target?.classList.remove('is-over', 'is-over-after');
-        target = row.ownerDocument
-          .elementFromPoint(x, y)
-          ?.closest('.ot-task,.ot-capture,.ot-list-link,.nav-file-title');
-        if (target === row) target = null;
-        target?.classList.add('is-over');
-        if (target?.matches('.ot-task'))
-          target.classList.toggle(
-            'is-over-after',
-            y > target.getBoundingClientRect().top + target.offsetHeight / 2,
-          );
-        if (ghost) {
-          ghost.style.left = `${x + 12}px`;
-          ghost.style.top = `${y + 12}px`;
-        }
-      };
-      const tick = () => {
-        const scroll = row.closest('.ot-main'),
-          box = scroll?.getBoundingClientRect();
-        if (box) {
-          if (y < box.top + 40) scroll.scrollTop -= 10;
-          else if (y > box.bottom - 40) scroll.scrollTop += 10;
-        }
-        locate();
-        frame = requestAnimationFrame(tick);
-      };
-      row._otTouchDrag = {
-        hold: () => {
-          this.dragging = true;
-        },
-        down: (e) => {
-          this.selectTask(task.meta.id, occurrence);
-          this.dragging = true;
-          row.addClass('is-dragging');
-          x = e.clientX;
-          y = e.clientY;
-          ghost = document.createElement('div');
-          ghost.className = 'ot-task-drag-ghost';
-          ghost.textContent = task.meta.title;
-          document.body.append(ghost);
-          tick();
-        },
-        move: (e) => {
-          x = e.clientX;
-          y = e.clientY;
-          locate();
-        },
-        up: () => {
-          const destination = target,
-            after = target?.classList.contains('is-over-after');
-          clean();
-          if (!destination) return;
-          if (destination.matches('.ot-list-link')) {
-            this.dropOnList(task.meta.id, destination.dataset.list);
-            return;
-          }
-          if (destination.matches('.nav-file-title')) {
-            this.run(() =>
-              this.plugin.transferTask({ id: task.meta.id, destination: destination.dataset.path }),
-            );
-            return;
-          }
-          const group = destination.closest('.ot-group');
-          if (group)
-            this.dropInGroup(
-              {
-                dataTransfer: {
-                  getData: (key) => (key === 'text/ot-task' ? task.meta.id : occurrence),
-                },
-              },
-              group,
-              destination.dataset.taskId || null,
-              after,
-            );
-        },
-        cancel: clean,
-      };
-    }
-    row.ondragend = () => {
-      this.dragging = false;
-      row.removeClass('is-dragging');
-      this.contentEl.removeClass('ot-dragging');
-    };
-    if (!['trash', 'logbook', 'repeating'].includes(this.page)) {
-      row.ondragover = (e) => {
-        if (expanded) return;
-        e.preventDefault();
-        row.toggleClass(
-          'is-over-after',
-          e.clientY > row.getBoundingClientRect().top + row.offsetHeight / 2,
-        );
-        row.addClass('is-over');
-      };
-      row.ondragleave = () => row.removeClass('is-over', 'is-over-after');
-      row.ondrop = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const after = row.hasClass('is-over-after');
-        row.removeClass('is-over', 'is-over-after');
-        this.dropInGroup(e, parent, task.meta.id, after);
-      };
-    }
+    require('./list-row-drag.cjs')(this, row, task, occurrence, expanded);
     row.onclick = async (e) => {
       if (e.target.closest('input,textarea,button,.ot-popover') || expanded || this.dragging)
         return;
@@ -582,10 +468,10 @@ class ThingsMDView extends ItemView {
       );
       return;
     }
-    if (expanded) this.taskEditor(row, line, task);
+    if (expanded) this.taskEditorController.taskEditor(row, line, task);
     else {
       line.createSpan({ text: task.meta.title || 'New task', cls: 'ot-task-title' });
-      this.taskIndicators(line, task, occurrence);
+      taskIndicators(line, task, this.page);
       if (this.page === 'upcoming') {
         const due = task.meta.deadline === occurrence,
           start = task.meta.when === occurrence;
@@ -613,20 +499,11 @@ class ThingsMDView extends ItemView {
   set editing(value) {
     this.taskEditorController.editing = value;
   }
-  taskEditor(...args) {
-    return this.taskEditorController.taskEditor(...args);
-  }
   taskControl(kind) {
     return this.taskEditorController.taskControl(kind);
   }
-  saveTaskDraft() {
-    return this.taskEditorController.saveTaskDraft();
-  }
   finishTask(render = true) {
     return this.taskEditorController.finishTask(render);
-  }
-  taskIndicators(line, task) {
-    taskIndicators(line, task, this.page);
   }
   async listKey(e) {
     const mod = e.metaKey || e.ctrlKey;
@@ -707,19 +584,9 @@ class ThingsMDView extends ItemView {
     await this.reorderInGroup(id, group, targetId, after);
   }
   dropOnList(id, page) {
-    const task = this.tasks.find((t) => t.meta.id === id);
-    if (!task) return;
-    if (page === 'trash') {
-      this.run(() => this.plugin.trashTask(task));
-      return;
-    }
-    if (page === 'logbook') return;
-    if (page === 'upcoming') {
-      this.scheduleDrop(id, dayAfter(1));
-      return;
-    }
-    this.run(() => this.plugin.transferTask({ id, list: page }));
+    return this.run(() => this.plugin.dropTaskOnList({ id }, page));
   }
+
   scheduleDrop(id, date, kind = 'when') {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
     const task = this.tasks.find((t) => t.meta.id === id);

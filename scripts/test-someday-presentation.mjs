@@ -68,6 +68,17 @@ try {
       { note, mode },
     );
     await row().waitFor();
+    await page.waitForFunction(
+      (id) =>
+        [
+          ...document.querySelectorAll(
+            `.workspace-leaf.mod-active .ot-task[data-task-id="${id}"] input[type=checkbox]`,
+          ),
+        ].some(
+          (el) => el.getClientRects().length && getComputedStyle(el).borderTopStyle === 'dashed',
+        ),
+      task.meta.id,
+    );
     assert.equal(await border(), 'dashed');
     await row().getByRole('checkbox').check();
     await page.waitForFunction(

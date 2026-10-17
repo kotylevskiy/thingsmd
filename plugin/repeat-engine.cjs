@@ -6,22 +6,20 @@ const {
   validate,
   validDate,
 } = require('./repeat-model.cjs');
+const { WriteQueue } = require('./write-queue.cjs');
 const { referenceRanges } = require('./task-references.cjs');
 
 // One local writer; deterministic copy IDs make interrupted generation retryable.
 module.exports = function installRepeating(plugin) {
-  let tail = Promise.resolve(),
-    disposed = false;
+  const writes = new WriteQueue();
+  let disposed = false;
   plugin.register?.(() => {
     disposed = true;
   });
-  const serial = (fn) => {
-    const result = tail.then(() => {
+  const serial = (fn) =>
+    writes.run('repeat', () => {
       if (!disposed) return fn();
     });
-    tail = result.catch(() => {});
-    return result;
-  };
   const find = async (id) => (await plugin.taskRecords()).find((t) => t.meta.id === id);
   const writeRule = async (task, rule) => {
     await plugin.update(task.file, (current) => {

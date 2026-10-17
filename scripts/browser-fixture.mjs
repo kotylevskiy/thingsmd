@@ -1,0 +1,127 @@
+import { readFile, readdir } from 'node:fs/promises';
+import { chromium } from 'playwright-core';
+export async function browserFixture() {
+  const executablePath =
+    process.env.THINGSMD_CHROME_PATH ||
+    (process.platform === 'darwin'
+      ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+      : undefined);
+  const browser = await chromium.launch({ executablePath, headless: true });
+  const page = await browser.newPage();
+  const sources = Object.fromEntries(
+    await Promise.all(
+      (await readdir(new URL('../plugin/', import.meta.url)))
+        .filter((f) => /\.(cjs|js)$/.test(f))
+        .map(async (name) => [
+          './' + name,
+          await readFile(new URL('../plugin/' + name, import.meta.url), 'utf8'),
+        ]),
+    ),
+  );
+  const css = await readFile(new URL('../plugin/styles.css', import.meta.url), 'utf8');
+  await page.setContent(
+    `<style>:root {--size-4-1:4px;--size-4-2:8px;--size-4-3:12px;--size-4-4:16px;--size-2-1:2px;--size-2-3:6px;--line-height-tight:1.3;--file-margins:16px;--font-text-size:16px;--file-line-width:700px;} *{box-sizing:border-box} body{margin:0}.modal{position:fixed;inset:20px;background:white;overflow:auto}.modal-close-button{display:block}${css}</style>`,
+  );
+  await page.evaluate((sources) => {
+    const proto = HTMLElement.prototype;
+    proto.createEl = function (tag, options = {}) {
+      if (typeof options === 'string') options = { cls: options };
+      const el = document.createElement(tag);
+      if (options.cls) el.className = options.cls;
+      if (options.text) el.textContent = options.text;
+      for (const [key, value] of Object.entries(options.attr || {})) el.setAttribute(key, value);
+      this.append(el);
+      return el;
+    };
+    proto.createDiv = function (options) {
+      return this.createEl('div', options);
+    };
+    proto.createSpan = function (options) {
+      return this.createEl('span', options);
+    };
+    proto.empty = function () {
+      this.replaceChildren();
+    };
+    proto.addClass = function (...names) {
+      this.classList.add(...names);
+    };
+    proto.removeClass = function (...names) {
+      this.classList.remove(...names);
+    };
+    proto.toggleClass = function (name, on) {
+      this.classList.toggle(name, on);
+    };
+    proto.hasClass = function (name) {
+      return this.classList.contains(name);
+    };
+    proto.setText = function (text) {
+      this.textContent = text;
+    };
+    class Modal {
+      constructor(app) {
+        this.app = app;
+        this.modalEl = document.body.createDiv('modal');
+        this.modalEl.createDiv('modal-close-button');
+        this.modalEl.createDiv('modal-header-button').innerHTML = '<svg class="lucide-x"></svg>';
+        this.contentEl = this.modalEl.createDiv('modal-content');
+        this.keys = [];
+        this.scope = { register: (mods, key, callback) => this.keys.push({ mods, key, callback }) };
+      }
+      open() {
+        this.onOpen();
+        this.keyHandler = (event) => {
+          if (event.defaultPrevented) return;
+          const binding = this.keys.find(
+            ({ mods, key }) =>
+              key === event.key &&
+              Boolean(mods.includes('Mod')) === Boolean(event.ctrlKey || event.metaKey),
+          );
+          if (binding?.callback(event) === false) event.preventDefault();
+        };
+        document.addEventListener('keydown', this.keyHandler);
+      }
+      close() {
+        document.removeEventListener('keydown', this.keyHandler);
+        this.modalEl.remove();
+        this.onClose();
+      }
+    }
+    class ItemView {
+      constructor(leaf) {
+        this.leaf = leaf;
+        this.app = leaf.app;
+        this.contentEl = document.body.createDiv();
+        this.titleEl = document.createElement('div');
+      }
+      async setState() {}
+    }
+    const host = {
+      Modal,
+      ItemView,
+      Plugin: class {},
+      Platform: {},
+      Notice: class {
+        constructor(message) {
+          window.notices.push(message);
+        }
+      },
+      setIcon: (el, icon) => {
+        el.dataset.icon = icon;
+      },
+    };
+    window.notices = [];
+    const cache = {};
+    window.loadPluginModule = (name) => {
+      if (name === 'obsidian') return host;
+      if (cache[name]) return cache[name].exports;
+      const module = (cache[name] = { exports: {} });
+      new Function('module', 'exports', 'require', sources[name])(
+        module,
+        module.exports,
+        window.loadPluginModule,
+      );
+      return module.exports;
+    };
+  }, sources);
+  return { browser, page };
+}

@@ -98,7 +98,13 @@ try {
   await page.evaluate(() => app.plugins.getPlugin('thingsmd').openList('waiting'));
   await active.getByRole('button', { name: '+ New task', exact: true }).first().click();
   const capture = page.locator('.ot-capture-modal');
-  await capture.locator('input[type=checkbox] + .ot-waiting-marker').waitFor();
+  assert.equal(await capture.locator('.ot-waiting-marker').count(), 0);
+  assert.equal(
+    await capture
+      .getByRole('button', { name: 'Waiting For', exact: true })
+      .getAttribute('aria-pressed'),
+    'true',
+  );
   await capture.getByRole('textbox', { name: 'Task title' }).fill('Waiting capture fixture');
   await capture.getByRole('textbox', { name: 'Task title' }).press('Enter');
   await capture.waitFor({ state: 'hidden' });

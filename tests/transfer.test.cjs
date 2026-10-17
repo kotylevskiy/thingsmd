@@ -67,3 +67,22 @@ test('long fences preserve literal task examples during moves and reject inserti
     );
   }
 });
+
+test('one reference scan canonicalizes paths and preserves offsets across CRLF, fences and frontmatter', () => {
+  const { taskReferences } = require('../plugin/task-references.cjs');
+  const text =
+    '---\r\nexample: ![[.thingsmd-storage/hidden]]\r\n---\r\n' +
+    '![[.thingsmd-storage/a]]\r\nInline ![[.thingsmd-storage/b]]\r\n' +
+    '~~~\r\n![[.thingsmd-storage/hidden]]\r\n~~~\r\n![[.thingsmd-storage/b.md]]';
+  const references = taskReferences(text);
+  assert.deepEqual(
+    references.map((reference) => reference.path),
+    ['.thingsmd-storage/a.md', '.thingsmd-storage/b.md'],
+  );
+  assert.equal(text.slice(references[0].from, references[0].to), '![[.thingsmd-storage/a]]\r\n');
+  assert.equal(text.slice(references[1].from, references[1].to), '![[.thingsmd-storage/b.md]]');
+  assert.throws(
+    () => insertReference('---\r\ntitle: Note\r\n---\r\nBody\r\n', path, 0),
+    /note body/,
+  );
+});

@@ -1,5 +1,4 @@
-const { dayAfter } = require('./local-date.cjs');
-const { referenceRanges, removeReferences, insertReference } = require('./task-references.cjs');
+const { referenceRanges } = require('./task-references.cjs');
 
 module.exports = { install };
 function install(plugin) {
@@ -8,7 +7,6 @@ function install(plugin) {
     doc = document,
     win = doc.defaultView;
   let clipboard = null,
-    transferring = false,
     highlight = null;
   const textField = (el) =>
     el?.closest(
@@ -17,147 +15,15 @@ function install(plugin) {
   const selectedRow = (el) => el?.closest('.ot-task:not(.is-expanded)');
   const markdownView = (el) =>
     app.workspace.getLeavesOfType('markdown').find((l) => l.view.containerEl.contains(el))?.view;
-  const editorFor = (file) =>
-    app.workspace
-      .getLeavesOfType('markdown')
-      .find((l) => l.view.file?.path === file.path && l.view.getMode() === 'source')?.view.editor;
-  const read = async (file) => editorFor(file)?.getValue() ?? (await app.vault.read(file));
-  const write = async (file, expected, next) => {
-    if (expected === next) return;
-    const editor = editorFor(file);
-    if (editor) {
-      if (editor.getValue() !== expected)
-        throw new Error('The note changed during the move. Try again.');
-      editor.replaceRange(next, { line: 0, ch: 0 }, editor.offsetToPos(expected.length));
-    } else
-      await app.vault.process(file, (current) => {
-        if (current !== expected) throw new Error('The note changed during the move. Try again.');
-        return next;
-      });
-  };
-  plugin.transferTask = async ({
-    id,
-    path,
-    destination,
-    offset,
-    copy = false,
-    snapshot,
-    sourcePath,
-    list,
-    moveClipboard = false,
-  }) => {
-    if (transferring) throw new Error('A task move is still finishing.');
-    transferring = true;
-    const edits = [];
-    let created;
-    try {
-      let task = (await plugin.records()).find(
-        (t) => t.meta.type === 'things-task' && (t.meta.id === id || t.file.path === path),
-      );
-      if (!task || task.meta.deleted) throw new Error('This task is unavailable.');
-      const original = task;
-      const file = destination ? app.vault.getAbstractFileByPath(destination) : null;
-      if (
-        destination &&
-        (!file || file.extension !== 'md' || destination.startsWith('.thingsmd-storage/'))
-      )
-        throw new Error('Drop onto a Markdown note.');
-      if (!file && !['inbox', 'today', 'anytime', 'someday', 'waiting'].includes(list))
-        throw new Error('Paste into a note, Inbox, Today, Anytime, or Someday.');
-      sourcePath = sourcePath || task.references?.[0] || task.meta.project;
-      const source =
-        app.vault.getAbstractFileByPath(sourcePath || '') ||
-        app.vault
-          .getMarkdownFiles()
-          .find((f) => app.metadataCache.getFileCache(f)?.frontmatter?.id === sourcePath);
-      if (copy) {
-        const values = JSON.parse(JSON.stringify((snapshot || task).meta));
-        delete values.id;
-        delete values.created;
-        delete values.deleted;
-        delete values.deletedAt;
-        delete values.repeat;
-        delete values.repeatSource;
-        delete values.repeatDate;
-        delete values.repeatEpoch;
-        values.project = file?.path || null;
-        values.order = Date.now();
-        if (!file) {
-          if (list === 'waiting') values.is_waiting = true;
-          else {
-            values.when = list === 'inbox' ? null : list;
-            if (['inbox', 'anytime'].includes(list)) values.is_waiting = false;
-          }
-        }
-        created = task = await plugin.createTask(values, undefined, (snapshot || task).body);
-      }
-      if (file) {
-        const before = await read(file);
-        const after = insertReference(
-          before,
-          task.file.path,
-          offset ?? before.length,
-          !copy && source?.path === file.path && offset !== undefined,
-        );
-        await write(file, before, after);
-        edits.push({ file, before, after });
-      }
-      if (
-        !copy &&
-        (file || list === 'inbox') &&
-        source?.extension === 'md' &&
-        source.path !== file?.path
-      ) {
-        const before = await read(source),
-          after = removeReferences(before, task.file.path);
-        await write(source, before, after);
-        edits.push({ file: source, before, after });
-      }
-      if (!copy) {
-        const patch =
-          file || list === 'inbox' ? { project: file?.path || null, order: Date.now() } : {};
-        if (!file) {
-          if (list === 'waiting') patch.is_waiting = true;
-          else {
-            patch.when = list === 'inbox' ? null : list;
-            if (['inbox', 'anytime'].includes(list)) patch.is_waiting = false;
-          }
-        }
-        await plugin.patchTask(original, patch);
-      }
-      if (moveClipboard && clipboard) {
-        clipboard.cut = false;
-        clipboard.sourcePath = file?.path || null;
-        doc.querySelectorAll('.ot-cut-task').forEach((el) => el.classList.remove('ot-cut-task'));
-      }
-      plugin.tasksChanged();
-      return task;
-    } catch (error) {
-      // Roll back only our own unchanged edits; never overwrite concurrent edits.
-      for (const edit of edits.reverse())
-        try {
-          await write(edit.file, edit.after, edit.before);
-        } catch {}
-      // A failed copy is retained as a recoverable task rather than deleted.
-      if (created) new Notice('The copied task is saved, but placement failed.');
-      throw error;
-    } finally {
-      transferring = false;
-    }
-  };
-  plugin.dropTaskOnList = async (source, list) => {
-    if (list === 'logbook') return;
-    if (list === 'trash' || list === 'upcoming') {
-      const task = (await plugin.taskRecords()).find(
-        (t) => t.meta.id === source.id || t.file.path === source.path,
-      );
-      if (!task || task.meta.deleted) throw new Error('This task is unavailable.');
-      if (list === 'trash') return plugin.trashTask(task);
-      const when = dayAfter(1);
-      return plugin.patchTask(task, { when });
-    }
-    return plugin.transferTask({ ...source, list });
-  };
+  require('./task-transfer-service.cjs')(plugin, {
+    onTransferred: (path) => {
+      if (!clipboard) return;
+      clipboard.cut = false;
+      clipboard.sourcePath = path;
+      doc.querySelectorAll('.ot-cut-task').forEach((el) => el.classList.remove('ot-cut-task'));
+    },
+    onCopyPlacementFailed: () => new Notice('The copied task is saved, but placement failed.'),
+  });
   const getClipboard = () => {
     try {
       return require('electron').clipboard;
@@ -317,7 +183,5 @@ function install(plugin) {
   plugin.register(() => {
     clearHighlight();
     doc.querySelectorAll('.ot-cut-task').forEach((el) => el.classList.remove('ot-cut-task'));
-    delete plugin.transferTask;
-    delete plugin.dropTaskOnList;
   });
 }

@@ -17,6 +17,15 @@ export default [
     rules: {
       'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none', ignoreRestSiblings: true }],
       'no-undef': 'error',
+      'no-restricted-globals': ['error', 'parent', 'event', 'name'],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.property.name='waitForFunction'] > ArrowFunctionExpression[async=true]",
+          message: 'Use waitForAsync so the resolved condition is polled.',
+        },
+      ],
       'no-unreachable': 'error',
       'no-duplicate-case': 'error',
       'no-dupe-args': 'error',

@@ -1,3 +1,4 @@
+import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 
@@ -59,7 +60,8 @@ try {
   await page.evaluate(() => app.commands.executeCommandById('thingsmd:move-task'));
   await page.locator('.ot-move-modal').getByLabel('Find destination').fill(prefix);
   await page.locator('.ot-move-modal').getByRole('button', { name: prefix, exact: true }).click();
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async ({ note, path }) => (await app.vault.adapter.read(note)).includes(path.slice(0, -3)),
     { note, path },
   );

@@ -40,12 +40,7 @@ const upcomingDays = (tasks, today) => {
 };
 const futureDate = (value, today) =>
   typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && value > today;
-const inInbox = (task, today) =>
-  !task.meta.project &&
-  !task.references?.length &&
-  !task.meta.when &&
-  !task.meta.deadline &&
-  !inToday(task.meta, today);
+const inInbox = (task) => !task.meta.project && !task.references?.length && !task.meta.when;
 const upcomingDates = (meta, today) =>
   meta.when === 'someday'
     ? []
@@ -74,7 +69,11 @@ function inList(task, list, today, mode = 'daily', captureDestination = 'inbox')
   if (list === 'inbox') return inInbox(task, today);
   if (list === 'today') return inToday(task.meta, today);
   if (list === 'someday') return task.meta.when === 'someday';
-  if (list === 'upcoming') return upcomingDates(task.meta, today).length > 0;
+  if (list === 'upcoming')
+    return (
+      (captureDestination === 'daily-note' || !inInbox(task)) &&
+      upcomingDates(task.meta, today).length > 0
+    );
   if (list === 'anytime')
     return (
       (captureDestination === 'daily-note' || !inInbox(task, today)) &&

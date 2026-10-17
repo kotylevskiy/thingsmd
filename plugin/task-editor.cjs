@@ -1,7 +1,8 @@
 const { setIcon } = require('obsidian');
-const { button, iconButton } = require('./dom.cjs');
+const { button, iconButton, closePopover } = require('./dom.cjs');
 const { today } = require('./local-date.cjs');
 const { inEvening, isTodayWhen } = require('./model.cjs');
+const { normalizeSchedule } = require('./task-schedule.cjs');
 const { taskState } = require('./task-presentation.cjs');
 
 // Hosts supply a container and a close hook. Draft editing and persistence are
@@ -21,7 +22,8 @@ class TaskEditor {
     const draft = (this.taskDraft = {
       task,
       values: {
-        title: task.meta.title,
+        title: task.meta.title ?? '',
+        is_waiting: task.meta.is_waiting === true,
         when: task.meta.when || null,
         evening: task.meta.evening || null,
         deadline: task.meta.deadline || null,
@@ -35,7 +37,7 @@ class TaskEditor {
       cls: 'ot-title-input',
       attr: { 'aria-label': 'Task title', placeholder: 'New To-Do' },
     });
-    title.value = task.meta.title;
+    title.value = draft.values.title;
     const editor = row.createDiv('ot-task-editor');
     const notes = editor.createEl('textarea', {
       cls: 'ot-task-notes',
@@ -229,17 +231,26 @@ class TaskEditor {
     });
     if (!task.meta.repeat)
       iconButton(icons, 'Deadline', 'flag', () => this.taskControl('deadline'));
+    const waiting = iconButton(icons, 'Waiting For', 'send-horizontal', () => {
+      draft.values.is_waiting = !draft.values.is_waiting;
+      drawWaiting();
+      this.queueTaskSave();
+      taskState(row, { ...draft.task.meta, ...draft.values });
+    });
+    waiting.addClass('ot-waiting-toggle');
+    const drawWaiting = () => {
+      waiting.setAttribute('aria-pressed', String(draft.values.is_waiting));
+      waiting.setAttribute('aria-label', 'Waiting For');
+      waiting.setAttribute('title', draft.values.is_waiting ? 'Stop waiting' : 'Mark as waiting');
+    };
+    drawWaiting();
     if (!task.meta.repeatSource) iconButton(icons, 'Repeat', 'repeat', () => this.openRepeat());
     if (task.meta.id) iconButton(icons, 'Move', 'arrow-right', () => this.plugin.openTaskMove(row));
     row.onkeydown = (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        const pop = row.querySelector('.ot-popover');
-        if (pop) {
-          if (pop.close) pop.close();
-          else pop.remove();
-        } else this.finishTask();
+        if (!closePopover(row)) this.finishTask();
       } else if (
         e.key === 'Enter' &&
         e.target === title &&
@@ -276,8 +287,10 @@ class TaskEditor {
     });
     const change = (key, value) => {
       if (key === 'when') {
-        draft.values.evening = value === 'evening' ? today() : null;
-        draft.values.when = value === 'evening' ? 'today' : value === null ? 'anytime' : value;
+        Object.assign(
+          draft.values,
+          normalizeSchedule({ when: value === null ? 'anytime' : value }),
+        );
       } else draft.values[key] = value;
       this.queueTaskSave();
       draft.drawBadges();
@@ -303,10 +316,6 @@ class TaskEditor {
     if (this.taskSave) await this.taskSave;
     const draft = this.taskDraft;
     if (!draft || !draft.dirty) return !draft?.error;
-    if (!draft.values.title.trim()) {
-      draft.error = 'A task needs a title.';
-      return false;
-    }
     const values = JSON.parse(JSON.stringify(draft.values));
     values.title = values.title.trim();
     const body = draft.body;
@@ -314,7 +323,9 @@ class TaskEditor {
     for (const [key, value] of Object.entries(values))
       if (
         JSON.stringify(value) !==
-        JSON.stringify(draft.task.meta[key] ?? (Array.isArray(value) ? [] : null))
+        JSON.stringify(
+          draft.task.meta[key] ?? (key === 'is_waiting' ? false : Array.isArray(value) ? [] : null),
+        )
       )
         patch[key] = value;
     const changedBody = body !== draft.task.body ? body : undefined;

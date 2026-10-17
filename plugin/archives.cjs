@@ -4,6 +4,7 @@ const { removeReferences } = require('./task-references.cjs');
 const { dayKey: localDay } = require('./local-date.cjs');
 
 module.exports = function installArchives(plugin, hasOpenDraft) {
+  const notes = require('./note-access.cjs').noteAccess(plugin.app);
   plugin.logCompleted = async (task = null) => {
     for (const t of task ? [task] : await plugin.taskRecords())
       if (t.meta.status === 'done' && !t.meta.deleted && !t.meta.loggedAt)
@@ -25,31 +26,12 @@ module.exports = function installArchives(plugin, hasOpenDraft) {
       const edits = [];
       try {
         for (const file of plugin.app.vault.getMarkdownFiles()) {
-          const view = plugin.app.workspace
-            .getLeavesOfType('markdown')
-            .find((l) => l.view.file?.path === file.path && l.view.getMode() === 'source')?.view;
-          if (view) {
-            const before = view.editor.getValue(),
-              after = removeReferences(before, path);
-            if (before !== after) {
-              view.editor.replaceRange(
-                after,
-                { line: 0, ch: 0 },
-                view.editor.offsetToPos(before.length),
-              );
-              edits.push({ file, view, before, after });
-              await view.save();
-            }
-          } else {
-            const before = await plugin.app.vault.read(file),
-              after = removeReferences(before, path);
-            if (before !== after) {
-              await plugin.app.vault.process(file, (text) => {
-                if (text !== before) throw new Error('Note changed during cleanup.');
-                return after;
-              });
-              edits.push({ file, before, after });
-            }
+          const before = await notes.read(file),
+            after = removeReferences(before, path);
+          if (before !== after) {
+            // Record before writing: a failing editor save still needs rollback.
+            edits.push({ file, before, after });
+            await notes.write(file, before, after, { save: true });
           }
         }
         if ((await plugin.readTask(task.file)) !== raw)
@@ -59,19 +41,7 @@ module.exports = function installArchives(plugin, hasOpenDraft) {
       } catch (error) {
         for (const edit of edits.reverse())
           try {
-            if (edit.view) {
-              if (edit.view.editor.getValue() === edit.after) {
-                edit.view.editor.replaceRange(
-                  edit.before,
-                  { line: 0, ch: 0 },
-                  edit.view.editor.offsetToPos(edit.after.length),
-                );
-                await edit.view.save();
-              }
-            } else
-              await plugin.app.vault.process(edit.file, (text) =>
-                text === edit.after ? edit.before : text,
-              );
+            await notes.write(edit.file, edit.after, edit.before, { save: true });
           } catch {}
         throw error;
       }

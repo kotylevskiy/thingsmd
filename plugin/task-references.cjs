@@ -1,7 +1,7 @@
 const { nextFence } = require('./markdown-fence.cjs');
 
 // Only standalone task references outside frontmatter/code fences are movable.
-function referenceRanges(text, path) {
+function taskReferences(text) {
   const result = [];
   let offset = 0,
     fence = null,
@@ -14,16 +14,23 @@ function referenceRanges(text, path) {
     } else {
       const previousFence = fence;
       fence = nextFence(fence, value);
-      if (
-        !previousFence &&
-        !fence &&
-        (value === `![[${path}]]` || value === `![[${path.replace(/\.md$/, '')}]]`)
-      )
-        result.push({ from: offset, to: Math.min(offset + line.length + 1, text.length) });
+      const match =
+        !previousFence && !fence && value.match(/^!\[\[(\.thingsmd-storage\/[^\]|#]+)\]\]$/);
+      if (match)
+        result.push({
+          path: match[1].endsWith('.md') ? match[1] : match[1] + '.md',
+          from: offset,
+          to: Math.min(offset + line.length + 1, text.length),
+        });
     }
     offset += line.length + 1;
   }
   return result;
+}
+function referenceRanges(text, path) {
+  return taskReferences(text)
+    .filter((reference) => reference.path === path)
+    .map(({ from, to }) => ({ from, to }));
 }
 function removeReferences(text, path) {
   for (const range of referenceRanges(text, path).reverse())
@@ -52,7 +59,7 @@ function insertReference(text, path, offset = text.length, reposition = false) {
       if (value === '---') yaml = false;
     } else fence = nextFence(fence, value);
   }
-  if (yaml || fence || (offset === 0 && text.startsWith('---\n')))
+  if (yaml || fence || (offset === 0 && /^---\r?\n/.test(text)))
     throw new Error('Place the cursor in the note body, outside properties and code blocks.');
   const newline = text.includes('\r\n') ? '\r\n' : '\n';
   return (
@@ -64,4 +71,4 @@ function insertReference(text, path, offset = text.length, reposition = false) {
   );
 }
 
-module.exports = { referenceRanges, removeReferences, insertReference };
+module.exports = { taskReferences, referenceRanges, removeReferences, insertReference };

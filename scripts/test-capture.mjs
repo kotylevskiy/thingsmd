@@ -66,6 +66,7 @@ try {
     async () => (await app.plugins.getPlugin('thingsmd').taskRecords()).length,
   );
   await page.locator('.side-dock-ribbon-action[aria-label="New task"]').click();
+  await title.fill(prefix + ' Discarded');
   await title.press('Escape');
   await modal.waitFor({ state: 'hidden' });
   assert.equal(
@@ -75,18 +76,16 @@ try {
   await page.locator('.side-dock-ribbon-action[aria-label="New task"]').click();
   await title.fill(prefix + ' Outside');
   await page.locator('.modal-container .modal-bg').click({ position: { x: 10, y: 10 } });
-  await modal.waitFor({ state: 'hidden' });
-  assert.ok(
-    await page.evaluate(
-      async (prefix) =>
-        (await app.plugins.getPlugin('thingsmd').taskRecords()).some(
-          (t) => t.meta.title === prefix + ' Outside',
-        ),
-      prefix,
-    ),
+  assert.equal(await modal.isVisible(), true);
+  assert.equal(await title.inputValue(), prefix + ' Outside');
+  assert.equal(
+    await page.evaluate(async () => (await app.plugins.getPlugin('thingsmd').taskRecords()).length),
+    count,
   );
+  await modal.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await modal.waitFor({ state: 'hidden' });
   console.log(
-    'PASS: task-shaped list capture, title focus, Tab to notes, deadline, Enter save, Today destination, ribbon capture into the active project without navigation, empty dismissal, and outside-click save.',
+    'PASS: task-shaped list capture, title focus, Tab to notes, deadline, Enter save, Today destination, ribbon capture into the active project without navigation, Escape discards, and outside-click draft retention.',
   );
 } finally {
   await page.evaluate(

@@ -1,3 +1,4 @@
+import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault();
@@ -204,7 +205,8 @@ try {
     dated.deadline,
   );
 
-  await page.waitForFunction(
+  await waitForAsync(
+    page,
     async (path) => (await app.vault.adapter.read(path)).includes('Details saved independently.'),
     taskPath,
   );

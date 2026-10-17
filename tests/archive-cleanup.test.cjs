@@ -92,3 +92,28 @@ test('Log Completed logs only completed non-trashed tasks and persists across po
   await plugin.updateSettings({ logbook: 'weekly' });
   assert.equal(JSON.parse(files.get(task.file.path)).meta.loggedAt, logged);
 });
+
+test('a failing editor save restores the note buffer and retains the trashed task', async () => {
+  const { plugin, task, files, text } = await fixture();
+  let buffer = text,
+    saves = 0;
+  const view = {
+    file: { path: 'Note.md' },
+    getMode: () => 'source',
+    editor: {
+      getValue: () => buffer,
+      offsetToPos: (ch) => ({ line: 0, ch }),
+      replaceRange: (value) => {
+        buffer = value;
+      },
+    },
+    save: async () => {
+      if (++saves === 1) throw new Error('Editor save failed');
+    },
+  };
+  plugin.app.workspace.getLeavesOfType = () => [{ view }];
+  plugin.settings.trashRetention = 'immediately';
+  await assert.rejects(plugin.purgeTask(task), /Editor save failed/);
+  assert.equal(buffer, text);
+  assert.ok(files.has(task.file.path));
+});

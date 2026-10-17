@@ -13,7 +13,7 @@ for (const [name, command] of Object.entries(scripts)) {
   console.log(`\nRunning ${name}`);
   const result = spawnSync(process.execPath, [command.replace(/^node /, '')], { stdio: 'inherit' });
   results.push({ name, passed: result.status === 0 });
-  if (result.status !== 0) break;
+  if (result.status !== 0 && !process.env.THINGSMD_CONTINUE_ON_FAILURE) break;
 }
 writeFileSync(
   new URL('../artifacts/control-regression-results.json', import.meta.url),

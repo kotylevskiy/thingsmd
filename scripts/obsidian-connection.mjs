@@ -1,12 +1,13 @@
+import { testVault } from './test-vault.mjs';
 import { chromium } from 'playwright-core';
 import { realpath, mkdir } from 'node:fs/promises';
 
 export async function connectTestVault() {
-  if (!process.env.THINGSMD_TEST_VAULT)
-    throw new Error('Set THINGSMD_TEST_VAULT to an existing disposable Obsidian vault.');
-  const expected = await realpath(process.env.THINGSMD_TEST_VAULT);
+  const expected = await testVault();
   await mkdir(new URL('../artifacts/', import.meta.url), { recursive: true });
-  const browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
+  const browser = await chromium.connectOverCDP(
+    process.env.THINGSMD_DEBUG_URL || 'http://127.0.0.1:9222',
+  );
   try {
     const matches = [];
     for (const context of browser.contexts())
@@ -17,7 +18,15 @@ export async function connectTestVault() {
       }
     if (matches.length !== 1) throw new Error(`Expected one test vault; found ${matches.length}`);
     const page = matches[0];
+    const runtimeErrors = [];
+    const onPageError = (error) => runtimeErrors.push(error.stack || error.message);
+    page.on('pageerror', onPageError);
     // Test actions start in the main workspace, never in a focused sidebar.
+    const sidebarState = await page.evaluate(() => ({
+      left: app.workspace.leftSplit.collapsed,
+      right: app.workspace.rightSplit.collapsed,
+    }));
+    await page.evaluate(() => app.workspace.leftSplit.expand());
     const sidebarViews = await page.evaluate(() => {
       const workspace = app.workspace;
       const sidebars = [];
@@ -40,6 +49,13 @@ export async function connectTestVault() {
           return { width: bounds.width, height: bounds.height };
         });
         await page.setViewportSize(size);
+        await page.evaluate((state) => {
+          const workspace = app.workspace;
+          if (state.left) workspace.leftSplit.collapse();
+          else workspace.leftSplit.expand();
+          if (state.right) workspace.rightSplit.collapse();
+          else workspace.rightSplit.expand();
+        }, sidebarState);
         const changed = await page.evaluate((before) => {
           const workspace = app.workspace;
           const changed = [];
@@ -51,7 +67,10 @@ export async function connectTestVault() {
           return changed;
         }, sidebarViews);
         if (changed.length) throw Error(`Test changed a sidebar pane: ${changed.join(', ')}`);
+        if (runtimeErrors.length)
+          throw Error(`Uncaught Obsidian renderer errors:\n${runtimeErrors.join('\n')}`);
       } finally {
+        page.off('pageerror', onPageError);
         await disconnect();
       }
     };

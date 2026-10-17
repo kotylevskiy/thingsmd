@@ -3,7 +3,7 @@ function taskState(row, meta) {
   row.classList.toggle('is-someday', meta.when === 'someday' && meta.status !== 'done');
   const check = row.querySelector('.ot-task-line > input[type=checkbox]');
   row.querySelector('.ot-waiting-marker')?.remove();
-  if (check && meta.is_waiting === true) {
+  if (check && meta.is_waiting === true && !row.classList.contains('is-expanded')) {
     const marker = check.parentElement.createSpan({
       cls: 'ot-waiting-marker',
       attr: { role: 'img', 'aria-label': 'Waiting For' },

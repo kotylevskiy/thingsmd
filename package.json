@@ -7,6 +7,10 @@
     "deploy": "npm run build && node scripts/deploy.mjs",
     "dev:open": "node scripts/open-prototype.mjs",
     "test": "node --test tests/*.test.cjs",
+    "test:empty-title": "node scripts/test-empty-title.mjs",
+    "test:live-session": "node scripts/test-live-session.mjs",
+    "test:session-ui": "node scripts/test-session-ui.mjs",
+    "test:mobile-layout": "node scripts/test-mobile-row-layout.mjs",
     "test:ui": "node scripts/test-prototype.mjs",
     "dev:native": "node scripts/open-native.mjs",
     "test:native": "node scripts/test-native.mjs",
@@ -47,7 +51,12 @@
     "check": "npm run lint && npm run format:check && npm test",
     "test:list-counts": "node scripts/test-list-counts.mjs",
     "test:sidebar-navigation": "node scripts/test-sidebar-navigation.mjs",
-    "build": "node scripts/build.mjs"
+    "build": "node scripts/build.mjs",
+    "dev:vault": "node scripts/prepare-test-vault.mjs",
+    "test:upcoming-move": "node scripts/test-upcoming-move.mjs",
+    "test:repeat-layout": "node scripts/test-repeat-layout.mjs",
+    "test:native-refresh": "node scripts/test-native-refresh.mjs",
+    "test:plugin-lifecycle": "node scripts/test-plugin-lifecycle.mjs"
   },
   "devDependencies": {
     "eslint": "^10.13.0",

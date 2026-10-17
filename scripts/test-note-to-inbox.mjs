@@ -1,3 +1,4 @@
+import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault();
@@ -54,11 +55,15 @@ try {
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
     await target.locator('xpath=self::*[contains(@class,"ot-note-drop-target")]').waitFor();
     await page.mouse.up();
-    await page.waitForFunction(async (path) => {
-      const p = app.plugins.getPlugin('thingsmd'),
-        t = (await p.taskRecords()).find((t) => t.file.path === path);
-      return t.meta.project === null && t.meta.when === null;
-    }, task.file.path);
+    await waitForAsync(
+      page,
+      async (path) => {
+        const p = app.plugins.getPlugin('thingsmd'),
+          t = (await p.taskRecords()).find((t) => t.file.path === path);
+        return t.meta.project === null && t.meta.when === null;
+      },
+      task.file.path,
+    );
     await row.waitFor({ state: 'hidden' });
     assert.equal(
       await page.evaluate(async (note) => {

@@ -42,19 +42,21 @@ try {
   }, prefix);
   await open('inbox');
   await row('Inbox').waitFor();
-  for (const name of ['Project', 'Today', 'Future', 'Anytime', 'Someday', 'Deadline'])
+  for (const name of ['Project', 'Today', 'Future', 'Anytime', 'Someday'])
     assert.equal(await row(name).count(), 0);
+  await row('Deadline').waitFor();
   await row('Inbox').dblclick();
   await active.locator('.is-expanded').getByRole('button', { name: 'When', exact: true }).click();
   await active.getByRole('button', { name: /^Today/ }).click();
   await active.locator('.ot-title-input').press('Enter');
-  await row('Inbox').waitFor({ state: 'hidden' });
+  await active.locator('.ot-inbox-moved').getByText('1 to-do was moved out of the Inbox').waitFor();
+  await row('Inbox').waitFor();
   await open('today');
+  assert.equal(await active.locator('.ot-inbox-moved').count(), 0);
   await row('Inbox').waitFor();
   await row('Today').waitFor();
   await open('anytime');
-  for (const name of ['Inbox', 'Today', 'Project', 'Anytime', 'Deadline'])
-    await row(name).waitFor();
+  for (const name of ['Inbox', 'Today', 'Project', 'Anytime']) await row(name).waitFor();
   for (const name of ['Future', 'Someday']) assert.equal(await row(name).count(), 0);
   await row('Anytime').dblclick();
   await active.locator('.is-expanded').getByRole('button', { name: 'When', exact: true }).click();
@@ -71,7 +73,7 @@ try {
   await row('Anytime').waitFor({ state: 'hidden' });
   await open('upcoming');
   await row('Future').waitFor();
-  await row('Deadline').waitFor();
+  assert.equal(await row('Deadline').count(), 0);
   assert.equal(await row('Someday').count(), 0);
   assert.equal(
     await active.locator('button.ot-capture').count(),

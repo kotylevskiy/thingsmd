@@ -1,16 +1,12 @@
 const { isLogged, inList } = require('./model.cjs');
-const { PAGES: LISTS } = require('./lists.cjs');
+const { PAGES: LISTS, isListAvailable } = require('./lists.cjs');
 function search(records, query, { broad = false, today, settings = {} } = {}) {
   const projects = records.filter((r) => r.meta.type === 'things-project');
   const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const matches = (value) => words.every((w) => String(value).toLocaleLowerCase().includes(w));
   const results = [];
   for (const [page, title, icon] of LISTS) {
-    if (
-      (page === 'inbox' && settings.captureDestination === 'daily-note') ||
-      (page === 'trash' && settings.trashRetention === 'immediately')
-    )
-      continue;
+    if (!isListAvailable(page, settings)) continue;
     if (matches(title)) results.push({ kind: 'list', title, icon, page, context: 'List' });
   }
   const tasks = records.filter(

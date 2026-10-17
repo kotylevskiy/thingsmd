@@ -79,6 +79,7 @@ try {
   await page.locator('.workspace-leaf.mod-active .ot-title-input').press('Enter');
   await page.evaluate(() => app.plugins.getPlugin('thingsmd').openSearch());
   await input().fill(prefix + ' Inbox');
+  await result(prefix + ' Inbox').waitFor();
   await input().press('Enter');
   await page.locator('.workspace-leaf.mod-active .ot-title-input').waitFor();
   assert.equal(
@@ -146,6 +147,33 @@ try {
   await page.screenshot({ path: 'artifacts/search-dark.png' });
   await page.evaluate((theme) => (document.body.className = theme), theme);
   await page.keyboard.press('Escape');
+  const reopened = await page.evaluate(async () => {
+    const p = app.plugins.getPlugin('thingsmd');
+    const reveal = p.revealSearchResult;
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    p.revealSearchResult = async (result) => {
+      await reveal(result);
+      await gate;
+    };
+    try {
+      await p.openSearch();
+      const old = p.searchModal;
+      const selecting = old.choose({ kind: 'list', page: 'today' });
+      const opening = p.openSearch();
+      release();
+      await selecting;
+      await opening;
+      const result = p.searchModal !== old && !!p.searchModal;
+      p.searchModal?.close();
+      return result;
+    } finally {
+      p.revealSearchResult = reveal;
+    }
+  });
+  assert.equal(reopened, true, 'Reopening during navigation creates a fresh search dialog');
   console.log(
     'PASS search: fast/broad scopes, project task opening, Inbox editing, Logbook navigation, desktop/mobile layout and Escape.',
   );

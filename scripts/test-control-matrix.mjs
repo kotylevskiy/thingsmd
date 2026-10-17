@@ -1,3 +1,4 @@
+import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault();
@@ -133,18 +134,22 @@ try {
     await page.screenshot({ path: `artifacts/controls-${view}.png` });
     if (view === 'inbox') await page.screenshot({ path: 'artifacts/controls-checklist-fixed.png' });
     await row().getByLabel('Task title', { exact: true }).press('Enter');
-    await page.waitForFunction(async (id) => {
-      const t = (await app.plugins.getPlugin('thingsmd').taskRecords()).find(
-        (t) => t.meta.id === id,
-      );
-      return (
-        t.meta.when === 'anytime' &&
-        t.meta.deadline === '2099-06-02' &&
-        t.meta.checklist?.length === 2 &&
-        t.meta.checklist[0].done &&
-        t.body === 'Notes survive control edits.'
-      );
-    }, id);
+    await waitForAsync(
+      page,
+      async (id) => {
+        const t = (await app.plugins.getPlugin('thingsmd').taskRecords()).find(
+          (t) => t.meta.id === id,
+        );
+        return (
+          t.meta.when === 'anytime' &&
+          t.meta.deadline === '2099-06-02' &&
+          t.meta.checklist?.length === 2 &&
+          t.meta.checklist[0].done &&
+          t.body === 'Notes survive control edits.'
+        );
+      },
+      id,
+    );
     if (!['source', 'preview'].includes(view))
       await page.evaluate(() => app.plugins.getPlugin('thingsmd').openList('anytime'));
     await row().dblclick();

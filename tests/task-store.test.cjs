@@ -87,6 +87,49 @@ test('concurrent creation never replaces an existing task with the same ID', asy
   assert.equal(plugin.taskQueue.pending.size, 0);
 });
 
+test('a task deleted between listing and reading does not break a refresh', async () => {
+  const { plugin, files } = fixture();
+  await plugin.createTask({ title: 'Keep' }, 'keep');
+  const removed = await plugin.createTask({ title: 'Deleted during refresh' }, 'removed');
+  const adapter = plugin.app.vault.adapter,
+    read = adapter.read;
+  adapter.read = async (path) => {
+    if (path === removed.file.path) {
+      files.delete(path);
+      throw Error('File disappeared');
+    }
+    return read(path);
+  };
+  const records = await plugin.taskRecords();
+  assert.deepEqual(
+    Array.from(records, (task) => task.meta.id),
+    ['keep'],
+  );
+});
+
+test('refresh still reports a read failure when the file exists', async () => {
+  const { plugin } = fixture();
+  await plugin.createTask({ title: 'Unreadable' }, 'unreadable');
+  plugin.app.vault.adapter.read = async () => {
+    throw Error('Permission denied');
+  };
+  await assert.rejects(plugin.taskRecords(), /Permission denied/);
+});
+
+test('a note removed during reference indexing does not break remaining task records', async () => {
+  const { plugin, files } = fixture();
+  await plugin.createTask({ title: 'Keep' }, 'keep');
+  files.set('Removed.md', '![[.thingsmd-storage/keep]]');
+  plugin.app.vault.read = async (file) => {
+    files.delete(file.path);
+    throw Error('Note disappeared');
+  };
+  const records = await plugin.records();
+  assert.equal(records.length, 1);
+  assert.equal(records[0].meta.id, 'keep');
+  assert.equal(records[0].references.length, 0);
+});
+
 test('deletion waits for an in-flight write instead of resurrecting the task', async () => {
   const { plugin, files } = fixture();
   const task = await plugin.createTask({ title: 'Original' }, 'delete-race');
@@ -125,4 +168,37 @@ test('canceling repeat rescheduling preserves the evening marker', async () => {
   const saved = await plugin.patchTask(task, { when: '2099-01-01' });
   assert.equal(saved.meta.when, 'today');
   assert.equal(saved.meta.evening, '2026-10-16');
+});
+
+test('move feedback follows successful persistence and can be suppressed for a coordinated transfer', async () => {
+  const { plugin } = fixture();
+  const calls = [];
+  plugin.notifyTaskMove = (before, after) => calls.push([before, after]);
+  const initial = await plugin.createTask({ title: 'Move feedback' }, 'notice');
+  const saved = await plugin.patchTask(initial, { when: 'today' });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][1].meta.when, 'today');
+  await assert.rejects(plugin.patchTask(initial, { when: 'someday' }), /changed elsewhere/);
+  assert.equal(calls.length, 1);
+  await plugin.patchTask(saved, { when: 'someday' }, undefined, { notify: false });
+  assert.equal(calls.length, 1);
+});
+
+test('feedback compares with persisted state instead of stale editor fields', async () => {
+  const { plugin } = fixture();
+  const { moveMessage } = require('../plugin/move-notice.cjs');
+  const messages = [];
+  plugin.notifyTaskMove = (before, after) => {
+    const message = moveMessage(before, after, {}, '2026-10-17');
+    if (message) messages.push(message);
+  };
+  const initial = await plugin.createTask({ title: 'Original' }, 'stale-notice');
+  await plugin.patchTask(initial, { when: 'today' });
+  messages.length = 0;
+  await plugin.patchTask(initial, { title: 'New title' });
+  assert.deepEqual(
+    messages,
+    [],
+    'A title edit must not announce an unrelated prior schedule change',
+  );
 });
