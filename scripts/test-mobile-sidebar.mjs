@@ -49,11 +49,21 @@ try {
   });
   for (let cycle = 0; cycle < 12; cycle++) {
     await reveal();
-    const state = await page.evaluate(() => {
+    const state = await page.evaluate((folder) => {
       const nav = document.querySelector('.ot-list-links');
       const rows = [...nav.querySelectorAll('button')].filter((el) => !el.hidden);
       const files = nav.parentElement.querySelector('.nav-files-container');
+      const native = files.querySelector(`.nav-folder-title[data-path="${folder}"]`);
+      const arrow = native.querySelector('.tree-item-icon').getBoundingClientRect();
+      const label = native.querySelector('.nav-folder-title-content').getBoundingClientRect();
       return {
+        alignment: rows.map((row) => {
+          const icon = row.querySelector('.ot-list-link-icon').getBoundingClientRect();
+          return {
+            icon: icon.x + icon.width / 2 - arrow.x - arrow.width / 2,
+            label: row.querySelector('.tree-item-inner').getBoundingClientRect().x - label.x,
+          };
+        }),
         count: document.querySelectorAll('.ot-list-links').length,
         rows: rows.length,
         hit: rows.every((row) => {
@@ -67,7 +77,17 @@ try {
         scroll: files.scrollTop,
         layer: getComputedStyle(nav).transform,
       };
-    });
+    }, folder);
+    for (const row of state.alignment) {
+      assert.ok(
+        Math.abs(row.icon) < 1,
+        `Mobile list icons align with folder arrows: ${JSON.stringify(row)}`,
+      );
+      assert.ok(
+        Math.abs(row.label) < 1,
+        `Mobile list labels align with folder names: ${JSON.stringify(row)}`,
+      );
+    }
     assert.equal(state.count, 1);
     assert.equal(state.rows, 8);
     assert.equal(

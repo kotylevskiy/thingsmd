@@ -12,7 +12,7 @@ try {
   // Preserve the nested containment and sliding layer used by the mobile host.
   await page.addStyleTag({
     content: `
-    body { --nav-item-padding: 8px 12px; --nav-item-size:16px; --background-modifier-border:#555;
+    body { --nav-item-padding: 8px 12px; --nav-item-margin-bottom:0; --nav-item-size:16px; --background-modifier-border:#555;
       --nav-item-color:#eee; --line-height-tight:1.4; background:#202428; color:white; }
     .workspace-drawer { position:fixed; inset:0 auto 0 0; width:330px; display:flex;
       contain:layout style paint; background:#202428; transition:transform 100ms linear; }
@@ -67,6 +67,14 @@ try {
     files.scrollTop = 600;
   });
   await page.waitForTimeout(100);
+  assert.deepEqual(
+    await page.locator('.ot-list-links').evaluate((nav) => {
+      const style = getComputedStyle(nav);
+      return [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft];
+    }),
+    ['8px', '12px', '8px', '12px'],
+    'Mobile unitless row spacing must not invalidate navigation padding',
+  );
   for (let cycle = 0; cycle < 12; cycle++) {
     await page.evaluate(() => {
       const { drawer } = window.sidebar;

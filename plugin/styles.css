@@ -773,11 +773,16 @@
 /* Match Obsidian's native tree rows; themes control density and typography. */
 .ot-list-links {
   flex-shrink: 0;
-  /* Native rows add a bottom margin; include that space above the first row too. */
-  padding: calc(var(--size-4-2) + var(--nav-item-margin-bottom, 0px)) var(--size-4-3)
-    var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
   margin-bottom: var(--size-4-1);
   border-bottom: 1px solid var(--background-modifier-border);
+}
+/* Native rows add bottom spacing. Mirror it above Inbox using a length property
+   that accepts mobile's unitless zero as well as desktop's pixel values. */
+.ot-list-links::before {
+  content: '';
+  display: block;
+  height: var(--nav-item-margin-bottom, 0px);
 }
 /* Keep shortcuts on their own paint layer while iOS slides a contained drawer.
    Otherwise WebKit can retain a blank surface until the file list scrolls. */
