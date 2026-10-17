@@ -1952,6 +1952,9 @@
   margin-top: var(--size-4-3);
   padding: 0 var(--size-4-4) max(var(--size-4-3), env(safe-area-inset-bottom, 0px));
 }
+.is-mobile .ot-capture-actions button {
+  min-width: 96px;
+}
 .ot-setting-badge {
   margin-inline-start: var(--size-4-2);
   vertical-align: middle;
