@@ -1,6 +1,6 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
-export async function browserFixture({ browserType = chromium } = {}) {
+export async function browserFixture({ browserType = chromium, pageOptions = {} } = {}) {
   const executablePath =
     browserType.name() !== 'chromium'
       ? undefined
@@ -9,7 +9,7 @@ export async function browserFixture({ browserType = chromium } = {}) {
           ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
           : undefined);
   const browser = await browserType.launch({ executablePath, headless: true });
-  const page = await browser.newPage();
+  const page = await browser.newPage(pageOptions);
   const sources = Object.fromEntries(
     await Promise.all(
       (await readdir(new URL('../plugin/', import.meta.url)))

@@ -101,3 +101,44 @@ test('disabling Waiting For persists the setting and redirects its open list wit
   assert.deepEqual(navigated, ['anytime']);
   assert.equal(refreshed, 1);
 });
+
+test('settings leave deferred tabs unloaded and update the mounted list', async () => {
+  const { plugin } = await fixture();
+  const dormant = { isDeferred: true, view: {} };
+  const navigated = [];
+  plugin.app = {
+    workspace: {
+      getLeavesOfType: () => [
+        dormant,
+        { view: { page: 'waiting', navigate: async (page) => navigated.push(page) } },
+      ],
+    },
+  };
+  plugin.mountListLinks = () => {};
+  plugin.tasksChanged = () => {};
+  plugin.maintainArchives = async () => {};
+  await plugin.updateSettings({ enableWaiting: false });
+  assert.deepEqual(navigated, ['anytime']);
+  assert.equal(dormant.isDeferred, true);
+  assert.deepEqual(dormant.view, {});
+});
+
+test('mobile navigation changes only after its preference is saved', async () => {
+  const { plugin } = await fixture();
+  const applied = [];
+  plugin.app = { workspace: { getLeavesOfType: () => [] } };
+  plugin.mountListLinks = () => {};
+  plugin.tasksChanged = () => {};
+  plugin.maintainArchives = async () => {};
+  plugin.refreshMobileNavigation = () => applied.push(plugin.settings.mobileTaskNavigation);
+  plugin.saveData = async () => {
+    throw new Error('Disk full');
+  };
+  await assert.rejects(plugin.updateSettings({ mobileTaskNavigation: true }), /Disk full/);
+  assert.equal(plugin.settings.mobileTaskNavigation, false);
+  assert.deepEqual(applied, []);
+  plugin.saveData = async () => {};
+  await plugin.updateSettings({ mobileTaskNavigation: true });
+  await plugin.updateSettings({ mobileTaskNavigation: false });
+  assert.deepEqual(applied, [true, false]);
+});

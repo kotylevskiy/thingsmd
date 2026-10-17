@@ -32,6 +32,7 @@ module.exports = class ThingsMDPlugin extends Plugin {
     this.addRibbonIcon('plus', 'New task', () => this.newTaskHere());
     require('./commands.cjs')(this);
     require('./global-capture.cjs')(this);
+    require('./mobile-navigation.cjs')(this);
     this.register(() => this.captureModal?.close());
     this.addCommand({ id: 'open', name: 'Open task lists', callback: () => this.open() });
   }

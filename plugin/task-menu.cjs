@@ -46,12 +46,13 @@ module.exports = function installTaskMenu(plugin) {
     anchor: row.getBoundingClientRect(),
     sourcePath: app.workspace
       .getLeavesOfType('markdown')
-      .find((l) => l.view.containerEl.contains(row))?.view.file?.path,
+      .find((l) => l.view.containerEl?.contains(row))?.view.file?.path,
     card:
       row.closest('.ot-native')?._thingsCard ||
       app.workspace
         .getLeavesOfType('things-project-view')
-        .find((l) => l.view.contentEl.contains(row))?.view,
+        // Deferred views have the host container but no ItemView content yet.
+        .find((l) => l.view.containerEl?.contains(row))?.view,
   });
   const prepare = async (ctx) => {
     if (ctx.card?.taskDraft && !(await ctx.card.finishTask())) return null;

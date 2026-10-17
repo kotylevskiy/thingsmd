@@ -5,6 +5,9 @@ const { button, removeModalCloseButton, closePopover } = require('./dom.cjs');
 class TaskCapture extends Modal {
   constructor(plugin, fields) {
     super(plugin.app);
+    // The host's first-input focus picks the completion checkbox. Capture owns
+    // initial focus so a quick Enter always reaches the title's save handler.
+    this.hasInitialInputFocus = false;
     this.plugin = plugin;
     this.fields = { project: null, order: Date.now(), ...fields };
     this.returnFocus = document.activeElement;
@@ -89,7 +92,7 @@ class TaskCapture extends Modal {
     check.onchange = () => {
       this.completed = check.checked;
     };
-    queueMicrotask(() => line.querySelector('.ot-title-input')?.focus());
+    line.querySelector('.ot-title-input').focus();
   }
   onEscapeKey(event) {
     // Obsidian registers its own Escape binding before custom scope bindings.

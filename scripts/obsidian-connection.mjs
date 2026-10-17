@@ -1,6 +1,11 @@
 import { testVault } from './test-vault.mjs';
 import { chromium } from 'playwright-core';
 import { realpath, mkdir } from 'node:fs/promises';
+import {
+  installRuntimeNoticeAudit,
+  runtimeErrorPattern,
+  runtimeNoticePrefix,
+} from './runtime-notice-audit.mjs';
 
 export async function connectTestVault() {
   const expected = await testVault();
@@ -20,7 +25,15 @@ export async function connectTestVault() {
     const page = matches[0];
     const runtimeErrors = [];
     const onPageError = (error) => runtimeErrors.push(error.stack || error.message);
+    const onConsole = (message) => {
+      if (message.type() === 'error' && message.text().startsWith(runtimeNoticePrefix))
+        runtimeErrors.push(message.text().slice(runtimeNoticePrefix.length));
+    };
     page.on('pageerror', onPageError);
+    page.on('console', onConsole);
+    const noticeAudit = { pattern: runtimeErrorPattern.source, prefix: runtimeNoticePrefix };
+    await page.addInitScript(installRuntimeNoticeAudit, noticeAudit);
+    await page.evaluate(installRuntimeNoticeAudit, noticeAudit);
     // Test actions start in the main workspace, never in a focused sidebar.
     const sidebarState = await page.evaluate(() => ({
       left: app.workspace.leftSplit.collapsed,
@@ -68,9 +81,11 @@ export async function connectTestVault() {
         }, sidebarViews);
         if (changed.length) throw Error(`Test changed a sidebar pane: ${changed.join(', ')}`);
         if (runtimeErrors.length)
-          throw Error(`Uncaught Obsidian renderer errors:\n${runtimeErrors.join('\n')}`);
+          throw Error(`Obsidian runtime errors (including Notices):\n${runtimeErrors.join('\n')}`);
       } finally {
+        await page.evaluate(() => window.__thingsmdNoticeAudit?.disconnect()).catch(() => {});
         page.off('pageerror', onPageError);
+        page.off('console', onConsole);
         await disconnect();
       }
     };

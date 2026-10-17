@@ -67,7 +67,9 @@
     "test:mobile-sidebar": "node scripts/test-mobile-sidebar.mjs",
     "test:date-picker": "node scripts/test-date-picker.mjs",
     "test:waiting-option": "node scripts/test-waiting-option.mjs",
-    "test:draft-lifecycle": "node scripts/test-draft-lifecycle.mjs"
+    "test:draft-lifecycle": "node scripts/test-draft-lifecycle.mjs",
+    "test:deferred-tabs": "node scripts/test-deferred-tabs.mjs",
+    "test:mobile-navigation": "node scripts/test-mobile-navigation.mjs"
   },
   "devDependencies": {
     "eslint": "^10.13.0",

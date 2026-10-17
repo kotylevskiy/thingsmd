@@ -82,8 +82,12 @@ module.exports = function (plugin) {
     });
   const editable = (c) => !c.task?.meta.deleted && !['trash', 'logbook'].includes(c.view.page);
   const refocus = async (c) => {
+    const allowed = () =>
+      app.workspace.activeLeaf?.view === c.view && !document.querySelector('.modal-container');
+    if (!allowed()) return;
     if (c.view.getViewType() === 'things-project-view') {
       await c.view.render();
+      if (!allowed()) return;
       const row =
         [...c.view.contentEl.querySelectorAll('.ot-task')].find(
           (r) => r.dataset.taskId === c.id && r.dataset.occurrence === c.occurrence,
@@ -102,6 +106,9 @@ module.exports = function (plugin) {
       }
     } else {
       await new Promise((resolve) => setTimeout(resolve, 220));
+      // A capture/search modal may open while a note reorder is settling.
+      // Its focus belongs to that newer interaction, not the old command.
+      if (!allowed()) return;
       [...c.view.containerEl.querySelectorAll('.ot-task')]
         .find((r) => r.dataset.taskId === c.id && r.getBoundingClientRect().width)
         ?.focus();

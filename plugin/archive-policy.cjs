@@ -14,6 +14,7 @@ const DEFAULTS = {
   showProjectProgress: true,
   enableWaiting: true,
   showWaitingInToday: true,
+  mobileTaskNavigation: false,
 };
 function settings(data = {}) {
   return {
@@ -21,6 +22,7 @@ function settings(data = {}) {
       typeof data?.globalCaptureHotkey === 'string' ? data.globalCaptureHotkey.trim() : '',
     showWaitingInToday: data?.showWaitingInToday !== false,
     enableWaiting: data?.enableWaiting !== false,
+    mobileTaskNavigation: data?.mobileTaskNavigation === true,
     showProjectProgress: data?.showProjectProgress !== false,
     captureDestination: data?.captureDestination === 'daily-note' ? 'daily-note' : 'inbox',
     logbook: LOG_MODES.includes(data?.logbook) ? data.logbook : DEFAULTS.logbook,

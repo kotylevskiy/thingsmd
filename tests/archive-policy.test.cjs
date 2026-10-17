@@ -10,8 +10,14 @@ test('archive settings default safely and validate saved values', () => {
     showProjectProgress: true,
     showWaitingInToday: true,
     enableWaiting: true,
+    mobileTaskNavigation: false,
   });
   assert.deepEqual(settings({ logbook: 'bad', trashRetention: 'bad' }), settings());
+});
+test('mobile navigation overrides require explicit opt-in', () => {
+  for (const value of [undefined, null, false, 'true', 1])
+    assert.equal(settings({ mobileTaskNavigation: value }).mobileTaskNavigation, false);
+  assert.equal(settings({ mobileTaskNavigation: true }).mobileTaskNavigation, true);
 });
 test('logging supports manual, immediate, daily, weekly, monthly and explicit logging', () => {
   const m = { status: 'done', completed: new Date(2026, 0, 31, 23, 59).toISOString() };

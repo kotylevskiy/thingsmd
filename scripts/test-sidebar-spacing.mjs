@@ -46,6 +46,19 @@ try {
           };
         };
         const nav = document.querySelector('.ot-list-links');
+        const rows = [...nav.querySelectorAll('.ot-list-link')].filter((row) => !row.hidden);
+        const bounds = nav.getBoundingClientRect();
+        const navStyle = getComputedStyle(nav);
+        const spacing = {
+          top: rows[0].getBoundingClientRect().top - bounds.top,
+          bottom:
+            bounds.bottom -
+            parseFloat(navStyle.borderBottomWidth) -
+            rows.at(-1).getBoundingClientRect().bottom,
+          expected:
+            parseFloat(getComputedStyle(document.body).getPropertyValue('--size-4-2')) +
+            parseFloat(getComputedStyle(rows.at(-1)).marginBottom),
+        };
         const nativeFolder = document.querySelector(`.nav-folder-title[data-path="${folder}"]`);
         const arrow = nativeFolder.querySelector('.tree-item-icon').getBoundingClientRect();
         const label = nativeFolder
@@ -62,6 +75,7 @@ try {
             };
           });
         return {
+          spacing,
           alignment,
           list: get('.ot-list-link'),
           note: get(`.nav-file-title[data-path="${note}"]`),
@@ -70,6 +84,14 @@ try {
       { note, folder },
     );
     assert.deepEqual(metrics.list, metrics.note);
+    assert.ok(
+      Math.abs(metrics.spacing.top - metrics.spacing.bottom) < 1,
+      'Inbox and Trash have equal outer spacing',
+    );
+    assert.ok(
+      Math.abs(metrics.spacing.bottom - metrics.spacing.expected) < 1,
+      'Keep the larger bottom gap, including theme row spacing',
+    );
     for (const row of metrics.alignment) {
       assert.ok(Math.abs(row.iconOffset) < 1, 'List icons align with native folder arrows');
       assert.ok(Math.abs(row.labelOffset) < 1, 'List names align with native folder names');

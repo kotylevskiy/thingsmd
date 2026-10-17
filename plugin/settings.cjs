@@ -23,6 +23,48 @@ module.exports = function installSettingsUI(plugin) {
       if (Platform.isDesktopApp)
         this.disposeHotkey = require('./global-hotkey-setting.cjs')(plugin, this.containerEl);
       new Setting(this.containerEl)
+        .setName('Enable Waiting For')
+        .setDesc(
+          'Show the Waiting For list and airplane controls. When off, waiting tasks appear in their normal lists. Their waiting status is kept.',
+        )
+        .addToggle((toggle) => {
+          toggle.toggleEl.setAttribute('aria-label', 'Enable Waiting For');
+          toggle.setValue(plugin.settings.enableWaiting).onChange(async (value) => {
+            try {
+              await plugin.updateSettings({ enableWaiting: value });
+            } catch (error) {
+              new Notice(error.message);
+            } finally {
+              this.display();
+              this.containerEl.querySelector('[aria-label="Enable Waiting For"]')?.focus();
+            }
+          });
+        });
+      new Setting(this.containerEl)
+        .setName('Group waiting tasks in Today')
+        .setDesc(
+          'Show waiting tasks scheduled for Today in a separate Waiting For section after This Evening. Turning this off keeps them in their normal Today or Evening section.',
+        )
+        .setDisabled(!plugin.settings.enableWaiting)
+        .addToggle((t) => {
+          t.toggleEl.setAttribute('aria-label', 'Group waiting tasks in Today');
+          t.setDisabled(!plugin.settings.enableWaiting);
+          t.setValue(plugin.settings.showWaitingInToday).onChange((v) =>
+            plugin.updateSettings({ showWaitingInToday: v }).catch((e) => new Notice(e.message)),
+          );
+        });
+      new Setting(this.containerEl)
+        .setName('Show project progress')
+        .setDesc(
+          'Show a progress pie beside notes containing tasks, in the file sidebar, grouped list headings, and Move popup. The filled portion shows completed tasks, including logged tasks. Trashed tasks and repeating templates are excluded.',
+        )
+        .addToggle((t) => {
+          t.toggleEl.setAttribute('aria-label', 'Show project progress');
+          t.setValue(plugin.settings.showProjectProgress).onChange((v) =>
+            plugin.updateSettings({ showProjectProgress: v }).catch((e) => new Notice(e.message)),
+          );
+        });
+      new Setting(this.containerEl)
         .setName('Move completed tasks to Logbook')
         .setDesc(
           'Daily logs on the next local day. Weekly and monthly keep completed tasks in place for that long. Manually waits for Log Completed.',
@@ -63,47 +105,26 @@ module.exports = function installSettingsUI(plugin) {
             plugin.updateSettings({ trashRetention: v }).catch((e) => new Notice(e.message)),
           );
         });
-      new Setting(this.containerEl)
-        .setName('Enable Waiting For')
+      const mobileNavigation = new Setting(this.containerEl)
+        .setName('Use task actions in mobile navigation')
         .setDesc(
-          'Show the Waiting For list and airplane controls. When off, waiting tasks appear in their normal lists. Their waiting status is kept.',
+          'Replace New note with New task and Search with Search Tasks in the mobile bottom bar.',
         )
         .addToggle((toggle) => {
-          toggle.toggleEl.setAttribute('aria-label', 'Enable Waiting For');
-          toggle.setValue(plugin.settings.enableWaiting).onChange(async (value) => {
+          toggle.toggleEl.setAttribute('aria-label', 'Use task actions in mobile navigation');
+          toggle.setValue(plugin.settings.mobileTaskNavigation).onChange(async (value) => {
             try {
-              await plugin.updateSettings({ enableWaiting: value });
+              await plugin.updateSettings({ mobileTaskNavigation: value });
             } catch (error) {
+              toggle.setValue(plugin.settings.mobileTaskNavigation);
               new Notice(error.message);
-            } finally {
-              this.display();
-              this.containerEl.querySelector('[aria-label="Enable Waiting For"]')?.focus();
             }
           });
         });
-      if (plugin.settings.enableWaiting)
-        new Setting(this.containerEl)
-          .setName('Group waiting tasks in Today')
-          .setDesc(
-            'Show waiting tasks scheduled for Today in a separate Waiting For section after This Evening. Turning this off keeps them in their normal Today or Evening section.',
-          )
-          .addToggle((t) => {
-            t.toggleEl.setAttribute('aria-label', 'Group waiting tasks in Today');
-            t.setValue(plugin.settings.showWaitingInToday).onChange((v) =>
-              plugin.updateSettings({ showWaitingInToday: v }).catch((e) => new Notice(e.message)),
-            );
-          });
-      new Setting(this.containerEl)
-        .setName('Show project progress')
-        .setDesc(
-          'Show a progress pie beside notes containing tasks, in the file sidebar, grouped list headings, and Move popup. The filled portion shows completed tasks, including logged tasks. Trashed tasks and repeating templates are excluded.',
-        )
-        .addToggle((t) => {
-          t.toggleEl.setAttribute('aria-label', 'Show project progress');
-          t.setValue(plugin.settings.showProjectProgress).onChange((v) =>
-            plugin.updateSettings({ showProjectProgress: v }).catch((e) => new Notice(e.message)),
-          );
-        });
+      mobileNavigation.nameEl.createSpan({
+        cls: 'flair ot-setting-badge',
+        text: 'Experimental',
+      });
     }
   }
   plugin.addSettingTab(new SettingsTab(plugin.app, plugin));

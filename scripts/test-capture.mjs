@@ -6,6 +6,20 @@ const prefix = `Capture test ${Date.now()}`;
 const note = prefix + '.md';
 const modal = page.locator('.ot-capture-modal');
 try {
+  assert.equal(
+    await page.evaluate(() => {
+      const plugin = app.plugins.getPlugin('thingsmd');
+      plugin.capture();
+      // Check before yielding to queued focus work: the host must not choose the
+      // checkbox after onOpen. This previously depended on a later microtask.
+      const focused =
+        document.activeElement === plugin.captureModal.contentEl.querySelector('.ot-title-input');
+      plugin.captureModal.close();
+      return focused;
+    }),
+    true,
+    'Capture owns initial title focus before the host can select its checkbox',
+  );
   await page.evaluate(() => app.plugins.getPlugin('thingsmd').openList('today'));
   assert.equal(await page.locator('input.ot-capture').count(), 0);
   await page.locator('.workspace-leaf.mod-active button.ot-capture').click();

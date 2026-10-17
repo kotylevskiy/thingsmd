@@ -128,9 +128,41 @@ try {
       page,
       async () => (await app.plugins.getPlugin('thingsmd').loadData()).enableWaiting === false,
     );
-    await settings
-      .getByLabel('Group waiting tasks in Today', { exact: true })
-      .waitFor({ state: 'detached' });
+    const grouping = settings.getByLabel('Group waiting tasks in Today', { exact: true });
+    await grouping.waitFor({ state: 'visible' });
+    await settings.waitForFunction(() =>
+      document
+        .querySelector('[aria-label="Group waiting tasks in Today"]')
+        ?.classList.contains('is-disabled'),
+    );
+    const savedGrouping = await page.evaluate(
+      () => app.plugins.getPlugin('thingsmd').settings.showWaitingInToday,
+    );
+    await grouping.click();
+    assert.equal(
+      await page.evaluate(() => app.plugins.getPlugin('thingsmd').settings.showWaitingInToday),
+      savedGrouping,
+      'Disabled grouping cannot be toggled',
+    );
+    await settings.getByLabel('Enable Waiting For', { exact: true }).click();
+    await waitForAsync(
+      page,
+      async () => (await app.plugins.getPlugin('thingsmd').loadData()).enableWaiting === true,
+    );
+    await settings.waitForFunction(() => {
+      const toggle = document.querySelector('[aria-label="Group waiting tasks in Today"]');
+      return toggle && !toggle.classList.contains('is-disabled');
+    });
+    assert.equal(
+      await page.evaluate(() => app.plugins.getPlugin('thingsmd').settings.showWaitingInToday),
+      savedGrouping,
+      'Disabling Waiting For preserves the grouping preference',
+    );
+    await settings.getByLabel('Enable Waiting For', { exact: true }).click();
+    await waitForAsync(
+      page,
+      async () => (await app.plugins.getPlugin('thingsmd').loadData()).enableWaiting === false,
+    );
     await page.evaluate(() => app.setting.close());
     await active.getByRole('heading', { name: 'Anytime', exact: true }).waitFor();
     assert.equal(await page.locator('.ot-list-link[data-list="waiting"]').isVisible(), false);

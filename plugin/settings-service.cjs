@@ -34,9 +34,12 @@ module.exports = async function installSettingsService(plugin) {
       prepare: () => plugin.maintainArchives(),
       committed: async () => {
         plugin.mountListLinks();
+        plugin.refreshMobileNavigation?.();
         plugin.tasksChanged();
         plugin.captureModal?.card?.refreshSettings();
         for (const leaf of plugin.app.workspace.getLeavesOfType('things-project-view')) {
+          // setState resolves unavailable lists when a deferred tab is loaded.
+          if (leaf.isDeferred) continue;
           leaf.view.taskEditorController?.refreshSettings();
           const page = resolveList(leaf.view.page, plugin.settings);
           if (page !== leaf.view.page) await leaf.view.navigate(page);

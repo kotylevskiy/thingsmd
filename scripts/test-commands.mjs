@@ -169,6 +169,27 @@ try {
   console.log(
     'PASS commands: custom Obsidian hotkey, waiting toggle, Today/Evening, Enter editing, no hardcoded Save interception, checklist/date/Move commands, contextual capture, list/native reorder and both note modes.',
   );
+} catch (error) {
+  console.log(
+    'Command failure diagnostics:',
+    await page.evaluate(() => {
+      const plugin = app.plugins.getPlugin('thingsmd');
+      const view = app.workspace.activeLeaf?.view;
+      return {
+        mobile: document.body.classList.contains('is-mobile'),
+        navigationOverride: plugin.settings.mobileTaskNavigation,
+        captureError: plugin.captureModal?.contentEl.querySelector('.ot-save-error')?.textContent,
+        captureSaving: !!plugin.captureModal?.saving,
+        captureFields: plugin.captureModal?.fields,
+        captureTask: plugin.captureModal?.createdTask?.meta,
+        viewMode: view?.getMode?.(),
+        viewSaving: view?.saving,
+        activeFile: view?.file?.path,
+      };
+    }),
+  );
+  await page.screenshot({ path: 'artifacts/command-failure.png' });
+  throw error;
 } finally {
   await page.evaluate(
     async ({ state, prefix }) => {
