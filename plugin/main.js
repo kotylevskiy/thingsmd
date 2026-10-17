@@ -1,4 +1,4 @@
-const { Plugin } = require('obsidian');
+const { Plugin, Notice } = require('obsidian');
 const { VIEW, resolveList } = require('./lists.cjs');
 const ThingsMDView = require('./list-view.cjs');
 const TaskCapture = require('./task-capture.cjs');
@@ -29,7 +29,9 @@ module.exports = class ThingsMDPlugin extends Plugin {
     require('./project-progress.cjs').install(this);
     require('./sidebar.cjs')(this);
     await require('./task-refresh.cjs')(this);
-    this.addRibbonIcon('plus', 'New task', () => this.newTaskHere());
+    this.addRibbonIcon('plus', 'New task', () =>
+      this.newTaskHere().catch((error) => new Notice(error.message)),
+    );
     require('./commands.cjs')(this);
     require('./global-capture.cjs')(this);
     require('./mobile-navigation.cjs')(this);

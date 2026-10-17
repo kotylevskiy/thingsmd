@@ -69,7 +69,9 @@
     "test:waiting-option": "node scripts/test-waiting-option.mjs",
     "test:draft-lifecycle": "node scripts/test-draft-lifecycle.mjs",
     "test:deferred-tabs": "node scripts/test-deferred-tabs.mjs",
-    "test:mobile-navigation": "node scripts/test-mobile-navigation.mjs"
+    "test:mobile-navigation": "node scripts/test-mobile-navigation.mjs",
+    "test:ribbon": "node scripts/test-ribbon.mjs",
+    "test:native-global-capture": "node scripts/test-native-global-capture.mjs"
   },
   "devDependencies": {
     "eslint": "^10.13.0",

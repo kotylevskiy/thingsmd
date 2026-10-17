@@ -101,6 +101,18 @@ try {
       { fixture, title },
     );
     await capture.waitFor();
+    assert.equal(
+      await capture.getByLabel('Task title', { exact: true }).getAttribute('enterkeyhint'),
+      'done',
+    );
+    const notesInput = capture.getByLabel('Task notes', { exact: true });
+    assert.equal(await notesInput.getAttribute('enterkeyhint'), 'enter');
+    await notesInput.fill('First line');
+    await notesInput.press('End');
+    await notesInput.press('Enter');
+    await notesInput.press('s');
+    assert.equal(await notesInput.inputValue(), 'First line\ns');
+    assert.equal(await capture.isVisible(), true, 'Return in Notes does not save capture');
     await page.evaluate(({ visible, top }) => {
       const { viewport, keyboard } = window.captureViewportTest;
       viewport.height = visible;
@@ -126,6 +138,14 @@ try {
       ];
       return {
         top: box.top,
+        notesOffset: parseFloat(
+          modal.parentElement.style.getPropertyValue('--ot-capture-notes-offset'),
+        ),
+        safeTop: Math.max(
+          12,
+          parseFloat(getComputedStyle(document.body).getPropertyValue('--safe-area-inset-top')) ||
+            0,
+        ),
         bottom: box.bottom,
         viewportTop: viewport.offsetTop,
         viewportBottom: viewport.offsetTop + viewport.height,
@@ -143,7 +163,11 @@ try {
       };
     });
     assert.ok(geometry.top >= size.top, JSON.stringify(geometry));
-    assert.ok(geometry.top <= size.top + 80, 'Mobile capture opens near the safe top edge');
+    const inset = Math.min(geometry.notesOffset, Math.max(0, size.visible - 400));
+    assert.ok(
+      Math.abs(geometry.top - (size.top + geometry.safeTop + inset)) < 2,
+      `Mobile capture shifts to the former Notes position when space permits: ${JSON.stringify(geometry)}`,
+    );
     assert.ok(geometry.bottom <= geometry.viewportBottom + 1, JSON.stringify(geometry));
     for (const button of geometry.buttons) {
       assert.ok(button.top >= geometry.viewportTop, JSON.stringify(button));
@@ -199,7 +223,8 @@ try {
     await capture.evaluate((modal) => {
       window.captureViewportTest.closedContainer = modal.closest('.ot-capture-container');
     });
-    await capture.getByRole('button', { name: 'Save', exact: true }).click();
+    if (index % 2 === 0) await capture.getByRole('button', { name: 'Save', exact: true }).click();
+    else await capture.getByLabel('Task title', { exact: true }).press('Enter');
     await capture.waitFor({ state: 'hidden' });
     assert.equal(
       await page.evaluate(() => {

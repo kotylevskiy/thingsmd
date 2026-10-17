@@ -65,6 +65,8 @@ class TaskCapture extends Modal {
         await this.plugin.showRepeat(this.createdTask.meta.id);
     };
     card.taskEditor(row, line, { meta: { title: '', ...this.fields }, body: '' });
+    line.querySelector('.ot-title-input').setAttribute('enterkeyhint', 'done');
+    row.querySelector('.ot-task-notes').setAttribute('enterkeyhint', 'enter');
     this.scope.register([], 'Enter', (event) => {
       if (
         event.isComposing ||
@@ -92,6 +94,11 @@ class TaskCapture extends Modal {
     check.onchange = () => {
       this.completed = check.checked;
     };
+    // Lower phone capture by its initial title area, to the former Notes position.
+    container.style.setProperty(
+      '--ot-capture-notes-offset',
+      `${row.querySelector('.ot-task-notes').getBoundingClientRect().top - this.modalEl.getBoundingClientRect().top}px`,
+    );
     line.querySelector('.ot-title-input').focus();
   }
   onEscapeKey(event) {

@@ -892,19 +892,32 @@
   color: var(--text-normal);
 }
 .ot-capture-container {
+  --ot-capture-inset: 0px;
   position: fixed;
   top: var(--ot-capture-top, 0px);
   bottom: auto;
   height: var(--ot-capture-height, 100dvh);
   box-sizing: border-box;
-  padding: max(var(--size-4-3), var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) 0
-    var(--size-4-3);
+  padding: calc(
+      max(var(--size-4-3), var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) +
+        var(--ot-capture-inset)
+    )
+    0 var(--size-4-3);
 }
 .is-mobile .ot-capture-container {
+  /* Retain room for fixed controls when the keyboard leaves a short viewport. */
+  --ot-capture-inset: min(
+    var(--ot-capture-notes-offset, 56px),
+    max(0px, calc(var(--ot-capture-height, 100dvh) - 400px))
+  );
   align-items: flex-start;
 }
 @media (max-width: 600px) {
   .ot-capture-container {
+    --ot-capture-inset: min(
+      var(--ot-capture-notes-offset, 56px),
+      max(0px, calc(var(--ot-capture-height, 100dvh) - 400px))
+    );
     align-items: flex-start;
   }
 }
@@ -1938,10 +1951,6 @@
   gap: var(--size-4-2);
   margin-top: var(--size-4-3);
   padding: 0 var(--size-4-4) max(var(--size-4-3), env(safe-area-inset-bottom, 0px));
-}
-.ot-capture-actions button {
-  min-height: 44px;
-  min-width: 80px;
 }
 .ot-setting-badge {
   margin-inline-start: var(--size-4-2);

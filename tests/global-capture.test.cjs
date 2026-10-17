@@ -7,19 +7,34 @@ test('global capture focuses the vault, keeps old binding on conflict, and remov
     calls = [],
     cleanup = [];
   const ipc = new (require('node:events').EventEmitter)();
-  const remote = {
-    require: () => ({ compileFunction: vm.compileFunction }),
-    globalShortcut: {
-      register: (key, cb) => {
-        if (bindings.has(key)) return false;
-        bindings.set(key, cb);
-        return true;
-      },
-      unregister: (key) => bindings.delete(key),
+  const shortcuts = {
+    register: (key, cb) => {
+      if (bindings.has(key)) return false;
+      bindings.set(key, cb);
+      return true;
     },
+    unregister: (key) => bindings.delete(key),
+  };
+  const remoteShortcuts = {
+    register: () => assert.fail('Native callbacks must never cross the renderer remote bridge'),
+    unregister: () => assert.fail('Shortcut ownership stays in the main-process service'),
+  };
+  const remote = {
+    require: () => ({
+      compileFunction: (source, parameters) => {
+        const factory = vm.compileFunction(source, parameters);
+        return (...args) => {
+          assert.ok(args.every((arg) => typeof arg !== 'function'));
+          return factory(...args.map((arg) => (arg === remoteShortcuts ? shortcuts : arg)));
+        };
+      },
+    }),
+    globalShortcut: remoteShortcuts,
     getCurrentWindow: () => ({
       isDestroyed: () => false,
-      webContents: { send: (channel) => ipc.emit(channel) },
+      webContents: Object.assign(new (require('node:events').EventEmitter)(), {
+        send: (channel) => ipc.emit(channel),
+      }),
       isMinimized: () => true,
       restore: () => calls.push('restore'),
       show: () => calls.push('show'),
@@ -35,7 +50,9 @@ test('global capture focuses the vault, keeps old binding on conflict, and remov
         ? { Platform: { isDesktopApp: true }, Notice: class {} }
         : name === 'electron'
           ? { ipcRenderer: ipc }
-          : remote,
+          : name === './global-capture-main.cjs'
+            ? require('../plugin/global-capture-main.cjs')
+            : remote,
   });
   const p = {
     loadData: async () => ({ globalCaptureHotkey: '' }),

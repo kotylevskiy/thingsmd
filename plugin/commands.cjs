@@ -156,9 +156,13 @@ module.exports = function (plugin) {
       },
     });
   plugin.newTaskHere = async () => {
-    const view = app.workspace.activeLeaf?.view;
-    if (view?.getViewType() === 'things-project-view') {
-      if (['trash', 'logbook', 'repeating'].includes(view.page)) return;
+    const leaf = plugin.mainWorkspaceLeaf();
+    await leaf.loadIfDeferred?.();
+    const view = leaf.view;
+    if (
+      view?.getViewType() === 'things-project-view' &&
+      !['trash', 'logbook', 'repeating'].includes(view.page)
+    ) {
       if (view.taskDraft && !(await view.finishTask())) return;
       const c = context(),
         group = c?.row.closest('.ot-group'),
@@ -173,19 +177,12 @@ module.exports = function (plugin) {
         when: view.page === 'anytime' ? 'anytime' : date || null,
       });
     } else if (view?.file?.extension === 'md') plugin.capture({ project: view.file.path });
+    else plugin.capture();
   };
   plugin.addCommand({
     id: 'capture',
     name: 'New task',
-    checkCallback: (checking) => {
-      const v = app.workspace.activeLeaf?.view;
-      const ok =
-        v?.getViewType() === 'things-project-view'
-          ? !['trash', 'logbook', 'repeating'].includes(v.page)
-          : v?.file?.extension === 'md';
-      if (ok && !checking) safe(() => plugin.newTaskHere());
-      return !!ok;
-    },
+    callback: () => safe(() => plugin.newTaskHere()),
   });
   patch(
     'toggle-waiting',

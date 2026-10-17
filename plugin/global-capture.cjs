@@ -13,17 +13,15 @@ module.exports = function installGlobalCapture(plugin) {
   try {
     remote = require('@electron/remote');
     window = remote.getCurrentWindow();
-    // Keep OS activation in the main process, before notifying the background
-    // renderer. The callback owns only this vault window and this IPC channel.
-    systemCapture = remote.require('vm').compileFunction(
-      `return function(){setImmediate(()=>{
-      if(win.isDestroyed())return;
-      if(win.isMinimized())win.restore();
-      win.show();win.focus();
-      win.webContents.send(channel);
-    });}`,
-      ['win', 'channel'],
-    )(window, channel);
+    // Register the callback inside the main process too. Passing a remote
+    // function back to globalShortcut wraps it as a renderer callback, which
+    // can freeze native activation before our capture IPC is delivered.
+    systemCapture = remote
+      .require('vm')
+      .compileFunction(
+        `return (${require('./global-capture-main.cjs').toString()})(win,channel,shortcuts);`,
+        ['win', 'channel', 'shortcuts'],
+      )(window, channel, remote.globalShortcut);
   } catch {
     plugin.globalCaptureError = 'Global capture is unavailable in this Obsidian version.';
   }
@@ -35,7 +33,7 @@ module.exports = function installGlobalCapture(plugin) {
       new Notice(`Could not open global capture: ${e.message}`);
     }
   };
-  plugin.openGlobalCapture = () => systemCapture?.();
+  plugin.openGlobalCapture = () => systemCapture?.activate();
   ipcRenderer.on(channel, capture);
   const change = (value) => {
     if (value === registered) return;
@@ -50,7 +48,7 @@ module.exports = function installGlobalCapture(plugin) {
         throw new Error('Include Command, Control, or Alt with the key.');
       let success = false;
       try {
-        success = remote.globalShortcut.register(value, systemCapture);
+        success = systemCapture.register(value);
       } catch {}
       if (!success)
         throw new Error(
@@ -58,11 +56,11 @@ module.exports = function installGlobalCapture(plugin) {
         );
     }
     // Register the replacement first: a conflict must not disable the old key.
-    if (registered) remote.globalShortcut.unregister(registered);
+    if (registered) systemCapture.unregister(registered);
     registered = value;
   };
   plugin.pauseGlobalCapture = () => {
-    if (registered) remote.globalShortcut.unregister(registered);
+    if (registered) systemCapture.unregister(registered);
     registered = '';
     return () => {
       if (!disposed) change(plugin.settings.globalCaptureHotkey);
@@ -92,7 +90,7 @@ module.exports = function installGlobalCapture(plugin) {
   }
   plugin.register(() => {
     disposed = true;
-    if (registered) remote.globalShortcut.unregister(registered);
+    systemCapture?.dispose();
     registered = '';
     ipcRenderer.removeListener(channel, capture);
     delete plugin.openGlobalCapture;
