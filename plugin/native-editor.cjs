@@ -181,17 +181,24 @@ module.exports = async function installNative(plugin) {
           );
           this.column = 0;
           const taskAt = (line) => {
-            let found = false;
+            let found;
             view.state.field(field).between(line.from, line.to, (from, to, decoration) => {
-              if (
-                from === line.from &&
-                decoration.spec.widget instanceof TaskWidget &&
-                !!lookup(decoration.spec.widget.path) &&
-                !isHidden(lookup(decoration.spec.widget.path).meta)
-              )
-                found = true;
+              if (from !== line.from || !(decoration.spec.widget instanceof TaskWidget)) return;
+              const task = lookup(decoration.spec.widget.path);
+              if (task) found = isHidden(task.meta) ? 'hidden' : 'visible';
             });
             return found;
+          };
+          const nextLine = (line, direction) => {
+            for (
+              let number = line.number + direction;
+              number >= 1 && number <= view.state.doc.lines;
+              number += direction
+            ) {
+              const candidate = view.state.doc.line(number);
+              if (taskAt(candidate) !== 'hidden') return candidate;
+            }
+            return null;
           };
           const focusTask = (line) => {
             view.dispatch({ effects: EditorView.scrollIntoView(line.from, { y: 'nearest' }) });
@@ -208,6 +215,17 @@ module.exports = async function installNative(plugin) {
               requestAnimationFrame(() => {
                 if (editors.has(view)) focus();
               });
+          };
+          const focusLine = (line) => {
+            if (!line) return;
+            if (taskAt(line) === 'visible') focusTask(line);
+            else {
+              view.dispatch({
+                selection: { anchor: Math.min(line.from + this.column, line.to) },
+                scrollIntoView: true,
+              });
+              view.focus();
+            }
           };
           this.key = (e) => {
             if (
@@ -227,19 +245,9 @@ module.exports = async function installNative(plugin) {
               if (e.target !== selected || selected.classList.contains('is-expanded')) return;
               const root = selected.closest('.ot-native');
               const line = view.state.doc.lineAt(view.posAtDOM(root));
-              const number = line.number + direction;
               e.preventDefault();
               e.stopImmediatePropagation();
-              if (number < 1 || number > view.state.doc.lines) return;
-              target = view.state.doc.line(number);
-              if (taskAt(target)) focusTask(target);
-              else {
-                view.dispatch({
-                  selection: { anchor: Math.min(target.from + this.column, target.to) },
-                  scrollIntoView: true,
-                });
-                view.focus();
-              }
+              focusLine(nextLine(line, direction));
               return;
             }
             if (
@@ -251,12 +259,14 @@ module.exports = async function installNative(plugin) {
             const pos = view.state.selection.main.head;
             const line = view.state.doc.lineAt(pos);
             this.column = pos - line.from;
-            if (taskAt(line)) target = line;
+            const currentTask = taskAt(line);
+            if (currentTask === 'visible') target = line;
             else {
               // Let CodeMirror traverse wrapped visual lines before entering a task.
               const caret = view.coordsAtPos(pos);
               const block = view.lineBlockAt(pos);
               if (
+                currentTask !== 'hidden' &&
                 caret &&
                 (direction > 0
                   ? caret.bottom < view.documentTop + block.bottom - view.defaultLineHeight / 2
@@ -265,12 +275,19 @@ module.exports = async function installNative(plugin) {
                 return;
               const number = line.number + direction;
               if (number < 1 || number > view.state.doc.lines) return;
-              target = view.state.doc.line(number);
-              if (!taskAt(target)) return;
+              // Logged/deleted cards have zero height. CodeMirror can bounce
+              // back at their replacements, so cross those references ourselves.
+              target = nextLine(line, direction);
+              if (
+                currentTask !== 'hidden' &&
+                target?.number === number &&
+                taskAt(target) !== 'visible'
+              )
+                return;
             }
             e.preventDefault();
             e.stopImmediatePropagation();
-            focusTask(target);
+            focusLine(target);
           };
           view.dom.ownerDocument.defaultView.addEventListener('keydown', this.key, true);
           // Obsidian can add a zero-width embed at the replacement boundary when

@@ -112,6 +112,83 @@ try {
   assert.equal(await selected(), paths[0], 'Last visual line enters the task');
   await page.keyboard.press('ArrowDown');
   assert.equal((await cursor()).line, 2);
+  // Logged tasks remain embedded in Markdown but have no visible card. Native
+  // CodeMirror movement can bounce at these zero-height replacement widgets.
+  await page.evaluate(
+    async ({ paths }) => {
+      const p = app.plugins.getPlugin('thingsmd');
+      await p.patchTask(
+        (await p.records()).find((task) => task.file.path === paths[0]),
+        { status: 'done', completed: '2020-01-01' },
+      );
+      const e = app.workspace.activeLeaf.view.editor;
+      e.setValue(`Before\n![[${paths[0]}]]\n![[${paths[0]}]]\n\n![[${paths[1]}]]\nAfter`);
+      e.setCursor({ line: 0, ch: 2 });
+      e.focus();
+    },
+    { paths },
+  );
+  await page
+    .locator('.workspace-leaf.mod-active .ot-hidden-task')
+    .first()
+    .waitFor({ state: 'attached' });
+  await page.keyboard.press('ArrowDown');
+  assert.deepEqual(
+    await cursor(),
+    { line: 3, ch: 0 },
+    'Skip logged tasks, stopping at the blank line',
+  );
+  await page.keyboard.press('ArrowDown');
+  assert.equal(await selected(), paths[1], 'Reach the visible task after logged tasks');
+  await page.keyboard.press('ArrowUp');
+  assert.equal((await cursor()).line, 3);
+  await page.keyboard.press('ArrowUp');
+  assert.equal((await cursor()).line, 0, 'Skip logged tasks in reverse as well');
+  for (const deleted of [false, true]) {
+    if (deleted) {
+      await page.evaluate(async (path) => {
+        const p = app.plugins.getPlugin('thingsmd');
+        await p.patchTask(
+          (await p.records()).find((task) => task.file.path === path),
+          {
+            deleted: true,
+          },
+        );
+      }, paths[0]);
+    }
+    const text = `![[${paths[0]}]]\nBefore\n![[${paths[0]}]]\n![[${paths[1]}]]\n![[${paths[0]}]]\nAfter\n![[${paths[0]}]]`;
+    await page.evaluate((text) => {
+      const e = app.workspace.activeLeaf.view.editor;
+      e.setValue(text);
+      e.setCursor({ line: 1, ch: 2 });
+      e.focus();
+    }, text);
+    await page.keyboard.press('ArrowUp');
+    assert.deepEqual(
+      await cursor(),
+      { line: 1, ch: 2 },
+      'Hidden leading tasks are not cursor stops',
+    );
+    await page.keyboard.press('ArrowDown');
+    assert.equal(await selected(), paths[1], 'Reach a visible task directly across hidden tasks');
+    await page.keyboard.press('ArrowDown');
+    assert.deepEqual(await cursor(), { line: 5, ch: 2 }, 'Exit a visible task across hidden tasks');
+    await page.keyboard.press('ArrowDown');
+    assert.deepEqual(
+      await cursor(),
+      { line: 5, ch: 2 },
+      'Hidden trailing tasks are not cursor stops',
+    );
+    await page.keyboard.press('ArrowUp');
+    assert.equal(await selected(), paths[1]);
+    await page.keyboard.press('ArrowUp');
+    assert.deepEqual(await cursor(), { line: 1, ch: 2 });
+    assert.equal(
+      await page.evaluate(() => app.workspace.activeLeaf.view.editor.getValue()),
+      text,
+      'Keyboard navigation preserves every task reference and surrounding text',
+    );
+  }
   // Source Mode retains plain text navigation.
   await page.evaluate((paths) => {
     app.workspace.activeLeaf.view.editor.setValue(`Before\n\n![[${paths[0].slice(0, -3)}]]\nAfter`);
@@ -135,7 +212,7 @@ try {
   assert.equal((await cursor()).line, 2);
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: task selection, consecutive/repeated tasks, reverse navigation, blank lines, title editing and Source Mode.',
+    'PASS: task selection, repeated and hidden tasks, document boundaries, reverse navigation, blank lines, title editing and Source Mode.',
   );
 } finally {
   await page.evaluate(
