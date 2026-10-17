@@ -42,7 +42,7 @@ try {
   await row().getByRole('button', { name: 'When', exact: true }).click();
   await page
     .locator('.ot-date-picker')
-    .getByRole('button', { name: 'Anytime', exact: true })
+    .getByRole('button', { name: 'Clear schedule', exact: true })
     .click();
   assert.notEqual(await border(), 'dashed');
   await row().locator('.ot-title-input').press('Enter');

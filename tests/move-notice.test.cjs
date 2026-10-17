@@ -36,6 +36,14 @@ test('filing names the note and explicit list moves name the chosen destination'
   );
 });
 
+test('move notices ignore preserved waiting flags while the feature is disabled', () => {
+  const before = task({ is_waiting: true });
+  const after = task({ is_waiting: true, when: 'anytime' });
+  const text = moveMessage(before, after, { enableWaiting: false }, day);
+  assert.match(text, /Anytime/);
+  assert.doesNotMatch(text, /Waiting/);
+});
+
 test('rapid move notices replace their predecessor and unload dismisses the final notice', () => {
   const fs = require('node:fs'),
     vm = require('node:vm');

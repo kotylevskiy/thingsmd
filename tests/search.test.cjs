@@ -42,3 +42,17 @@ test('Quick Find respects hidden Inbox/Trash and ranks exact titles first', () =
   );
   assert.equal(search([task('train'), task('train tickets')], 'train', opts)[0].title, 'train');
 });
+
+test('disabled Waiting For disappears from search and waiting tasks use ordinary contexts', () => {
+  const options = { ...opts, settings: { enableWaiting: false } };
+  const rows = [
+    task('Unfiled', { is_waiting: true }),
+    task('Actionable', { when: 'anytime', is_waiting: true }),
+  ];
+  assert.equal(
+    search(rows, '', options).some((result) => result.page === 'waiting'),
+    false,
+  );
+  assert.equal(search(rows, 'Unfiled', options)[0].page, 'inbox');
+  assert.equal(search(rows, 'Actionable', options)[0].page, 'anytime');
+});

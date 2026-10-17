@@ -1,226 +1,430 @@
-const { dayKey, parseDate } = require('./local-date.cjs');
-function datePicker(pop, { kind, value, onSelect, setIcon, inline = false, allowClear = true }) {
+const { dayKey, date, addDays, parseDate } = require('./local-date.cjs');
+const { firstWeekday, calendarDays, dateSuggestions } = require('./date-picker-model.cjs');
+
+function datePicker(
+  pop,
+  {
+    kind,
+    value,
+    onSelect,
+    setIcon,
+    inline = false,
+    allowClear = true,
+    dateOnly = false,
+    anchor = pop.ownerDocument.activeElement,
+  },
+) {
   const doc = pop.ownerDocument;
+  const win = doc.defaultView;
+  const mobile =
+    doc.body.classList.contains('is-mobile') || win.matchMedia('(pointer: coarse)').matches;
   const now = new Date();
   const today = dayKey(now);
-  const initial = parseDate(value || '') || today;
-  const [y, m] = initial.split('-').map(Number);
-  let month = new Date(y, m - 1, 1, 12);
+  const selected = value === 'today' || value === 'evening' ? today : parseDate(value || '');
+  const initial = selected || today;
+  const weekStart = firstWeekday();
+  const weekdaysFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
+  const monthFormat = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
+  const shortMonthFormat = new Intl.DateTimeFormat(undefined, { month: 'short' });
+  const fullDateFormat = new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  const compactKeys = calendarDays(today, 28, weekStart);
+  let compact = kind === 'when' && (!selected || compactKeys.slice(0, -1).includes(selected));
+  let month = new Date(date(initial).getFullYear(), date(initial).getMonth(), 1, 12);
+  let calendarStart = addDays(initial, -56);
+  let visibleDate = initial,
+    visibleOffset = 0;
   let focused = initial;
+  let frame;
+  const row = pop.closest('.ot-task');
+  const title = kind === 'when' ? 'When' : kind === 'deadline' ? 'Deadline' : 'Date';
   pop.empty();
   pop.addClass('ot-date-picker');
-  if (!inline) {
-    pop.setAttribute('popover', 'manual');
-    pop.showPopover();
-  }
-  pop.setAttribute(
-    'aria-label',
-    kind === 'when' ? 'When' : kind === 'deadline' ? 'Deadline' : 'Date',
-  );
-  const row = pop.closest('.ot-task');
-  const close = () => {
+  pop.toggleClass('is-mobile-picker', mobile);
+  pop.setAttribute('aria-label', title);
+  const events = new win.AbortController();
+  let observer, resizeObserver, layer;
+  const dispose = () => {
+    events.abort();
+    observer?.disconnect();
+    resizeObserver?.disconnect();
+    win.cancelAnimationFrame(frame);
+  };
+  const close = (restoreFocus = true) => {
+    dispose();
     pop.remove();
-    row?.querySelector('.ot-title-input')?.focus({ preventScroll: true });
+    layer?.close();
+    layer?.remove();
+    if (restoreFocus && !inline) {
+      const target = mobile ? anchor : row?.querySelector('.ot-title-input') || anchor;
+      if (target?.isConnected) target.focus({ preventScroll: true });
+    }
   };
   pop.close = close;
-  const choose = (date) => {
-    onSelect(kind === 'when' && date === today ? 'today' : date);
+  const choose = (key) => {
+    onSelect(kind === 'when' && key === today ? 'today' : key);
     if (!inline) close();
   };
-  const makeButton = (parent, text, cls, action, label) => {
-    const b = parent.createEl('button', {
+  const button = (parent, text, cls, action, label) => {
+    const control = parent.createEl('button', {
       text,
       cls,
       attr: { type: 'button', ...(label ? { 'aria-label': label } : {}) },
     });
-    b.onclick = action;
-    return b;
+    control.onclick = action;
+    return control;
   };
-  const top = pop.createDiv('ot-date-search');
-  const glyph = top.createSpan('ot-date-glyph');
-  setIcon(glyph, kind === 'when' ? 'calendar-days' : 'flag');
-  const input = top.createEl('input', {
+  const header = pop.createDiv('ot-date-header');
+  header.createSpan({ text: title === 'When' ? 'When?' : title });
+  button(header, 'Cancel', 'ot-date-cancel', () => close(), 'Cancel date selection');
+  const search = pop.createDiv('ot-date-search');
+  setIcon(search.createSpan('ot-date-glyph'), 'search');
+  const input = search.createEl('input', {
     attr: {
       type: 'text',
-      'aria-label': kind === 'when' ? 'When date' : kind === 'deadline' ? 'Deadline date' : 'Date',
-      placeholder: kind === 'when' ? 'When?' : kind === 'deadline' ? 'Deadline?' : 'Choose a date',
+      'aria-label': title === 'Date' ? 'Date' : `${title} date`,
+      placeholder: 'Search',
       autocomplete: 'off',
+      enterkeyhint: 'done',
     },
   });
-  const clear = makeButton(top, '', 'ot-date-clear', () => choose(null), 'Clear date');
-  setIcon(clear, 'x');
-  clear.hidden = !value || !allowClear;
+  const clearQuery = button(
+    search,
+    '',
+    'ot-date-clear',
+    () => {
+      input.value = '';
+      searchDates();
+      input.focus();
+    },
+    'Clear search',
+  );
+  setIcon(clearQuery, 'x');
+  clearQuery.hidden = true;
   const result = pop.createDiv({ cls: 'ot-date-result', attr: { 'aria-live': 'polite' } });
   result.hidden = true;
-  const quick = pop.createDiv('ot-date-quick');
-  const option = (label, icon, offset) => {
-    const target = dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 12));
-    const b = makeButton(quick, '', 'ot-date-shortcut', () => choose(target));
-    if (offset === 0 && kind === 'when')
-      b.setAttribute(
-        'aria-pressed',
-        String(value === 'today' || (/^\d{4}-\d{2}-\d{2}$/.test(value || '') && value <= today)),
-      );
-    const i = b.createSpan(`ot-quick-icon ot-quick-${icon}`);
-    setIcon(i, icon);
-    b.createSpan({ text: label });
-    b.createSpan({
-      cls: 'ot-quick-hint',
-      text: new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(
-        new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset, 12),
-      ),
-    });
+  const body = pop.createDiv('ot-date-body');
+  const shortcut = (parent, label, icon, key) => {
+    const control = button(parent, '', 'ot-date-shortcut', () => choose(key), label);
+    setIcon(control.createSpan(`ot-quick-icon ot-quick-${icon}`), icon);
+    control.createSpan({ text: label });
+    control.setAttribute('aria-pressed', String(key === value));
   };
-  option('Today', kind === 'when' ? 'star' : 'flag', 0);
-  if (kind === 'when') {
-    const b = makeButton(quick, '', 'ot-date-shortcut', () => choose('evening'));
-    setIcon(b.createSpan('ot-quick-icon'), 'moon');
-    b.createSpan({ text: 'This Evening' });
-    b.setAttribute('aria-pressed', String(value === 'evening'));
+  if (kind === 'when' && !dateOnly) {
+    const quick = body.createDiv('ot-date-quick');
+    shortcut(quick, 'Today', 'star', 'today');
+    shortcut(quick, 'This Evening', 'moon', 'evening');
   }
-  option('Tomorrow', 'sunrise', 1);
-  option('Next week', 'calendar-days', 7);
-  if (kind === 'when')
-    for (const [key, label, icon] of [
-      ['anytime', 'Anytime', 'layers'],
-      ['someday', 'Someday', 'archive'],
-    ]) {
-      const b = makeButton(quick, '', 'ot-date-shortcut', () => choose(key));
-      const glyph = b.createSpan('ot-quick-icon');
-      setIcon(glyph, icon);
-      b.createSpan({ text: label });
-      b.setAttribute('aria-pressed', String(value === key));
-    }
-  const calendar = pop.createDiv('ot-calendar');
+  const calendar = body.createDiv('ot-calendar');
   const heading = calendar.createDiv('ot-calendar-heading');
   const monthLabel = heading.createSpan({
     cls: 'ot-calendar-month',
     attr: { 'aria-live': 'polite' },
   });
   const nav = heading.createDiv('ot-calendar-nav');
-  const previous = makeButton(nav, '', '', () => changeMonth(-1), 'Previous month');
-  setIcon(previous, 'chevron-left');
-  const next = makeButton(nav, '', '', () => changeMonth(1), 'Next month');
-  setIcon(next, 'chevron-right');
+  setIcon(
+    button(nav, '', '', () => changeMonth(-1), 'Previous month'),
+    'chevron-left',
+  );
+  setIcon(
+    button(nav, '', '', () => changeMonth(1), 'Next month'),
+    'chevron-right',
+  );
   const weekdays = calendar.createDiv({
     cls: 'ot-calendar-weekdays',
     attr: { 'aria-hidden': 'true' },
   });
   for (let i = 0; i < 7; i++)
     weekdays.createSpan({
-      text: new Intl.DateTimeFormat(undefined, { weekday: 'narrow' }).format(
-        new Date(2024, 0, 1 + i),
-      ),
+      text: weekdaysFormat.format(new Date(2024, 0, 7 + weekStart + i, 12)),
     });
-  const grid = calendar.createDiv({
+  const scroll = calendar.createDiv('ot-calendar-scroll');
+  const grid = scroll.createDiv({
     cls: 'ot-calendar-grid',
     attr: { role: 'group', 'aria-label': 'Choose a date' },
   });
-  const fullDate = (key) => {
-    const [a, b, c] = key.split('-').map(Number);
-    return new Intl.DateTimeFormat(undefined, {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(new Date(a, b - 1, c, 12));
-  };
-  function draw() {
-    monthLabel.textContent = new Intl.DateTimeFormat(undefined, {
-      month: 'long',
-      year: 'numeric',
-    }).format(month);
+  const fullDate = (key) => fullDateFormat.format(date(key));
+  function draw(visible = focused, offset = 0) {
+    const restoreFocus = grid.contains(doc.activeElement);
+    const focusedDay = doc.activeElement?.dataset.date;
+    pop.toggleClass('is-compact-calendar', compact);
+    heading.hidden = compact;
+    showMonth(visible);
     grid.empty();
-    const offset = (month.getDay() + 6) % 7;
-    const start = new Date(month.getFullYear(), month.getMonth(), 1 - offset, 12);
-    for (let i = 0; i < 42; i++) {
-      const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i, 12);
-      const key = dayKey(date);
-      const b = makeButton(
-        grid,
-        String(date.getDate()),
-        'ot-calendar-day',
-        () => choose(key),
-        fullDate(key),
-      );
-      b.dataset.date = key;
-      b.tabIndex = key === focused ? 0 : -1;
-      b.toggleClass('is-outside', date.getMonth() !== month.getMonth());
-      b.toggleClass('is-today', key === today);
-      b.toggleClass('is-picked', key === (value === 'today' ? today : value));
-      b.setAttribute('aria-pressed', String(key === (value === 'today' ? today : value)));
-      if (key === today) b.setAttribute('aria-current', 'date');
-      b.onkeydown = (e) => {
-        const offsets = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
-        if (!(e.key in offsets)) return;
-        e.preventDefault();
-        e.stopPropagation();
-        const moved = new Date(
-          date.getFullYear(),
-          date.getMonth(),
-          date.getDate() + offsets[e.key],
-          12,
+    // Expanded calendars scroll through weeks continuously across month boundaries.
+    const days = compact ? compactKeys : calendarDays(calendarStart, 182, weekStart);
+    if (!days.includes(focused)) focused = visible;
+    for (let i = 0; i < days.length; i++) {
+      const key = days[i];
+      if (compact && key < today) {
+        grid.createSpan('ot-calendar-blank');
+        continue;
+      }
+      if (compact && i === days.length - 1) {
+        setIcon(
+          button(
+            grid,
+            '',
+            'ot-calendar-expand',
+            () => {
+              compact = false;
+              draw();
+            },
+            'Show full calendar',
+          ),
+          'chevron-right',
         );
-        focused = dayKey(moved);
-        month = new Date(moved.getFullYear(), moved.getMonth(), 1, 12);
+        continue;
+      }
+      const day = date(key);
+      const control = button(grid, '', 'ot-calendar-day', () => choose(key), fullDate(key));
+      if (compact && key === today) setIcon(control, 'star');
+      else {
+        if (day.getDate() === 1)
+          control.createSpan({
+            cls: 'ot-calendar-boundary',
+            text: shortMonthFormat.format(day),
+          });
+        control.createSpan({ text: String(day.getDate()) });
+      }
+      control.dataset.date = key;
+      control.tabIndex = key === focused ? 0 : -1;
+      control.toggleClass('is-past', key < today);
+      control.toggleClass('is-month-start', day.getDate() === 1);
+      control.toggleClass('is-today', key === today);
+      control.toggleClass('is-picked', key === selected);
+      control.setAttribute('aria-pressed', String(key === selected));
+      if (key === today) control.setAttribute('aria-current', 'date');
+      control.onkeydown = (event) => {
+        const offsets = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+        if (!(event.key in offsets)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        focused = addDays(key, offsets[event.key]);
+        if (!compact || focused < today || focused >= compactKeys.at(-1)) {
+          compact = false;
+          const moved = date(focused);
+          month = new Date(moved.getFullYear(), moved.getMonth(), 1, 12);
+          calendarStart = addDays(focused, -56);
+        }
         draw();
-        grid.querySelector(`[data-date="${focused}"]`).focus();
+        grid.querySelector(`[data-date="${focused}"]`)?.focus();
       };
     }
+    if (!compact) {
+      const day = grid.querySelector(`[data-date="${visible}"]`);
+      if (day) scroll.scrollTop = day.offsetTop + offset;
+      visibleDate = visible;
+      visibleOffset = offset;
+    }
+    // Expanding or rebasing replaces the focused day/arrow. Keep focus inside
+    // the picker so native note cards do not interpret that redraw as a blur.
+    if (restoreFocus)
+      (
+        grid.querySelector(`[data-date="${focusedDay || visible}"]`) || grid.querySelector('button')
+      )?.focus({ preventScroll: true });
+    positionSoon();
+  }
+  scroll.onscroll = () => {
+    if (compact || body.hidden || !scroll.clientHeight) return;
+    const rowHeight = grid.querySelector('button').offsetHeight + 2;
+    const keys = [...grid.querySelectorAll('[data-date]')];
+    const first = keys[Math.floor(scroll.scrollTop / rowHeight) * 7]?.dataset.date;
+    if (!first) return;
+    visibleDate = first;
+    visibleOffset = scroll.scrollTop % rowHeight;
+    showMonth(first);
+    if (scroll.scrollTop < 1 || scroll.scrollTop + scroll.clientHeight >= scroll.scrollHeight - 1) {
+      // Rebase a bounded set of weeks, preserving the visible row. This lets
+      // wheel/touch scrolling continue in either direction without a huge DOM.
+      const offset = scroll.scrollTop % rowHeight;
+      calendarStart = addDays(first, -56);
+      draw(first, offset);
+    }
+  };
+  function showMonth(key) {
+    const visible = date(calendarDays(key, 7, weekStart).at(-1));
+    month = new Date(visible.getFullYear(), visible.getMonth(), 1, 12);
+    monthLabel.textContent = monthFormat.format(month);
   }
   function changeMonth(step) {
+    compact = false;
     month = new Date(month.getFullYear(), month.getMonth() + step, 1, 12);
     focused = dayKey(month);
+    calendarStart = addDays(focused, -56);
     draw();
   }
-  draw();
-  if (value && allowClear) {
-    const bottom = pop.createDiv('ot-date-bottom');
-    makeButton(
+  if (kind === 'when' && !dateOnly) shortcut(body, 'Someday', 'archive', 'someday');
+  if (allowClear && value && (kind !== 'when' || !['anytime', 'inbox'].includes(value))) {
+    const bottom = body.createDiv('ot-date-bottom');
+    button(
       bottom,
-      kind === 'when' ? 'Clear schedule' : 'Remove deadline',
+      'Clear',
       'ot-date-remove',
       () => choose(null),
+      kind === 'when' ? 'Clear schedule' : kind === 'deadline' ? 'Remove deadline' : 'Clear date',
     );
   }
-  pop.createDiv({ cls: 'ot-date-help', text: 'Today, tomorrow, YYYY-MM-DD or DD.MM.YYYY' });
-  input.oninput = () => {
+  const revealSearch = () => {
+    search.hidden = false;
+    reveal.hidden = true;
+    input.focus();
+    positionSoon();
+  };
+  const reveal = button(header, '', 'ot-date-reveal', revealSearch, 'Search dates');
+  setIcon(reveal, 'search');
+  search.hidden = mobile;
+  reveal.hidden = !mobile;
+  let pull;
+  header.onpointerdown = (event) => {
+    if (mobile && search.hidden && !event.target.closest('button'))
+      pull = { x: event.clientX, y: event.clientY };
+  };
+  pop.onpointerup = (event) => {
+    if (pull && event.clientY - pull.y > 40 && Math.abs(event.clientX - pull.x) < 30) {
+      event.preventDefault();
+      revealSearch();
+    }
+    pull = null;
+  };
+  pop.onpointercancel = () => {
+    pull = null;
+  };
+  let candidates = [],
+    matchIndex = 0;
+  function searchDates() {
+    const querying = !!input.value.trim();
+    candidates = dateSuggestions(input.value, now);
+    matchIndex = 0;
     result.empty();
-    result.hidden = !input.value.trim();
-    const date = parseDate(input.value, now);
-    if (date) makeButton(result, fullDate(date), 'ot-date-match', () => choose(date));
-    else result.createSpan({ text: 'Enter a date, e.g. 24.10.2026', cls: 'ot-date-invalid' });
-    input.setAttribute('aria-invalid', String(!!input.value && !date));
-  };
-  input.onkeydown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      e.stopPropagation();
-      const date = parseDate(input.value, now);
-      if (date) choose(date);
-      else input.oninput();
+    result.hidden = !querying;
+    body.hidden = querying;
+    if (!querying && !compact) {
+      const day = grid.querySelector(`[data-date="${visibleDate}"]`);
+      if (day) scroll.scrollTop = day.offsetTop + visibleOffset;
     }
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      grid.querySelector('[tabindex="0"]')?.focus();
+    clearQuery.hidden = !querying;
+    input.setAttribute('aria-invalid', String(querying && !candidates.length));
+    for (const [index, candidate] of candidates.entries()) {
+      const control = button(result, '', 'ot-date-match', () => choose(candidate.date));
+      control.createSpan({ text: candidate.label });
+      control.createSpan({ text: fullDate(candidate.date), cls: 'ot-date-match-detail' });
+      control.toggleClass('is-active', index === matchIndex);
+    }
+    if (querying && !candidates.length)
+      result.createSpan({ text: 'No matching date', cls: 'ot-date-invalid' });
+    positionSoon();
+  }
+  input.oninput = searchDates;
+  input.onkeydown = (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (candidates[matchIndex]) choose(candidates[matchIndex].date);
+      else searchDates();
+    } else if (['ArrowDown', 'ArrowUp'].includes(event.key)) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!candidates.length) grid.querySelector('[tabindex="0"]')?.focus();
+      else {
+        matchIndex =
+          (matchIndex + (event.key === 'ArrowDown' ? 1 : -1) + candidates.length) %
+          candidates.length;
+        result
+          .querySelectorAll('.ot-date-match')
+          .forEach((control, i) => control.toggleClass('is-active', i === matchIndex));
+      }
     }
   };
-  // Focus immediately: deferred positioning must not steal focus back from
-  // a calendar day after the user has already started keyboard navigation.
-  input.focus({ preventScroll: true });
-  // Keep the popover within the editor viewport, including short windows.
-  if (inline) return;
-  requestAnimationFrame(() => {
-    if (!pop.isConnected) return;
-    const bounds = row.getBoundingClientRect();
-    const height = pop.offsetHeight;
-    const win = doc.defaultView;
-    pop.style.position = 'fixed';
-    pop.style.bottom = 'auto';
-    pop.style.right = 'auto';
-    pop.style.maxHeight = `${win.innerHeight - 24}px`;
-    pop.style.left = `${Math.max(8, Math.min(bounds.right - pop.offsetWidth, win.innerWidth - pop.offsetWidth - 8))}px`;
-    pop.style.top = `${Math.max(8, Math.min(bounds.bottom + height + 10 < win.innerHeight ? bounds.bottom - 8 : bounds.top - height + 12, win.innerHeight - height - 8))}px`;
-  });
+  function position() {
+    if (inline || !pop.isConnected) return;
+    const viewport = win.visualViewport;
+    const top = viewport?.offsetTop || 0,
+      left = viewport?.offsetLeft || 0;
+    const width = viewport?.width || win.innerWidth,
+      height = viewport?.height || win.innerHeight;
+    const bounds = (
+      anchor?.closest?.('button') ||
+      row ||
+      pop.parentElement
+    ).getBoundingClientRect();
+    pop.style.maxHeight = `${height - 16}px`;
+    pop.style.maxWidth = `${width - 16}px`;
+    let x = mobile
+      ? left + (width - pop.offsetWidth) / 2
+      : Math.min(bounds.right - pop.offsetWidth, left + width - pop.offsetWidth - 8);
+    let y = mobile
+      ? top + Math.min(60, Math.max(8, (height - pop.offsetHeight) / 3))
+      : bounds.bottom + 8 + pop.offsetHeight <= top + height
+        ? bounds.bottom + 8
+        : bounds.top - pop.offsetHeight - 8;
+    if (!mobile && y < top + 8 && bounds.bottom + pop.offsetHeight + 8 > top + height) {
+      if (bounds.left - pop.offsetWidth - 8 >= left + 8) x = bounds.left - pop.offsetWidth - 8;
+      else if (bounds.right + pop.offsetWidth + 8 <= left + width - 8) x = bounds.right + 8;
+      y = bounds.top;
+    }
+    pop.style.left = `${Math.max(left + 8, x)}px`;
+    pop.style.top = `${Math.max(top + 8, Math.min(y, top + height - pop.offsetHeight - 8))}px`;
+  }
+  function positionSoon() {
+    if (!inline) {
+      win.cancelAnimationFrame(frame);
+      frame = win.requestAnimationFrame(position);
+    }
+  }
+  draw();
+  if (!inline) {
+    pop.setAttribute('popover', 'manual');
+    if (typeof pop.showPopover === 'function') pop.showPopover();
+    else {
+      // Some embedded WebKit builds lack Popover API support. A dialog keeps
+      // the same control in the top layer without clipping it to the editor.
+      pop.removeAttribute('popover');
+      layer = doc.createElement('dialog');
+      layer.className = 'ot-date-layer';
+      pop.before(layer);
+      layer.append(pop);
+      if (mobile) {
+        pop.tabIndex = -1;
+        pop.setAttribute('autofocus', '');
+      }
+      layer.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        close();
+      });
+      layer.showModal();
+    }
+    for (const type of ['resize', 'scroll'])
+      win.visualViewport?.addEventListener(type, positionSoon, { signal: events.signal });
+    win.addEventListener('resize', positionSoon, { signal: events.signal });
+    for (const type of ['pointerdown', 'mousedown', 'touchstart'])
+      doc.addEventListener(
+        type,
+        (event) => {
+          if (!pop.contains(event.target) && !anchor?.contains(event.target)) close(false);
+        },
+        { capture: true, signal: events.signal },
+      );
+    // Hosts also remove editors directly during navigation or plugin unload.
+    observer = new win.MutationObserver(() => {
+      if (!pop.isConnected) {
+        dispose();
+        layer?.remove();
+      }
+    });
+    observer.observe(doc.body, { childList: true, subtree: true });
+    resizeObserver = new win.ResizeObserver(positionSoon);
+    resizeObserver.observe(pop);
+    position();
+  }
+  if (mobile) {
+    anchor?.blur();
+    pop.tabIndex = -1;
+    pop.focus({ preventScroll: true });
+  } else input.focus({ preventScroll: true });
 }
 module.exports = { datePicker };

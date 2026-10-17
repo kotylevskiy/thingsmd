@@ -21,8 +21,24 @@ class TaskCapture extends Modal {
     this.modalEl.setAttribute('aria-label', 'New task');
     // Obsidian normally closes modals from backdrop mouse/touch handlers.
     // Intercept only this capture's backdrop before those handlers run.
-    this.backdropEvents = new AbortController();
+    this.captureEvents = new AbortController();
     const container = this.containerEl || this.modalEl.parentElement;
+    container.addClass('ot-capture-container');
+    const win = this.contentEl.ownerDocument.defaultView;
+    const viewport = win.visualViewport;
+    // iOS can shrink/pan only the visible viewport when its keyboard opens.
+    // Keep the entire capture, including its fixed controls, inside that area.
+    const resize = () => {
+      container.style.setProperty('--ot-capture-top', `${viewport?.offsetTop || 0}px`);
+      container.style.setProperty(
+        '--ot-capture-height',
+        `${viewport?.height || win.innerHeight}px`,
+      );
+    };
+    resize();
+    for (const type of ['resize', 'scroll'])
+      viewport?.addEventListener(type, resize, { signal: this.captureEvents.signal });
+    win.addEventListener('resize', resize, { signal: this.captureEvents.signal });
     for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend'])
       container.addEventListener(
         type,
@@ -31,7 +47,7 @@ class TaskCapture extends Modal {
           event.preventDefault();
           event.stopImmediatePropagation();
         },
-        { capture: true, passive: false, signal: this.backdropEvents.signal },
+        { capture: true, passive: false, signal: this.captureEvents.signal },
       );
     const row = this.contentEl.createDiv('ot-task is-expanded');
     const line = row.createDiv('ot-task-line');
@@ -55,23 +71,16 @@ class TaskCapture extends Modal {
       this.save();
       return false;
     });
-    const dismiss = () => {
-      if (!closePopover(this.contentEl)) this.close();
-    };
-    this.scope.register([], 'Escape', () => {
-      dismiss();
-      return false;
-    });
+    this.scope.register([], 'Escape', (event) => this.onEscapeKey(event));
     this.scope.register(['Mod'], 'Enter', () => {
       this.save();
       return false;
     });
     const taskKeydown = row.onkeydown;
     row.onkeydown = (event) => {
+      if (event.defaultPrevented) return;
       if (event.key === 'Escape') {
-        event.preventDefault();
-        event.stopPropagation();
-        dismiss();
+        this.onEscapeKey(event);
       } else taskKeydown(event);
     };
     const actions = this.contentEl.createDiv('ot-capture-actions');
@@ -81,6 +90,14 @@ class TaskCapture extends Modal {
       this.completed = check.checked;
     };
     queueMicrotask(() => line.querySelector('.ot-title-input')?.focus());
+  }
+  onEscapeKey(event) {
+    // Obsidian registers its own Escape binding before custom scope bindings.
+    // Override that entry point and consume the event once, before it bubbles.
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (!closePopover(this.contentEl)) this.close();
+    return false;
   }
   close() {
     if (this.saving) return this.saving;
@@ -162,7 +179,7 @@ class TaskCapture extends Modal {
     return this.saving;
   }
   onClose() {
-    this.backdropEvents?.abort();
+    this.captureEvents?.abort();
     this.card?.cancelChecklistDrag?.();
     this.contentEl.empty();
     this.plugin.captureModal = null;

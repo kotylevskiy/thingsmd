@@ -10,7 +10,7 @@ module.exports = function nativeTaskCard(
   plugin,
   path,
   view,
-  { lookup, isHidden, pendingWrites, openOnCreate, onSaved, onMount, onDispose },
+  { lookup, isHidden, pendingCreations, openOnCreate, onSaved, onMount, onDispose },
 ) {
   const root = document.createElement('div');
   root.className = 'ot-root ot-native';
@@ -19,7 +19,8 @@ module.exports = function nativeTaskCard(
   // Keep native Reading-view pointer gestures from switching to the note editor.
   for (const event of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick'])
     root.addEventListener(event, (e) => e.stopPropagation());
-  const card = new TaskEditor(plugin, root, async () => {
+  const card = new TaskEditor(plugin, root, async (render, task) => {
+    if (task) onSaved(task);
     if (card.scope) {
       plugin.app.keymap.popScope(card.scope);
       card.scope = null;
@@ -28,11 +29,12 @@ module.exports = function nativeTaskCard(
     await card.render();
   });
   card.render = async () => {
+    card.refreshSettings();
     if (card.taskDraft) return;
     const task = lookup(path);
     card.currentTask = task;
     const signature = task
-      ? JSON.stringify([task.meta, task.body, isHidden(task.meta)])
+      ? JSON.stringify([task.meta, task.body, isHidden(task.meta), plugin.settings.enableWaiting])
       : 'missing';
     if (card.signature === signature && root.childElementCount) return;
     card.signature = signature;
@@ -68,7 +70,7 @@ module.exports = function nativeTaskCard(
       text: task.meta.title || 'New task',
       attr: { id: labelId },
     });
-    taskIndicators(line, task);
+    taskIndicators(line, task, undefined, plugin.settings.enableWaiting);
     const open = () => {
       if (card.taskDraft) return;
       // Keep Obsidian's link-opening shortcuts away from the hidden reference.
@@ -152,29 +154,13 @@ module.exports = function nativeTaskCard(
   };
   card.saveTaskDraft = async () => {
     try {
-      await pendingWrites.get(path);
+      await pendingCreations.get(path)?.();
       if (card.taskDraft) card.taskDraft.task.file = lookup(path).file;
       return await TaskEditor.prototype.saveTaskDraft.call(card);
     } catch (error) {
       new Notice(error.message);
       return false;
     }
-  };
-  card.finishTask = async () => {
-    if (!(await card.flushTaskDraft())) return false;
-    if (card.taskDraft) {
-      const updated = card.taskDraft.task;
-      onSaved(updated);
-    }
-    if (card.scope) {
-      plugin.app.keymap.popScope(card.scope);
-      card.scope = null;
-    }
-    card.taskDraft = null;
-    card.editing = false;
-    card.signature = null;
-    await card.render();
-    return true;
   };
   const blur = () =>
     setTimeout(() => {

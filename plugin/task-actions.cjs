@@ -1,4 +1,4 @@
-const { normalizeSchedule } = require('./task-schedule.cjs');
+const { normalizeSchedule, applySchedulePolicy } = require('./task-schedule.cjs');
 
 // Application actions coordinate storage, repeat rules and user decisions.
 // Views call these commands; the repository remains responsible only for files.
@@ -20,7 +20,10 @@ const actions = {
         );
       patch = { ...patch };
       delete patch.when;
-      if (decision === 'cancel') delete patch.evening;
+      if (decision === 'cancel') {
+        delete patch.evening;
+        delete patch.deadlineDeferredOn;
+      }
     }
     if (task.meta.repeatSource && Object.hasOwn(patch, 'when') && patch.when !== task.meta.when) {
       const template = (await this.taskRecords()).find((t) => t.meta.id === task.meta.repeatSource);
@@ -31,20 +34,27 @@ const actions = {
           patch = { ...patch };
           delete patch.when;
           delete patch.evening;
+          delete patch.deadlineDeferredOn;
         }
       }
     }
+    // Derive placement only after the user accepts or cancels rescheduling.
+    patch = applySchedulePolicy(task.meta, patch);
     if (Object.hasOwn(patch, 'status') && !Object.hasOwn(patch, 'completed'))
       patch = { ...patch, completed: patch.status === 'done' ? new Date().toISOString() : null };
     if (Object.hasOwn(patch, 'status')) patch = { ...patch, loggedAt: null };
     let before;
     const saved = await this.update(task.file, (current) => {
       before = { ...task, ...current };
-      for (const key of Object.keys(patch))
+      for (const key of Object.keys(patch)) {
+        // Changing completion always resets logging. A background archive stamp
+        // must not block that intent; status and completion time still conflict.
+        if (key === 'loggedAt' && Object.hasOwn(patch, 'status')) continue;
         if (JSON.stringify(current.meta[key] ?? null) !== JSON.stringify(task.meta[key] ?? null))
           throw new Error(
             'This task changed elsewhere. Your draft is still open; copy it before refreshing.',
           );
+      }
       if (body !== undefined && current.body !== task.body)
         throw new Error(
           'Task notes changed elsewhere. Your draft is still open; copy it before refreshing.',

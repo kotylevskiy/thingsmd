@@ -12,6 +12,8 @@ test('hidden list fallbacks resolve consistently for navigation and restored lay
   assert.equal(isListAvailable('trash', settings), false);
   assert.equal(resolveList('waiting', settings), 'waiting');
   assert.equal(resolveList('unknown', {}), 'inbox');
+  assert.equal(isListAvailable('waiting', { enableWaiting: false }), false);
+  assert.equal(resolveList('waiting', { enableWaiting: false }), 'anytime');
 });
 
 test('schedule normalization clears stale evening flags and leaves unrelated edits alone', () => {

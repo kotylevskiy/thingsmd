@@ -48,8 +48,8 @@ try {
     assert.equal(editorMarkers, 0, 'Editor only shows the bottom waiting control');
     assert.equal(
       await row.locator('.ot-waiting-marker').count(),
-      1,
-      'Collapsed task retains its waiting marker',
+      mode === 'waiting' ? 0 : 1,
+      'Waiting For supplies its own context; native collapsed tasks retain the badge',
     );
     const saved = await page.evaluate(
       async (id) =>

@@ -28,17 +28,21 @@
   justify-content: space-between;
   align-items: center;
   gap: var(--size-4-4);
+  margin-bottom: var(--size-4-6);
 }
 .ot-list-heading .inline-title {
   flex: 1;
   min-width: 0;
   margin-top: 0;
+  margin-bottom: 0;
 }
 .ot-paper h2 {
-  font-size: 19px;
+  font-size: var(--font-ui-small);
   letter-spacing: -0.3px;
-  font-weight: 650;
-  margin: 0 0 calc(var(--size-4-1) * 2.5);
+  font-weight: 600;
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: var(--size-4-1);
+  margin: 0 0 var(--size-4-2);
 }
 .ot-section + .ot-section {
   margin-top: calc(var(--size-4-1) * 7.5);
@@ -215,10 +219,12 @@
   border-top: 1px solid var(--background-modifier-border);
   min-height: 31px;
 }
-.ot-checklist-row input[type='checkbox'] {
+.ot-checklist-row > input[type='checkbox'] {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin: 0;
   border-radius: 50%;
-  height: 13px;
-  width: 13px;
 }
 .ot-checklist-row input:not([type='checkbox']) {
   background: transparent;
@@ -277,9 +283,6 @@
   .ot-shell {
     flex-direction: column;
   }
-  .ot-paper {
-    padding: calc(var(--size-4-1) * 6.25) calc(var(--size-4-1) * 4.5) var(--size-4-4);
-  }
   .ot-task-editor {
     padding: 0 calc(var(--size-4-1) * 2.5) 0 calc(15px + var(--size-4-2) * 2 + var(--size-2-1) * 2);
   }
@@ -293,6 +296,13 @@
 .ot-native .ot-task {
   margin: 0;
 }
+.ot-date-picker.is-mobile-picker .ot-calendar-scroll {
+  max-height: 376px;
+}
+.ot-date-picker.is-mobile-picker.is-compact-calendar .ot-calendar-scroll {
+  max-height: none;
+}
+
 .ot-native .ot-task:focus {
   background: var(--background-modifier-hover);
   outline: none;
@@ -309,19 +319,49 @@
   display: none !important;
 }
 
+.ot-date-layer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+.ot-date-layer::backdrop {
+  background: transparent;
+}
+/* Shared When, Deadline and repeat calendars. */
+.ot-date-picker {
+  color: var(--text-normal);
+  font-size: 14px;
+}
 .ot-popover.ot-date-picker {
-  width: 290px;
-  padding: var(--size-4-2);
+  width: 300px;
+  padding: 8px;
   border-radius: 12px;
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border-hover);
   box-shadow:
-    0 16px 48px #0003,
-    0 3px 10px #0002;
+    0 12px 36px #0003,
+    0 2px 8px #0002;
   z-index: 50;
   overflow-y: auto;
-  color: var(--text-normal);
-  font-size: 13px;
+}
+.ot-popover.ot-date-picker[popover],
+.ot-date-layer > .ot-date-picker {
+  position: fixed;
+  margin: 0;
+  inset: auto;
+  max-width: calc(100vw - 16px);
+}
+.ot-date-picker [hidden] {
+  display: none !important;
 }
 .ot-date-picker button {
   box-shadow: none;
@@ -331,15 +371,29 @@
   font: inherit;
   cursor: pointer;
 }
+.ot-date-picker button:hover {
+  background: var(--background-modifier-hover);
+}
+.ot-date-picker button:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+.ot-date-header {
+  display: none;
+}
 .ot-date-search {
   display: flex;
   align-items: center;
-  gap: var(--size-4-2);
-  padding: calc(var(--size-4-1) * 0.75) calc(var(--size-4-1) * 1.25) calc(var(--size-4-1) * 2.25);
+  gap: 8px;
+  padding: 2px 8px 6px;
   border-bottom: 1px solid var(--background-modifier-border);
+  margin-bottom: 4px;
+}
+.ot-date-glyph,
+.ot-quick-icon {
+  display: flex;
 }
 .ot-date-glyph {
-  display: flex;
   color: var(--text-muted);
 }
 .ot-date-glyph svg {
@@ -358,159 +412,240 @@
 }
 .ot-date-picker .ot-date-clear {
   display: flex;
-  padding: calc(var(--size-4-1) * 0.75);
-  height: 22px;
-  color: var(--text-faint);
-}
-.ot-date-clear[hidden] {
-  display: none;
+  padding: 3px;
+  height: 24px;
+  color: var(--text-muted);
 }
 .ot-date-clear svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
 }
 .ot-date-quick {
-  padding: var(--size-2-3) 0;
+  padding: 2px 0 4px;
 }
 .ot-date-picker .ot-date-shortcut {
   display: flex;
   width: 100%;
   align-items: center;
   justify-content: flex-start;
-  gap: calc(var(--size-4-1) * 2.5);
-  padding: calc(var(--size-4-1) * 1.75) calc(var(--size-4-1) * 2.25);
+  gap: 10px;
+  padding: 6px 9px;
   height: 34px;
   border-radius: 6px;
   text-align: left;
 }
-.ot-date-picker button:hover {
-  background: var(--background-modifier-hover);
-}
-.ot-date-picker button:focus-visible {
-  outline: 2px solid var(--interactive-accent);
-  outline-offset: -2px;
-}
-.ot-quick-icon {
-  display: flex;
-}
 .ot-quick-icon svg {
-  width: 16px;
-  height: 16px;
+  width: 19px;
+  height: 19px;
 }
 .ot-quick-star {
   color: #e5b841;
 }
-.ot-quick-sunrise {
-  color: #d99b61;
+.ot-quick-star svg {
+  fill: currentColor;
 }
-.ot-quick-hint {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--text-faint);
+.ot-quick-moon {
+  color: #91add0;
+}
+.ot-quick-archive {
+  color: #bca96c;
 }
 .ot-calendar {
-  border-top: 1px solid var(--background-modifier-border);
-  padding: var(--size-4-2) var(--size-4-1) var(--size-4-1);
+  padding: 8px 4px 6px;
 }
 .ot-calendar-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 0 calc(var(--size-4-1) * 0.75) calc(var(--size-4-1) * 1.75);
+  margin: 0 3px 7px;
 }
 .ot-calendar-month {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 .ot-calendar-nav {
   display: flex;
-  gap: var(--size-2-1);
+  gap: 2px;
 }
 .ot-date-picker .ot-calendar-nav button {
   display: flex;
-  padding: var(--size-4-1);
-  width: 26px;
-  height: 26px;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  width: 30px;
+  height: 30px;
   color: var(--text-muted);
 }
 .ot-calendar-nav svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
+}
+.ot-calendar-scroll {
+  max-height: 304px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.is-compact-calendar .ot-calendar-scroll {
+  max-height: none;
+  overflow: visible;
+}
+.ot-calendar-grid {
+  position: relative;
 }
 .ot-calendar-weekdays,
 .ot-calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: var(--size-2-1);
+  gap: 2px;
 }
 .ot-calendar-weekdays {
   text-align: center;
   color: var(--text-faint);
-  font-size: 10px;
-  padding-bottom: calc(var(--size-4-1) * 1.25);
+  font-size: 11px;
+  padding-bottom: 5px;
 }
-.ot-date-picker .ot-calendar-day {
-  height: 30px;
+.ot-date-picker .ot-calendar-day,
+.ot-date-picker .ot-calendar-expand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
   padding: 0;
-  border-radius: 7px;
-  font-size: 12px;
+  border-radius: 50%;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
-.ot-date-picker .ot-calendar-day.is-outside {
+.ot-calendar-day svg,
+.ot-calendar-expand svg {
+  width: 17px;
+  height: 17px;
+}
+.ot-date-picker .ot-calendar-day.is-month-start {
+  border-radius: 0;
+  border-top: 1px solid var(--background-modifier-border);
+}
+.ot-calendar-boundary {
+  font-size: 9px;
+  line-height: 10px;
+  color: var(--text-muted);
+}
+.ot-date-picker .ot-calendar-day.is-past {
   color: var(--text-faint);
-  opacity: 0.5;
 }
 .ot-date-picker .ot-calendar-day.is-today {
   color: var(--interactive-accent);
-  font-weight: 700;
-  box-shadow: inset 0 0 0 1px var(--interactive-accent);
+  font-weight: 600;
+}
+.ot-date-picker.is-compact-calendar .ot-calendar-day.is-today {
+  color: var(--text-muted);
+}
+.ot-calendar-day.is-today svg {
+  fill: currentColor;
 }
 .ot-date-picker .ot-calendar-day.is-picked {
   background: var(--interactive-accent);
   color: var(--text-on-accent);
-  opacity: 1;
 }
 .ot-date-bottom {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--size-4-1);
   border-top: 1px solid var(--background-modifier-border);
-  padding-top: var(--size-2-3);
-  margin-top: var(--size-4-1);
+  padding-top: 4px;
+  margin-top: 4px;
 }
 .ot-date-picker .ot-date-bottom button {
-  font-size: 11px;
-  color: var(--text-muted);
-  padding: calc(var(--size-4-1) * 1.25) var(--size-4-2);
-}
-.ot-date-help {
-  color: var(--text-faint);
-  font-size: 10px;
-  padding: calc(var(--size-4-1) * 1.75) var(--size-4-2) calc(var(--size-4-1) * 0.75);
-}
-.ot-date-result {
-  padding: var(--size-2-3) 0;
-}
-.ot-date-picker .ot-date-match {
   width: 100%;
   text-align: left;
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-  padding: var(--size-4-2);
+  color: var(--text-muted);
+  padding: 6px 9px;
+}
+.ot-date-result {
+  padding: 4px 0;
+}
+.ot-date-picker .ot-date-match {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 8px;
   height: auto;
   white-space: normal;
+  border-radius: 5px;
+}
+.ot-date-match-detail {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+}
+.ot-date-picker .ot-date-match.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.ot-date-match.is-active .ot-date-match-detail {
+  color: inherit;
 }
 .ot-date-invalid {
   display: block;
   color: var(--text-muted);
-  padding: var(--size-2-3);
-  font-size: 12px;
+  padding: 8px;
 }
-
-.ot-popover.ot-date-picker[popover] {
-  margin: 0;
-  inset: auto;
-  max-width: calc(100vw - 16px);
+.ot-date-picker.is-mobile-picker {
+  font-size: 16px;
+}
+.ot-popover.ot-date-picker.is-mobile-picker {
+  width: 350px;
+  padding: 12px;
+}
+.is-mobile-picker .ot-date-header {
+  touch-action: pan-x;
+  display: flex;
+  position: relative;
+  justify-content: center;
+  align-items: center;
+  min-height: 40px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.ot-date-picker .ot-date-cancel {
+  position: absolute;
+  right: 0;
+  font-size: 14px;
+  font-weight: 400;
+  padding: 8px 0 8px 8px;
+  height: 40px;
+  color: var(--text-muted);
+}
+.ot-date-picker .ot-date-reveal {
+  display: flex;
+  position: absolute;
+  left: 0;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+  color: var(--text-muted);
+}
+.ot-date-reveal svg {
+  width: 18px;
+  height: 18px;
+}
+.ot-date-picker.is-mobile-picker .ot-date-shortcut {
+  height: 44px;
+}
+.ot-date-picker.is-mobile-picker .ot-calendar-day,
+.ot-date-picker.is-mobile-picker .ot-calendar-expand {
+  height: 40px;
+  font-size: 16px;
+}
+.ot-date-picker.is-mobile-picker .ot-calendar-nav button {
+  width: 40px;
+  height: 40px;
+}
+.ot-date-picker.is-mobile-picker .ot-date-search input {
+  font-size: 16px;
 }
 
 .ot-native .ot-task:focus:not(.is-expanded) {
@@ -522,13 +657,6 @@
 /* Compact details stay visible while a task is collapsed. */
 .ot-task:not(.is-expanded) .ot-task-title {
   flex: 0 1 auto;
-}
-.ot-task-line > .ot-note-icon {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  margin-left: calc(-1 * var(--size-4-1));
-  color: var(--text-faint);
 }
 .ot-note-icon > span:first-child {
   display: inline-flex;
@@ -649,6 +777,12 @@
   margin-bottom: var(--size-4-1);
   border-bottom: 1px solid var(--background-modifier-border);
 }
+/* Keep shortcuts on their own paint layer while iOS slides a contained drawer.
+   Otherwise WebKit can retain a blank surface until the file list scrolls. */
+.workspace-drawer .ot-list-links {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
 .ot-list-links button.ot-list-link {
   display: flex;
   justify-content: flex-start;
@@ -715,7 +849,7 @@
 .ot-list-link-icon {
   display: flex;
   flex-shrink: 0;
-  margin-inline-end: var(--size-2-3);
+  margin-inline-end: 0;
   color: #5b9de9;
 }
 .ot-list-link[data-list='inbox'] .ot-list-link-icon {
@@ -755,8 +889,28 @@
 .ot-group button.ot-capture:hover {
   color: var(--text-normal);
 }
+.ot-capture-container {
+  position: fixed;
+  top: var(--ot-capture-top, 0px);
+  bottom: auto;
+  height: var(--ot-capture-height, 100dvh);
+  box-sizing: border-box;
+  padding: max(var(--size-4-3), var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) 0
+    var(--size-4-3);
+}
+.is-mobile .ot-capture-container {
+  align-items: flex-start;
+}
+@media (max-width: 600px) {
+  .ot-capture-container {
+    align-items: flex-start;
+  }
+}
 .modal.ot-capture-modal {
   width: min(600px, calc(100vw - 40px));
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
   padding: 0;
   border-radius: 8px;
 }
@@ -765,16 +919,40 @@
   display: none;
 }
 .ot-capture-modal .modal-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   margin: 0;
   padding: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 .ot-capture-modal .ot-task.is-expanded {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   margin: 0;
   border: none;
   box-shadow: none;
   padding: calc(var(--size-4-1) * 4.5) calc(var(--size-4-1) * 3.5) calc(var(--size-4-1) * 3.5);
   animation: none;
+}
+.ot-capture-modal .ot-task-line,
+.ot-capture-modal .ot-card-footer,
+.ot-capture-modal .ot-capture-actions {
+  flex-shrink: 0;
+}
+.ot-capture-modal .ot-task-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.ot-capture-modal .ot-task-fields {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .ot-list-link[data-list='upcoming'] .ot-list-link-icon {
   color: #df6869;
@@ -822,7 +1000,7 @@
   white-space: normal;
 }
 .ot-paper button.ot-project-link:hover,
-.ot-project-link:hover .ot-paper button.ot-project-link:focus-visible {
+.ot-paper button.ot-project-link:focus-visible {
   outline: 2px solid var(--interactive-accent);
   outline-offset: 4px;
   border-radius: 2px;
@@ -1031,7 +1209,6 @@
   }
 }
 
-/* Task actions remain reachable with the sidebar closed, including on touch. */
 /* Things-style destination picker: compact rows, not a stack of form buttons. */
 .ot-move-container .modal-bg {
   opacity: 0;
@@ -1128,8 +1305,7 @@
   width: 16px;
   height: 16px;
 }
-.ot-move-icon.is-anytime,
-.ot-move-icon.is-project {
+.ot-move-icon.is-anytime {
   color: #4388d9;
 }
 .ot-move-icon.is-inbox {
@@ -1278,9 +1454,6 @@
   .ot-paper {
     padding: 0 0 60px;
   }
-  .ot-list-heading {
-    gap: var(--size-4-3);
-  }
   .ot-task.is-expanded > .ot-task-line {
     flex-wrap: nowrap;
   }
@@ -1335,9 +1508,6 @@
 .ot-list-heading-icon.is-trash {
   color: var(--text-muted);
 }
-.ot-list-heading .inline-title {
-  margin-bottom: 0;
-}
 .ot-task > .ot-project-badge {
   margin: calc(-1 * var(--size-2-1)) calc(var(--size-4-1) * 2.5) var(--size-2-3)
     calc(15px + var(--size-4-2) * 2 + var(--size-2-1) * 2);
@@ -1361,9 +1531,6 @@
   }
   .ot-list-heading .inline-title {
     overflow-wrap: anywhere;
-  }
-  .ot-task > .ot-project-badge {
-    margin-left: 44px;
   }
 }
 
@@ -1407,12 +1574,6 @@
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
 }
-.ot-checklist-row > input[type='checkbox'] {
-  flex: 0 0 16px;
-  width: 16px;
-  height: 16px;
-  margin: 0;
-}
 .ot-checklist-row > input[type='checkbox']:checked + input {
   color: var(--text-muted);
   text-decoration: line-through;
@@ -1426,11 +1587,7 @@
   top: auto;
   bottom: -2px;
 }
-.ot-occurrence-label {
-  color: var(--text-muted);
-  font-size: 11px;
-  white-space: nowrap;
-}
+
 .ot-root button.ot-checklist-grip {
   flex-shrink: 0;
   cursor: grab;
@@ -1447,8 +1604,23 @@
 .ot-task:not(.is-expanded) {
   -webkit-touch-callout: none;
 }
-/* Compact phone rows use long-press for actions. Optional icons consume space only when present. */
+/* Collapsed phone titles stay on one line; markers never change the text column
+   used by dates. Keep the full title in the editor and optional details inline. */
 @media (max-width: 520px) {
+  .ot-task {
+    --ot-title-indent: calc(
+      15px + var(--size-2-3) + var(--ot-repeat-space, 0px) + var(--ot-today-space, 0px)
+    );
+  }
+  .ot-task-line:has(> .ot-waiting-marker) {
+    --ot-waiting-space: calc(14px + var(--size-2-3) + 4px);
+  }
+  .ot-task:has(> .ot-task-line > .ot-repeat-indicator) {
+    --ot-repeat-space: calc(14px + var(--size-2-3));
+  }
+  .ot-task:has(> .ot-task-line > .ot-today-marker) {
+    --ot-today-space: calc(14px + var(--size-2-3));
+  }
   .ot-task:not(.is-expanded) > .ot-task-line {
     display: flex;
     flex-wrap: wrap;
@@ -1456,22 +1628,63 @@
     gap: var(--size-2-1) var(--size-2-3);
     padding: var(--size-2-1) var(--size-4-2);
   }
+  .ot-task-line:has(> .ot-task-details) {
+    --ot-details-space: calc(12px + var(--size-2-3));
+  }
+  .ot-task-line:has(> .ot-task-details > .ot-note-icon):has(
+      > .ot-task-details > .ot-checklist-indicator
+    ) {
+    --ot-details-space: calc(28px + var(--size-2-3));
+  }
+  .ot-task:not(.is-expanded)
+    > .ot-task-line
+    > :is(.ot-waiting-marker, .ot-repeat-indicator, .ot-today-marker) {
+    flex: 0 0 14px;
+    width: 14px;
+    padding: 0;
+    margin: 0;
+  }
+  .ot-task:not(.is-expanded)
+    > .ot-task-line
+    > :is(.ot-waiting-marker, .ot-repeat-indicator, .ot-today-marker)
+    svg {
+    width: 14px;
+    height: 14px;
+  }
+  .ot-task:not(.is-expanded) > .ot-task-line > .ot-waiting-marker {
+    margin-left: auto;
+    padding-left: 4px;
+    box-sizing: content-box;
+  }
+  .ot-task-line > .ot-task-details {
+    gap: 4px;
+  }
+  .ot-task-details > :is(.ot-note-icon, .ot-checklist-indicator) {
+    flex: 0 0 12px;
+    width: 12px;
+  }
   .ot-task:not(.is-expanded):has(> .ot-project-badge) > .ot-task-line {
     min-height: 30px;
   }
   .ot-task:not(.is-expanded) > .ot-task-line > .ot-task-title {
-    /* An intrinsic-width title can wrap the checkbox onto its own flex line. */
-    flex: 1 1 0;
+    flex: 0 1 auto;
     min-width: 0;
+    max-width: calc(
+      100% - var(--ot-title-indent) - var(--ot-details-space, 0px) - var(--ot-waiting-space, 0px)
+    );
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     line-height: var(--line-height-tight);
   }
   .ot-task > .ot-project-badge {
-    margin: 0 var(--size-4-2) var(--size-4-1) calc(var(--size-4-2) + 15px + var(--size-2-3));
+    margin: 0 var(--size-4-2) var(--size-4-1) calc(var(--size-4-2) + var(--ot-title-indent));
   }
-  .ot-task-line > .ot-row-indicators,
-  .ot-task-line > .ot-occurrence-label {
-    flex-basis: 100%;
-    margin-left: calc(15px + var(--size-2-3));
+  .ot-task-line > .ot-row-indicators {
+    order: 2;
+    flex: 0 0 calc(100% - var(--ot-title-indent));
+    margin-left: var(--ot-title-indent);
+    min-width: 0;
   }
   .ot-task.is-expanded > .ot-task-line {
     padding-right: var(--size-4-2);
@@ -1505,17 +1718,6 @@
   }
 }
 
-/* Reference-led hierarchy: the list name is sufficient; task content follows. */
-.ot-list-heading {
-  margin-bottom: var(--size-4-6);
-}
-.ot-paper h2 {
-  font-size: var(--font-ui-small);
-  font-weight: 600;
-  border-bottom: 1px solid var(--background-modifier-border);
-  padding-bottom: var(--size-4-1);
-  margin-bottom: var(--size-4-2);
-}
 .ot-evening-section > h2 {
   display: flex;
   align-items: center;
@@ -1562,16 +1764,26 @@
   }
 }
 @media (max-width: 520px) {
+  .ot-task.is-selected:not(.is-expanded),
+  .ot-native .ot-task:focus:not(.is-expanded) {
+    background: var(--background-modifier-hover);
+    outline: none;
+  }
+  .ot-task:focus-visible:not(.is-expanded) {
+    outline: 1px solid var(--interactive-accent);
+    outline-offset: -1px;
+  }
+  .ot-section + .ot-section,
+  .ot-paper > .ot-group:not(:empty) + .ot-section {
+    margin-top: var(--size-4-4);
+  }
   .ot-task:not(.is-expanded):has(> .ot-project-badge) > .ot-task-line {
     min-height: 30px;
   }
   .ot-task > .ot-project-badge {
     margin-bottom: var(--size-4-2);
   }
-  .ot-task-line > .ot-occurrence-label {
-    flex-basis: auto;
-    margin-left: auto;
-  }
+
   .ot-task-line > .ot-row-indicators {
     justify-content: flex-start;
     flex-wrap: wrap;
@@ -1676,9 +1888,25 @@
 }
 
 .ot-waiting-marker {
+  order: 1;
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
+  color: var(--interactive-accent);
+  margin-left: auto;
+  padding-left: 4px;
+}
+.ot-waiting-toggle[hidden] {
+  display: none !important;
+}
+/* Dates own the trailing spacer when present; sharing it with the airplane
+   would split the empty space and leave the airplane in the middle. */
+@media (min-width: 521px) {
+  .ot-task-line:has(> .ot-row-indicators) > .ot-waiting-marker {
+    margin-left: 0;
+  }
+}
+.ot-waiting-marker.is-completed {
   color: var(--text-muted);
 }
 .ot-waiting-marker svg {
@@ -1692,7 +1920,6 @@
 .ot-list-link[data-list='waiting'] .ot-list-link-icon,
 .ot-list-heading-icon.is-waiting,
 .ot-move-option .ot-move-icon.is-waiting,
-.ot-waiting-marker,
 .ot-waiting-section .ot-evening-icon,
 .ot-search-icon svg.lucide-send-horizontal {
   color: #808080;

@@ -1,7 +1,7 @@
 const { Modal, Platform, setIcon } = require('obsidian');
 const { projectProgress, renderProgress } = require('./project-progress.cjs');
 const { removeModalCloseButton } = require('./dom.cjs');
-const { LISTS } = require('./lists.cjs');
+const { LISTS, isListAvailable } = require('./lists.cjs');
 const { datePicker } = require('./date-picker.cjs');
 
 // Destination selection is presentation; transferTask owns coordinated writes.
@@ -30,7 +30,7 @@ class MoveDialog extends Modal {
     const icons = Object.fromEntries(LISTS.map(([id, , icon]) => [id, icon]));
     const options = [
       ...LISTS.filter(([id]) => !['logbook', 'trash'].includes(id))
-        .filter(([id]) => id !== 'inbox' || plugin.settings.captureDestination !== 'daily-note')
+        .filter(([id]) => isListAvailable(id, plugin.settings))
         .map(([list, label]) => ({ list, label })),
       ...records
         .filter((t) => t.meta.type === 'things-project')
@@ -92,6 +92,7 @@ class MoveDialog extends Modal {
             datePicker(calendar, {
               kind: 'when',
               inline: true,
+              dateOnly: true,
               setIcon,
               onSelect: async (when) => {
                 if (this.busy) return;

@@ -15,11 +15,13 @@ const PAGES = [...LISTS, ['repeating', 'Repeating', 'repeat']];
 function isListAvailable(page, settings) {
   return (
     !(page === 'inbox' && settings.captureDestination === 'daily-note') &&
+    !(page === 'waiting' && settings.enableWaiting === false) &&
     !(page === 'trash' && settings.trashRetention === 'immediately')
   );
 }
 function resolveList(page, settings) {
   if (!PAGES.some(([key]) => key === page)) page = 'inbox';
+  if (page === 'waiting' && !isListAvailable(page, settings)) return 'anytime';
   if (page === 'trash' && !isListAvailable(page, settings)) page = 'inbox';
   return isListAvailable(page, settings) ? page : 'today';
 }

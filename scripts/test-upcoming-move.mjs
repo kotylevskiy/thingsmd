@@ -44,6 +44,7 @@ try {
     assert.equal(await modal.locator('input[type="date"]').count(), 0);
     let expected = '2099-06-15';
     if (width === 390) {
+      await modal.getByRole('button', { name: 'Show full calendar', exact: true }).click();
       await modal.getByRole('button', { name: 'Next month', exact: true }).click();
       const day = modal.locator('.ot-calendar-day:not(.is-outside)').nth(14);
       expected = await day.getAttribute('data-date');

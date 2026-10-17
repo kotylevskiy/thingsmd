@@ -1,0 +1,109 @@
+const { dayKey, date, addDays, parseDate, validDate } = require('./local-date.cjs');
+
+function firstWeekday(locale = new Intl.DateTimeFormat().resolvedOptions().locale) {
+  const info = new Intl.Locale(locale);
+  // Safari 18 exposes weekInfo; newer engines expose getWeekInfo().
+  return (info.getWeekInfo?.() || info.weekInfo)?.firstDay % 7 || 0;
+}
+function calendarDays(start, count, weekStart) {
+  const offset = (date(start).getDay() - weekStart + 7) % 7;
+  return Array.from({ length: count }, (_, i) => addDays(start, i - offset));
+}
+function dateSuggestions(query, now = new Date(), locale) {
+  const text = query.trim().toLocaleLowerCase(locale).replace(/\s+/g, ' ');
+  if (!text) return [];
+  const today = dayKey(now);
+  const format = (key) =>
+    new Intl.DateTimeFormat(locale, { month: 'long', day: 'numeric' }).format(date(key));
+  const result = [];
+  const add = (key, label = format(key)) => {
+    if (validDate(key) && !result.some((item) => item.date === key))
+      result.push({ date: key, label });
+  };
+  for (const [words, offset, label] of [
+    [['today', 'сегодня'], 0, 'Today'],
+    [['tomorrow', 'завтра'], 1, 'Tomorrow'],
+    [['next week', 'через неделю'], 7, 'Next week'],
+  ])
+    if (words.some((word) => word.startsWith(text))) add(addDays(today, offset), label);
+  const exact = parseDate(text, now);
+  if (exact) {
+    add(exact);
+    return result;
+  }
+  const relative = text.match(
+    /^(?:in\s*|через\s*)?(\d{1,4})\s*(d(?:ays?)?|w(?:eeks?)?|mo(?:nths?)?|y(?:ears?)?|д(?:ней|ня|ень)?|н(?:едел[юьи])?|м(?:есяц(?:а|ев)?)?|г(?:од(?:а)?|лет)?)?$/,
+  );
+  if (relative) {
+    const amount = +relative[1];
+    const unit = relative[2];
+    const units = unit
+      ? [
+          unit[0] === 'm' || unit[0] === 'м'
+            ? 'month'
+            : /[wн]/.test(unit[0])
+              ? 'week'
+              : /[yг]/.test(unit[0])
+                ? 'year'
+                : 'day',
+        ]
+      : ['day', 'week', 'month'];
+    for (const type of units) {
+      const value = date(today);
+      if (type === 'day' || type === 'week')
+        value.setDate(value.getDate() + amount * (type === 'week' ? 7 : 1));
+      else {
+        // Month/year offsets clamp to the last day instead of overflowing it.
+        const day = value.getDate();
+        value.setDate(1);
+        if (type === 'month') value.setMonth(value.getMonth() + amount);
+        else value.setFullYear(value.getFullYear() + amount);
+        value.setDate(
+          Math.min(day, new Date(value.getFullYear(), value.getMonth() + 1, 0).getDate()),
+        );
+      }
+      add(dayKey(value), `In ${amount} ${type}${amount === 1 ? '' : 's'}`);
+    }
+    return result;
+  }
+  for (let i = 0; i < 7; i++) {
+    const sample = new Date(2024, 0, 7 + i, 12);
+    const names = ['long', 'short'].flatMap((weekday) =>
+      [locale, 'en', 'ru'].map((language) =>
+        new Intl.DateTimeFormat(language, { weekday })
+          .format(sample)
+          .toLocaleLowerCase(locale)
+          .replace(/\.$/, ''),
+      ),
+    );
+    const next = /^(?:next |следующ(?:ий|ая|ую) )/.test(text);
+    const name = text.replace(/^(?:next |следующ(?:ий|ая|ую) )/, '');
+    if (name.length < 2 || !names.some((word) => word.startsWith(name))) continue;
+    let offset = (i - now.getDay() + 7) % 7 || 7;
+    if (next) offset += 7;
+    for (let week = 0; week < 3; week++) add(addDays(today, offset + week * 7));
+  }
+  for (let month = 0; month < 12; month++) {
+    const names = ['long', 'short'].flatMap((style) =>
+      [locale, 'en', 'ru'].map((language) =>
+        new Intl.DateTimeFormat(language, { month: style })
+          .format(new Date(2024, month, 1))
+          .toLocaleLowerCase(locale)
+          .replace(/\.$/, ''),
+      ),
+    );
+    const match =
+      text.match(/^(\p{L}+)[\s.-]*(\d{1,2})(?:[,\s]+(\d{4}))?$/u) ||
+      text
+        .match(/^(\d{1,2})[\s.-]*(\p{L}+)(?:[,\s]+(\d{4}))?$/u)
+        ?.map((v, i, a) => (i === 1 ? a[2] : i === 2 ? a[1] : v));
+    if (!match || !names.some((word) => word.startsWith(match[1]))) continue;
+    const year = match[3] ? +match[3] : now.getFullYear();
+    for (let y = year; y < year + (match[3] ? 1 : 4); y++) {
+      const key = parseDate(`${y}-${month + 1}-${match[2]}`);
+      if (key && (match[3] || key >= today)) add(key);
+    }
+  }
+  return result.slice(0, 5);
+}
+module.exports = { firstWeekday, calendarDays, dateSuggestions };

@@ -12,7 +12,6 @@ module.exports = function attachListDrag(view, row, task, occurrence, expanded) 
     e.dataTransfer.setData('text/ot-occurrence', occurrence);
     e.dataTransfer.effectAllowed = 'move';
     row.addClass('is-dragging');
-    view.contentEl.addClass('ot-dragging');
   };
   if (!expanded && !['trash', 'logbook', 'repeating'].includes(view.page)) {
     let target = null,
@@ -110,7 +109,6 @@ module.exports = function attachListDrag(view, row, task, occurrence, expanded) 
   row.ondragend = () => {
     view.dragging = false;
     row.removeClass('is-dragging');
-    view.contentEl.removeClass('ot-dragging');
   };
   if (!['trash', 'logbook', 'repeating'].includes(view.page)) {
     row.ondragover = (e) => {

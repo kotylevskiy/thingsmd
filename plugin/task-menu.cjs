@@ -102,9 +102,10 @@ module.exports = function installTaskMenu(plugin) {
           (t) => plugin.patchTask(t, { status: t.meta.status === 'done' ? 'todo' : 'done' }),
           !!task.meta.repeat && !task.meta.repeat.next,
         );
-        item(task.meta.is_waiting ? 'Stop Waiting' : 'Mark as Waiting', 'send-horizontal', (t) =>
-          plugin.patchTask(t, { is_waiting: !t.meta.is_waiting }),
-        );
+        if (plugin.settings.enableWaiting !== false)
+          item(task.meta.is_waiting ? 'Stop Waiting' : 'Mark as Waiting', 'send-horizontal', (t) =>
+            plugin.patchTask(t, { is_waiting: !t.meta.is_waiting }),
+          );
         if (task.meta.status === 'done')
           item('Move to Logbook', 'book-check', (t) => plugin.logCompleted(t));
         menu.addSeparator();

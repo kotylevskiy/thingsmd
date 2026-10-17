@@ -16,7 +16,7 @@ module.exports = async function installNative(plugin) {
   const editors = new Set();
   const cards = new Set();
   let records = [];
-  const pendingWrites = new Map();
+  const pendingCreations = new Map();
   const openOnCreate = new Set();
   let timer;
   let disposed = false,
@@ -28,10 +28,10 @@ module.exports = async function installNative(plugin) {
     records = [
       ...next,
       ...records.filter(
-        (r) => pendingWrites.has(r.file.path) && !next.some((n) => n.file.path === r.file.path),
+        (r) => pendingCreations.has(r.file.path) && !next.some((n) => n.file.path === r.file.path),
       ),
     ];
-    for (const card of cards) if (!card.taskDraft) card.render();
+    for (const card of cards) card.render();
     for (const view of editors) view.dispatch({ effects: refresh.of(null) });
   };
   await reload();
@@ -69,7 +69,7 @@ module.exports = async function installNative(plugin) {
       return require('./native-task-card.cjs')(plugin, this.path, view, {
         lookup,
         isHidden,
-        pendingWrites,
+        pendingCreations,
         openOnCreate,
         onSaved: (updated) => {
           records = records.map((r) => (r.file.path === updated.file.path ? updated : r));
@@ -341,13 +341,26 @@ module.exports = async function installNative(plugin) {
         };
         records.push(provisional);
         openOnCreate.add(path);
-        const write = plugin.createTask(fields, id).then((task) => {
-          records = records.map((r) => (r.file.path === path ? task : r));
-          pendingWrites.delete(path);
-          return task;
-        });
-        pendingWrites.set(path, write);
-        write.catch((error) => new Notice(`Could not create task: ${error.message}`));
+        let writing;
+        const ensureCreated = () => {
+          if (writing) return writing;
+          writing = plugin.createTask(fields, id).then(
+            (task) => {
+              records = records.map((r) => (r.file.path === path ? task : r));
+              pendingCreations.delete(path);
+              return task;
+            },
+            (error) => {
+              // Keep the provisional draft, but release the failed attempt so
+              // its next save can retry creation with the same stable ID.
+              writing = null;
+              throw error;
+            },
+          );
+          return writing;
+        };
+        pendingCreations.set(path, ensureCreated);
+        ensureCreated().catch((error) => new Notice(`Could not create task: ${error.message}`));
         const reference = `![[${path.slice(0, -3)}]]`;
         view.dispatch({
           changes: { from: line.from, to: line.to, insert: reference + '\n' },

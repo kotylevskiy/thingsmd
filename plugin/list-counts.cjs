@@ -8,7 +8,17 @@ function listCounts(records, day, settings) {
     if (task.meta.type !== 'things-task' || task.meta.status === 'done' || task.meta.repeat)
       continue;
     for (const key of Object.keys(counts)) {
-      if (inList(task, key, day, settings.logbook, settings.captureDestination)) counts[key]++;
+      if (
+        inList(
+          task,
+          key,
+          day,
+          settings.logbook,
+          settings.captureDestination,
+          settings.enableWaiting,
+        )
+      )
+        counts[key]++;
     }
   }
   return counts;

@@ -58,3 +58,15 @@ test('global capture focuses the vault, keeps old binding on conflict, and remov
   cleanup.forEach((cb) => cb());
   assert.deepEqual([...bindings.keys()], ['Ctrl+K']);
 });
+
+test('global capture avoids desktop imports in the real mobile emulation mode', () => {
+  const module = { exports: {} };
+  vm.runInNewContext(fs.readFileSync(require.resolve('../plugin/global-capture.cjs'), 'utf8'), {
+    module,
+    require(name) {
+      assert.equal(name, 'obsidian', 'A mobile UI must not load desktop-only modules');
+      return { Platform: { isDesktopApp: true, isMobile: true } };
+    },
+  });
+  assert.doesNotThrow(() => module.exports({}));
+});

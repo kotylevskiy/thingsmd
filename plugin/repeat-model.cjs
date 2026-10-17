@@ -1,19 +1,13 @@
-const { dayKey, parseDate } = require('./local-date.cjs');
-const date = (key) => {
-  const [y, m, d] = key.split('-').map(Number);
-  return new Date(y, m - 1, d, 12);
-};
-const addDays = (key, n) => {
-  const d = date(key);
-  d.setDate(d.getDate() + n);
-  return dayKey(d);
-};
-const daysBetween = (a, b) =>
-  Math.round((Date.UTC(...parts(b)) - Date.UTC(...parts(a))) / 86400000);
-const parts = (key) => {
-  const [y, m, d] = key.split('-').map(Number);
-  return [y, m - 1, d];
-};
+const { dayKey, date, addDays, daysBetween, validDate } = require('./local-date.cjs');
+
+// Changing the anchor and changing the unit use the same initial day pattern.
+function patternOnDate(unit, key) {
+  const value = date(key);
+  if (unit === 'week') return [{ weekday: value.getDay() }];
+  if (unit === 'month') return [{ day: value.getDate() }];
+  if (unit === 'year') return [{ month: value.getMonth() + 1, day: value.getDate() }];
+  return [];
+}
 function addInterval(key, amount, unit) {
   if (unit === 'day' || unit === 'week') return addDays(key, amount * (unit === 'week' ? 7 : 1));
   const d = date(key),
@@ -24,9 +18,6 @@ function addInterval(key, amount, unit) {
   const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
   d.setDate(Math.min(day, last));
   return dayKey(d);
-}
-function validDate(key) {
-  return typeof key === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(key) && parseDate(key) === key;
 }
 function validate(rule) {
   if (
@@ -147,12 +138,8 @@ function summary(rule) {
   );
 }
 module.exports = {
-  date,
-  dayKey,
-  daysBetween,
-  addDays,
+  patternOnDate,
   addInterval,
-  validDate,
   validate,
   nextDate,
   availableDate,

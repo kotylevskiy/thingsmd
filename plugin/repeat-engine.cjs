@@ -1,17 +1,13 @@
-const {
-  dayKey,
-  addDays,
-  nextDate,
-  availableDate,
-  validate,
-  validDate,
-} = require('./repeat-model.cjs');
+const { dayKey, addDays, validDate } = require('./local-date.cjs');
+const { nextDate, availableDate, validate, patternOnDate } = require('./repeat-model.cjs');
 const { WriteQueue } = require('./write-queue.cjs');
 const { referenceRanges } = require('./task-references.cjs');
+const { noteAccess } = require('./note-access.cjs');
 
 // One local writer; deterministic copy IDs make interrupted generation retryable.
 module.exports = function installRepeating(plugin) {
   const writes = new WriteQueue();
+  const notes = noteAccess(plugin.app);
   let disposed = false;
   plugin.register?.(() => {
     disposed = true;
@@ -55,24 +51,8 @@ module.exports = function installRepeating(plugin) {
             text.slice(r.from);
         return text;
       };
-      const view = plugin.app.workspace
-        .getLeavesOfType('markdown')
-        .find((l) => l.view.file?.path === file.path && l.view.getMode() === 'source')?.view;
-      if (view) {
-        const before = view.editor.getValue();
-        if (apply(before) !== before) {
-          const newline = before.includes('\r\n') ? '\r\n' : '\n';
-          for (const r of referenceRanges(before, template.file.path).reverse())
-            view.editor.replaceRange(
-              `![[${copy.file.path.slice(0, -3)}]]` + newline,
-              view.editor.offsetToPos(r.from),
-            );
-          await view.save();
-        }
-      } else {
-        const before = await plugin.app.vault.read(file);
-        if (apply(before) !== before) await plugin.app.vault.process(file, apply);
-      }
+      const before = await notes.read(file);
+      await notes.write(file, before, apply(before), { save: true });
     }
   };
   const generate = async (task, { complete = false, exception = null, now = new Date() } = {}) => {
@@ -240,19 +220,11 @@ module.exports = function installRepeating(plugin) {
         const rule = task.meta.repeat,
           key = when === 'today' ? dayKey(new Date()) : when;
         if (!validDate(key)) throw new Error('Choose a date for a repeating task.');
-        const nominal = addDays(key, rule.deadline ? rule.leadDays : 0),
-          d = new Date(nominal + 'T12:00:00');
+        const nominal = addDays(key, rule.deadline ? rule.leadDays : 0);
         const changed = {
           ...rule,
           anchor: nominal,
-          on:
-            rule.unit === 'week'
-              ? [{ weekday: d.getDay() }]
-              : rule.unit === 'month'
-                ? [{ day: d.getDate() }]
-                : rule.unit === 'year'
-                  ? [{ month: d.getMonth() + 1, day: d.getDate() }]
-                  : [],
+          on: patternOnDate(rule.unit, nominal),
         };
         changed.next = nextDate(changed, nominal);
         await writeRule(task, changed);
@@ -268,19 +240,11 @@ module.exports = function installRepeating(plugin) {
           await generate(task, { exception: key });
           return;
         }
-        const nominal = addDays(key, rule.deadline ? rule.leadDays : 0),
-          d = new Date(nominal + 'T12:00:00');
+        const nominal = addDays(key, rule.deadline ? rule.leadDays : 0);
         const next = { ...rule, next: nominal };
         if (updateRule) {
           next.anchor = nominal;
-          next.on =
-            rule.unit === 'week'
-              ? [{ weekday: d.getDay() }]
-              : rule.unit === 'month'
-                ? [{ day: d.getDate() }]
-                : rule.unit === 'year'
-                  ? [{ month: d.getMonth() + 1, day: d.getDate() }]
-                  : [];
+          next.on = patternOnDate(rule.unit, nominal);
         }
         validate(next);
         await writeRule(task, next);

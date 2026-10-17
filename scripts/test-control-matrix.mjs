@@ -100,6 +100,8 @@ try {
     await picker().getByLabel('When date').press('Enter');
     assert.equal(await picker().getByLabel('When date').getAttribute('aria-invalid'), 'true');
     await picker().getByLabel('When date').fill('');
+    if (await picker().getByLabel('Show full calendar').isVisible())
+      await picker().getByLabel('Show full calendar').click();
     const month = await picker().locator('.ot-calendar-month').innerText();
     await picker().getByRole('button', { name: 'Next month', exact: true }).click();
     assert.notEqual(await picker().locator('.ot-calendar-month').innerText(), month);
@@ -107,14 +109,7 @@ try {
     assert.equal(await picker().locator('.ot-calendar-month').innerText(), month);
     await picker().locator('.ot-calendar-day:not(.is-outside)').nth(15).click();
     await picker().waitFor({ state: 'detached' });
-    for (const label of [
-      /^Today/,
-      'This Evening',
-      /^Tomorrow/,
-      /^Next week/,
-      'Someday',
-      'Anytime',
-    ]) {
+    for (const label of [/^Today/, 'This Evening', 'Someday']) {
       await dateControl('When');
       await picker()
         .getByRole('button', { name: label, exact: typeof label === 'string' })
@@ -123,7 +118,10 @@ try {
     }
     await setTextDate('When', '2099-05-20');
     await dateControl('When');
-    await picker().getByRole('button', { name: 'Clear date', exact: true }).click();
+    await picker().getByLabel('When date').fill('tomorrow');
+    await picker().getByRole('button', { name: 'Clear search', exact: true }).click();
+    assert.equal(await picker().getByLabel('When date').inputValue(), '');
+    await picker().getByRole('button', { name: 'Clear schedule', exact: true }).click();
     await setTextDate('When', '2099-05-21');
     await dateControl('When');
     await picker().getByRole('button', { name: 'Clear schedule', exact: true }).click();

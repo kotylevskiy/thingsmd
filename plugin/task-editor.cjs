@@ -2,7 +2,7 @@ const { setIcon } = require('obsidian');
 const { button, iconButton, closePopover } = require('./dom.cjs');
 const { today } = require('./local-date.cjs');
 const { inEvening, isTodayWhen } = require('./model.cjs');
-const { normalizeSchedule } = require('./task-schedule.cjs');
+const { applySchedulePolicy } = require('./task-schedule.cjs');
 const { taskState } = require('./task-presentation.cjs');
 
 // Hosts supply a container and a close hook. Draft editing and persistence are
@@ -16,6 +16,10 @@ class TaskEditor {
     this.taskDraft = null;
     this.editing = false;
   }
+  refreshSettings() {
+    for (const button of this.contentEl.querySelectorAll('.ot-waiting-toggle'))
+      button.hidden = this.plugin.settings?.enableWaiting === false;
+  }
   taskEditor(row, line, task) {
     taskState(row, task.meta);
     this.editing = true;
@@ -27,6 +31,7 @@ class TaskEditor {
         when: task.meta.when || null,
         evening: task.meta.evening || null,
         deadline: task.meta.deadline || null,
+        deadlineDeferredOn: task.meta.deadlineDeferredOn || null,
         checklist: JSON.parse(JSON.stringify(task.meta.checklist || [])),
       },
       body: task.body,
@@ -39,7 +44,8 @@ class TaskEditor {
     });
     title.value = draft.values.title;
     const editor = row.createDiv('ot-task-editor');
-    const notes = editor.createEl('textarea', {
+    const fields = editor.createDiv('ot-task-fields');
+    const notes = fields.createEl('textarea', {
       cls: 'ot-task-notes',
       attr: { 'aria-label': 'Task notes', placeholder: 'Notes', rows: '1' },
     });
@@ -58,126 +64,15 @@ class TaskEditor {
       size();
       this.queueTaskSave();
     };
-    const checklist = editor.createDiv('ot-checklist');
-    const moveChecklist = (from, to) => {
-      if (to < 0 || to >= draft.values.checklist.length || from === to) return;
-      const [item] = draft.values.checklist.splice(from, 1);
-      draft.values.checklist.splice(to, 0, item);
-      this.queueTaskSave();
-      renderChecklist();
-      checklist.querySelectorAll('input:not([type=checkbox])')[to]?.focus();
-    };
-    const renderChecklist = () => {
-      checklist.empty();
-      for (const [index, item] of draft.values.checklist.entries()) {
-        const itemRow = checklist.createDiv('ot-checklist-row');
-        const check = itemRow.createEl('input', {
-          attr: { type: 'checkbox', 'aria-label': `Checklist item ${index + 1}` },
-        });
-        check.checked = !!item.done;
-        check.disabled = !!task.meta.repeat;
-        const text = itemRow.createEl('input', {
-          attr: { 'aria-label': `Checklist text ${index + 1}`, placeholder: 'Checklist' },
-        });
-        text.value = item.text;
-        check.onchange = () => {
-          item.done = check.checked;
-          this.queueTaskSave();
-        };
-        text.oninput = () => {
-          item.text = text.value;
-          this.queueTaskSave();
-        };
-        text.onkeydown = (e) => {
-          if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) {
-            e.preventDefault();
-            draft.values.checklist.splice(index + 1, 0, { text: '', done: false });
-            this.queueTaskSave();
-            renderChecklist();
-            checklist.querySelectorAll('input[type=text],input:not([type])')[index + 1]?.focus();
-          }
-          if (e.key === 'Backspace' && !text.value) {
-            e.preventDefault();
-            draft.values.checklist.splice(index, 1);
-            this.queueTaskSave();
-            renderChecklist();
-            (
-              checklist.querySelectorAll('input:not([type=checkbox])')[Math.max(0, index - 1)] ||
-              title
-            ).focus();
-          }
-        };
-        const grip = iconButton(
-          itemRow,
-          'Reorder checklist item ' + (index + 1),
-          'grip-horizontal',
-          () => {},
-        );
-        grip.addClass('ot-checklist-grip');
-        grip.onkeydown = (e) => {
-          if (['ArrowUp', 'ArrowDown'].includes(e.key)) {
-            e.preventDefault();
-            e.stopPropagation();
-            moveChecklist(index, index + (e.key === 'ArrowDown' ? 1 : -1));
-          }
-        };
-        grip.onpointerdown = (e) => {
-          if (e.button !== 0) return;
-          e.preventDefault();
-          e.stopPropagation();
-          this.cancelChecklistDrag?.();
-          const win = row.ownerDocument.defaultView,
-            controller = new AbortController();
-          let destination = index;
-          const clean = () => {
-            controller.abort();
-            checklist
-              .querySelectorAll('.is-checklist-target')
-              .forEach((el) => el.removeClass('is-checklist-target'));
-          };
-          this.cancelChecklistDrag = clean;
-          win.addEventListener(
-            'pointermove',
-            (event) => {
-              const rows = [...checklist.children];
-              destination = rows.findIndex(
-                (el) => event.clientY < el.getBoundingClientRect().bottom,
-              );
-              if (destination < 0) destination = rows.length - 1;
-              rows.forEach((el, i) =>
-                el.toggleClass('is-checklist-target', i === destination && i !== index),
-              );
-            },
-            { signal: controller.signal },
-          );
-          win.addEventListener(
-            'pointerup',
-            () => {
-              clean();
-              moveChecklist(index, destination);
-            },
-            { signal: controller.signal },
-          );
-          win.addEventListener('pointercancel', clean, { signal: controller.signal });
-          win.addEventListener('blur', clean, { signal: controller.signal });
-          win.addEventListener(
-            'keydown',
-            (event) => {
-              if (event.key === 'Escape') {
-                event.preventDefault();
-                event.stopImmediatePropagation();
-                clean();
-              }
-            },
-            { capture: true, signal: controller.signal },
-          );
-        };
-      }
-    };
-    renderChecklist();
+    const checklist = require('./checklist-editor.cjs')(fields, draft.values.checklist, {
+      disabled: !!task.meta.repeat,
+      onChange: () => this.queueTaskSave(),
+      fallbackFocus: title,
+    });
+    this.cancelChecklistDrag = checklist.cancelDrag;
     if (task.meta.repeat) {
       const rule = button(
-        editor,
+        fields,
         require('./repeat-model.cjs').summary(task.meta.repeat),
         async (event) => {
           if (!(await this.finishTask())) return;
@@ -188,7 +83,7 @@ class TaskEditor {
       rule.setAttribute('aria-label', 'Repeating rule');
     } else if (task.meta.repeatSource) {
       button(
-        editor,
+        fields,
         'This is a copy of a repeating to-do',
         async () => {
           if (!(await this.finishTask())) return;
@@ -223,15 +118,11 @@ class TaskEditor {
     draft.drawBadges = drawBadges;
     drawBadges();
     iconButton(icons, 'When', 'calendar-days', () => this.taskControl('when'));
-    iconButton(icons, 'Checklist', 'list-checks', () => {
-      draft.values.checklist.push({ text: '', done: false });
-      this.queueTaskSave();
-      renderChecklist();
-      Array.from(checklist.querySelectorAll('input:not([type=checkbox])')).at(-1)?.focus();
-    });
+    iconButton(icons, 'Checklist', 'list-checks', () => checklist.add());
     if (!task.meta.repeat)
       iconButton(icons, 'Deadline', 'flag', () => this.taskControl('deadline'));
     const waiting = iconButton(icons, 'Waiting For', 'send-horizontal', () => {
+      if (this.plugin.settings?.enableWaiting === false) return;
       draft.values.is_waiting = !draft.values.is_waiting;
       drawWaiting();
       this.queueTaskSave();
@@ -244,6 +135,7 @@ class TaskEditor {
       waiting.setAttribute('title', draft.values.is_waiting ? 'Stop waiting' : 'Mark as waiting');
     };
     drawWaiting();
+    this.refreshSettings();
     if (!task.meta.repeatSource) iconButton(icons, 'Repeat', 'repeat', () => this.openRepeat());
     if (task.meta.id) iconButton(icons, 'Move', 'arrow-right', () => this.plugin.openTaskMove(row));
     row.onkeydown = (e) => {
@@ -277,10 +169,10 @@ class TaskEditor {
     if (!row) return;
     const existing = row.querySelector('.ot-popover');
     if (existing?.dataset.kind === kind) {
-      existing.remove();
+      closePopover(row);
       return;
     }
-    existing?.remove();
+    closePopover(row);
     const pop = row.createDiv({
       cls: 'ot-popover',
       attr: { 'data-kind': kind, role: 'dialog', 'aria-label': kind },
@@ -289,8 +181,10 @@ class TaskEditor {
       if (key === 'when') {
         Object.assign(
           draft.values,
-          normalizeSchedule({ when: value === null ? 'anytime' : value }),
+          applySchedulePolicy(draft.values, { when: value === null ? 'anytime' : value }),
         );
+      } else if (key === 'deadline') {
+        Object.assign(draft.values, applySchedulePolicy(draft.values, { deadline: value }));
       } else draft.values[key] = value;
       this.queueTaskSave();
       draft.drawBadges();
@@ -302,6 +196,7 @@ class TaskEditor {
         value: kind === 'when' && inEvening(draft.values, today()) ? 'evening' : draft.values[kind],
         onSelect: (value) => change(kind, value),
         setIcon,
+        anchor: row.querySelector(`button[aria-label="${kind === 'when' ? 'When' : 'Deadline'}"]`),
       });
     }
   }
@@ -337,7 +232,13 @@ class TaskEditor {
             ? await this.plugin.patchTask(draft.task, patch, changedBody)
             : null;
         draft.task = saved || { ...draft.task, meta: { ...draft.task.meta, ...patch }, body };
-        if (saved && draft.values.when === values.when) draft.values.when = saved.meta.when || null;
+        const schedule = ['when', 'evening', 'deadline', 'deadlineDeferredOn'];
+        if (saved && schedule.every((key) => draft.values[key] === values[key])) {
+          // Cancellation and scheduling policy may change several linked fields.
+          // Reconcile them together without replacing edits received during I/O.
+          for (const key of schedule) draft.values[key] = saved.meta[key] ?? null;
+          draft.drawBadges?.();
+        }
         draft.error = null;
         this.contentEl.querySelector('.ot-save-error')?.remove();
         return true;
@@ -374,13 +275,25 @@ class TaskEditor {
     return true;
   }
   async finishTask(render = true) {
+    if (this.taskFinish) return this.taskFinish;
     if (!this.taskDraft) return true;
-    if (!(await this.flushTaskDraft())) return false;
-    this.cancelChecklistDrag?.();
-    this.taskDraft = null;
-    this.editing = false;
-    await this.afterClose(render);
-    return true;
+    // Blur, Enter and navigation can request a close during the same write.
+    // Drain once and publish the saved task to the host exactly once.
+    const closing = (async () => {
+      if (!(await this.flushTaskDraft())) return false;
+      this.cancelChecklistDrag?.();
+      const task = this.taskDraft.task;
+      this.taskDraft = null;
+      this.editing = false;
+      await this.afterClose(render, task);
+      return true;
+    })();
+    this.taskFinish = closing;
+    try {
+      return await closing;
+    } finally {
+      if (this.taskFinish === closing) this.taskFinish = null;
+    }
   }
 }
 module.exports = TaskEditor;

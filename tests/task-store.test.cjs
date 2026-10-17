@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const { createRequire } = require('node:module');
 
-function fixture() {
+function fixture({ storageExists = true } = {}) {
   const filename = require.resolve('../plugin/task-store.cjs');
   const localRequire = createRequire(filename);
   const module = { exports: {} };
@@ -24,8 +24,14 @@ function fixture() {
     app: {
       vault: {
         adapter: {
-          exists: async (path) => path === '.thingsmd-storage' || files.has(path),
-          mkdir: async () => {},
+          exists: async (path) => (path === '.thingsmd-storage' ? storageExists : files.has(path)),
+          mkdir: async () => {
+            // Yield before checking: two uncoordinated creators both see an
+            // absent directory, but the second mkdir must fail on a real disk.
+            await Promise.resolve();
+            if (storageExists) throw Error('Directory already exists');
+            storageExists = true;
+          },
           list: async () => ({
             files: [...files.keys()].filter((path) => path.startsWith('.thingsmd-storage/')),
           }),
@@ -85,6 +91,49 @@ test('concurrent creation never replaces an existing task with the same ID', asy
   );
   assert.equal((await plugin.taskRecords())[0].meta.title, 'First');
   assert.equal(plugin.taskQueue.pending.size, 0);
+});
+
+test('simultaneous first captures share folder initialization without losing a task', async () => {
+  const { plugin } = fixture({ storageExists: false });
+  await Promise.all([
+    plugin.createTask({ title: 'First capture' }, 'first'),
+    plugin.createTask({ title: 'Second capture' }, 'second'),
+    plugin.createTask({ title: 'Third capture' }, 'third'),
+  ]);
+  assert.deepEqual(
+    Array.from(await plugin.taskRecords(), (task) => task.meta.id),
+    ['first', 'second', 'third'],
+  );
+  assert.equal(plugin.taskQueue.pending.size, 0);
+});
+
+test('failed storage initialization surfaces the error and allows the next capture to retry', async () => {
+  const { plugin } = fixture({ storageExists: false });
+  const adapter = plugin.app.vault.adapter,
+    mkdir = adapter.mkdir;
+  adapter.mkdir = async () => {
+    throw Error('Permission denied');
+  };
+  await assert.rejects(plugin.createTask({ title: 'Failed' }, 'failed'), /Permission denied/);
+  assert.equal(plugin.taskQueue.pending.size, 0);
+  adapter.mkdir = mkdir;
+  const saved = await plugin.createTask({ title: 'Retry' }, 'retry');
+  assert.equal(saved.meta.title, 'Retry');
+});
+
+test('storage removed before directory listing is skipped; existing-folder errors surface', async () => {
+  const { plugin } = fixture();
+  const adapter = plugin.app.vault.adapter;
+  adapter.list = async () => {
+    adapter.exists = async () => false;
+    throw Error('Directory disappeared');
+  };
+  assert.equal((await plugin.taskRecords()).length, 0);
+  adapter.exists = async () => true;
+  adapter.list = async () => {
+    throw Error('Permission denied');
+  };
+  await assert.rejects(plugin.taskRecords(), /Permission denied/);
 });
 
 test('a task deleted between listing and reading does not break a refresh', async () => {

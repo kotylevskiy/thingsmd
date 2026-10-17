@@ -30,7 +30,33 @@ export default [
       'no-duplicate-case': 'error',
       'no-dupe-args': 'error',
       'no-dupe-keys': 'error',
+      'no-async-promise-executor': 'error',
+      'no-constant-binary-expression': 'error',
+      'no-unsafe-finally': 'error',
       'valid-typeof': 'error',
+    },
+  },
+  {
+    files: [
+      'plugin/model.cjs',
+      'plugin/lists.cjs',
+      'plugin/local-date.cjs',
+      'plugin/date-picker-model.cjs',
+      'plugin/task-schedule.cjs',
+      'plugin/archive-policy.cjs',
+      'plugin/repeat-model.cjs',
+      'plugin/search-model.cjs',
+      'plugin/list-order.cjs',
+    ],
+    rules: {
+      // Policies remain usable and testable without an Obsidian renderer.
+      'no-restricted-modules': [
+        'error',
+        {
+          paths: ['obsidian', 'electron', '@electron/remote'],
+          patterns: ['@codemirror/*'],
+        },
+      ],
     },
   },
 ];

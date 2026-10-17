@@ -6,18 +6,24 @@ const day = '2026-10-17';
 const task = (id, fields = {}) => ({ meta: { id, status: 'todo', ...fields } });
 const active = (tasks) => tasks.filter((t) => inList(t, 'inbox', day));
 
-test('deadline edits retain Inbox membership; processing preserves a temporary editable row', () => {
+test('future deadlines retain Inbox membership; due deadlines and processing keep a temporary row', () => {
   const session = new InboxSession();
   let t = task('a');
   assert.deepEqual(session.update([t], active([t]), day), []);
-  for (const deadline of ['2099-01-01', '2026-10-16', null]) {
+  for (const deadline of ['2099-01-01', null]) {
     t = task('a', { deadline });
     assert.deepEqual(session.update([t], active([t]), day), []);
     assert.equal(inList(t, 'inbox', day), true);
     assert.equal(inList(t, 'upcoming', day), false);
     assert.equal(inList(t, 'anytime', day), false);
   }
-  for (const fields of [{ when: 'today' }, { when: '2099-01-01' }, { project: 'Note.md' }]) {
+  for (const fields of [
+    { deadline: '2026-10-16' },
+    { deadline: day },
+    { when: 'today' },
+    { when: '2099-01-01' },
+    { project: 'Note.md' },
+  ]) {
     t = task('a', fields);
     assert.deepEqual(session.update([t], active([t]), day), [t]);
   }

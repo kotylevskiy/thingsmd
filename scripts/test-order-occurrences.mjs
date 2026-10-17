@@ -141,36 +141,37 @@ try {
     ),
     due = active.locator(`section[data-date="2099-05-03"] .ot-task[data-task-id="${ids[0]}"]`);
   await start.waitFor();
-  await due.waitFor();
-  assert.equal(await row(ids[0]).count(), 2);
-  // Commands must retain the deadline occurrence, not jump to the start date.
-  await due.click();
+  assert.equal(await due.count(), 0);
+  assert.equal(await row(ids[0]).count(), 1);
+  assert.equal(await start.locator('.ot-row-deadline time').getAttribute('datetime'), '2099-05-03');
+  // Commands retain the single scheduled placement while deadline metadata stays independent.
+  await start.click();
   await page.evaluate(() => app.commands.executeCommandById('thingsmd:toggle-waiting'));
   await page.waitForFunction((id) => {
     const row = document.activeElement;
     return (
       row?.dataset.taskId === id &&
-      row.closest('section[data-date]')?.dataset.date === '2099-05-03' &&
+      row.closest('section[data-date]')?.dataset.date === '2099-05-01' &&
       !!row.querySelector('.ot-waiting-marker')
     );
   }, ids[0]);
-  await due.dblclick();
-  await due.locator('.ot-title-input').waitFor();
+  await start.dblclick();
+  await start.locator('.ot-title-input').waitFor();
   assert.equal(await row(ids[0]).locator('.ot-title-input').count(), 1);
-  await due.getByLabel('Task title', { exact: true }).fill(prefix + ' changed');
-  await due.getByLabel('Task title', { exact: true }).press('Enter');
+  await start.getByLabel('Task title', { exact: true }).fill(prefix + ' changed');
+  await start.getByLabel('Task title', { exact: true }).press('Enter');
   await row(ids[0])
     .first()
     .getByText(prefix + ' changed', { exact: true })
     .waitFor();
   assert.equal(await page.locator('.notice').filter({ hasText: 'changed elsewhere' }).count(), 0);
-  await page.screenshot({ path: 'artifacts/upcoming-two-occurrences.png' });
+  await page.screenshot({ path: 'artifacts/upcoming-single-placement.png' });
   await page.evaluate(() => app.workspace.leftSplit.collapse());
   await page.setViewportSize({ width: 390, height: 844 });
   // Resize and background refresh can replace the row. Resolve and scroll in
   // one browser operation rather than holding an element during a stability wait.
-  await due.evaluate((element) => element.scrollIntoView({ block: 'nearest' }));
-  await page.screenshot({ path: 'artifacts/upcoming-two-occurrences-mobile.png' });
+  await start.evaluate((element) => element.scrollIntoView({ block: 'nearest' }));
+  await page.screenshot({ path: 'artifacts/upcoming-single-placement-mobile.png' });
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.evaluate(() => app.workspace.leftSplit.expand());
   const original = await page.evaluate((note) => app.vault.adapter.read(note), note);
@@ -178,8 +179,8 @@ try {
   const date = await active.locator('section[data-date]').first().getAttribute('data-date');
   // Begin the native drag before scrolling to a distant day. dragTo() can
   // scroll the source away before the browser has emitted dragstart.
-  await due.hover({ position: { x: 80, y: 10 } });
-  const sourceBox = await due.boundingBox();
+  await start.hover({ position: { x: 80, y: 10 } });
+  const sourceBox = await start.boundingBox();
   await page.mouse.down();
   await page.mouse.move(sourceBox.x + 100, sourceBox.y + 10, { steps: 4 });
   await active.locator('.ot-task.is-dragging').waitFor();
@@ -193,7 +194,7 @@ try {
       const t = (await app.plugins.getPlugin('thingsmd').taskRecords()).find(
         (t) => t.meta.id === id,
       );
-      return t.meta.deadline === date && t.meta.when === '2099-05-01';
+      return t.meta.when === date && t.meta.deadline === '2099-05-03';
     },
     { id: ids[0], date },
   );
@@ -234,7 +235,7 @@ try {
     extras[2].meta.id,
   );
   console.log(
-    'PASS: independent persistent list ordering, keyboard and drag, checklist ordering, dual Upcoming occurrences, single editor, shared updates/completion, deadline-only drag, preserved note text.',
+    'PASS: independent persistent list ordering, keyboard and drag, checklist ordering, one Upcoming placement, single editor, persistent updates/completion, schedule drag preserves deadline, preserved note text.',
   );
 } finally {
   await page.evaluate(

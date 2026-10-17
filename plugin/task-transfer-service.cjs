@@ -22,6 +22,8 @@ module.exports = function installTransferService(plugin, { onTransferred, onCopy
     moveClipboard = false,
     scheduledWhen,
   }) => {
+    if (list === 'waiting' && plugin.settings?.enableWaiting === false)
+      throw new Error('Waiting For is disabled.');
     if (!destination && list === 'upcoming' && scheduledWhen === undefined)
       return plugin.openUpcomingMove({
         id,
@@ -86,7 +88,8 @@ module.exports = function installTransferService(plugin, { onTransferred, onCopy
               values,
               normalizeSchedule({ when: scheduledWhen ?? (list === 'inbox' ? null : list) }),
             );
-            if (['inbox', 'anytime'].includes(list)) values.is_waiting = false;
+            if (plugin.settings?.enableWaiting !== false && ['inbox', 'anytime'].includes(list))
+              values.is_waiting = false;
           }
         }
         created = task = await plugin.createTask(values, undefined, (snapshot || task).body);
@@ -120,7 +123,8 @@ module.exports = function installTransferService(plugin, { onTransferred, onCopy
           if (list === 'waiting') patch.is_waiting = true;
           else {
             patch.when = scheduledWhen ?? (list === 'inbox' ? null : list);
-            if (['inbox', 'anytime'].includes(list)) patch.is_waiting = false;
+            if (plugin.settings?.enableWaiting !== false && ['inbox', 'anytime'].includes(list))
+              patch.is_waiting = false;
           }
         }
         saved = await plugin.patchTask(original, patch, undefined, { notify: false });

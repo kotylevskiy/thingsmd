@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 const { scripts } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url)));
 const results = [];
 const start = process.argv[2];
@@ -15,9 +15,10 @@ for (const [name, command] of Object.entries(scripts)) {
   results.push({ name, passed: result.status === 0 });
   if (result.status !== 0 && !process.env.THINGSMD_CONTINUE_ON_FAILURE) break;
 }
+mkdirSync(new URL('../artifacts/', import.meta.url), { recursive: true });
 writeFileSync(
   new URL('../artifacts/control-regression-results.json', import.meta.url),
   JSON.stringify({ date: new Date().toISOString(), results }, null, 2),
 );
-console.log(`\n${results.filter((r) => r.passed).length}/${results.length} live suites passed.`);
+console.log(`\n${results.filter((r) => r.passed).length}/${results.length} UI suites passed.`);
 if (results.some((r) => !r.passed)) process.exitCode = 1;

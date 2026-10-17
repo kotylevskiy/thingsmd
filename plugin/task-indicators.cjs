@@ -1,7 +1,16 @@
 const { setIcon } = require('obsidian');
-const { today, dayAfter } = require('./local-date.cjs');
+const { today, dayAfter, daysBetween, validDate } = require('./local-date.cjs');
 const { inToday, inEvening, isTodayWhen } = require('./model.cjs');
-function taskIndicators(line, task, page) {
+// Keep waiting separate from completion, including archived tasks.
+function waitingIndicator(line, meta, page, enableWaiting = true) {
+  if (!enableWaiting || meta.is_waiting !== true || page === 'waiting') return;
+  const marker = line.createSpan({
+    cls: 'ot-waiting-marker' + (meta.status === 'done' ? ' is-completed' : ''),
+    attr: { role: 'img', 'aria-label': 'Waiting For', title: 'Waiting For' },
+  });
+  setIcon(marker, 'send-horizontal');
+}
+function taskIndicators(line, task, page, enableWaiting = true) {
   if (task.meta.repeat || task.meta.repeatSource) {
     const repeat = line.createSpan({
       cls: 'ot-repeat-indicator' + (task.meta.repeat ? ' is-template' : ''),
@@ -29,6 +38,7 @@ function taskIndicators(line, task, page) {
     setIcon(icon, 'file-text');
     note.createSpan({ cls: 'ot-sr-only', text: 'Has notes' });
   }
+  waitingIndicator(line, task.meta, page, enableWaiting);
   if (page !== 'today' && inToday(task.meta, today())) {
     const evening = inEvening(task.meta, today());
     const star = line.createSpan({ cls: 'ot-today-marker' + (evening ? ' is-evening' : '') });
@@ -37,12 +47,13 @@ function taskIndicators(line, task, page) {
     star.createSpan({ cls: 'ot-sr-only', text: evening ? 'This Evening' : 'In Today' });
     line.insertBefore(star, line.querySelector('.ot-task-title'));
   }
-  if (page === 'upcoming') return;
+  const deadline = task.meta.repeat?.deadline ? task.meta.repeat.next : task.meta.deadline;
+  if (page === 'upcoming' && !deadline) return;
   if (
     (!task.meta.when ||
       ['anytime', 'someday'].includes(task.meta.when) ||
       isTodayWhen(task.meta.when, today())) &&
-    !task.meta.deadline
+    !deadline
   )
     return;
   const dates = line.createSpan('ot-row-indicators');
@@ -51,7 +62,7 @@ function taskIndicators(line, task, page) {
   const label = (value) => {
     if (value === current) return 'Today';
     if (value === tomorrowKey) return 'Tomorrow';
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return String(value);
+    if (!validDate(value)) return String(value);
     const [y, m, d] = value.split('-').map(Number);
     return new Intl.DateTimeFormat('en', {
       month: 'short',
@@ -63,22 +74,35 @@ function taskIndicators(line, task, page) {
     ['when', 'calendar-days', 'When'],
     ['deadline', 'flag', 'Deadline'],
   ]) {
-    const value = task.meta[key];
+    const value = key === 'deadline' ? deadline : task.meta[key];
     if (
       !value ||
-      (key === 'when' && (isTodayWhen(value, current) || ['anytime', 'someday'].includes(value)))
+      (key === 'when' &&
+        (page === 'upcoming' ||
+          isTodayWhen(value, current) ||
+          ['anytime', 'someday'].includes(value)))
     )
       continue;
     const item = dates.createSpan({ cls: `ot-row-date ot-row-${key}` });
     item.toggleClass(
       'is-overdue',
-      key === 'deadline' && value < current && task.meta.status !== 'done',
+      key === 'deadline' && validDate(value) && value <= current && task.meta.status !== 'done',
     );
     const glyph = item.createSpan({ attr: { 'aria-hidden': 'true' } });
     setIcon(glyph, icon);
     item.createSpan({ cls: 'ot-sr-only', text: `${name}: ` });
-    item.createEl('time', { text: label(value), attr: { datetime: value } });
+    const remaining = validDate(value) ? daysBetween(current, value) : null;
+    const text =
+      key !== 'deadline' || remaining === null
+        ? label(value)
+        : remaining === 0
+          ? 'Today'
+          : remaining > 0
+            ? `${remaining} ${remaining === 1 ? 'day' : 'days'} left`
+            : `${-remaining} ${remaining === -1 ? 'day' : 'days'} ago`;
+    item.title = `${name}: ${label(value)}`;
+    item.createEl('time', { text, attr: { datetime: value } });
   }
 }
 
-module.exports = { taskIndicators };
+module.exports = { taskIndicators, waitingIndicator };

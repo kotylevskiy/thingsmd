@@ -18,7 +18,11 @@ const meta = () =>
 async function choose(label) {
   await row().dblclick();
   await row().getByRole('button', { name: 'When', exact: true }).click();
-  await page.locator('.ot-date-picker').getByRole('button', { name: label, exact: true }).click();
+  const picker = page.locator('.ot-date-picker');
+  if (label === 'tomorrow') {
+    await picker.getByLabel('When date').fill(label);
+    await picker.getByLabel('When date').press('Enter');
+  } else await picker.getByRole('button', { name: label, exact: true }).click();
   await row().locator('.ot-title-input').press('Enter');
 }
 try {
@@ -32,7 +36,7 @@ try {
   await active.locator('.ot-evening-section').getByText(title, { exact: true }).waitFor();
   assert.equal((await meta()).deadline, '2099-12-31');
   await page.screenshot({ path: 'artifacts/this-evening.png' });
-  await choose(/^Tomorrow/);
+  await choose('tomorrow');
   await row().waitFor({ state: 'hidden' });
   let current = await meta();
   assert.equal(current.evening, null);

@@ -1,5 +1,6 @@
 const { Modal, setIcon } = require('obsidian');
-const { dayKey, date, daysBetween, validDate, validate, nextDate } = require('./repeat-model.cjs');
+const { dayKey, date, daysBetween, validDate } = require('./local-date.cjs');
+const { validate, nextDate, patternOnDate } = require('./repeat-model.cjs');
 const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const months = [
   'January',
@@ -100,15 +101,7 @@ class RepeatDialog extends Modal {
       r.unit,
       (value) => {
         r.unit = value;
-        const d = date(r.anchor);
-        r.on =
-          value === 'week'
-            ? [{ weekday: d.getDay() }]
-            : value === 'month'
-              ? [{ day: d.getDate() }]
-              : value === 'year'
-                ? [{ month: d.getMonth() + 1, day: d.getDate() }]
-                : [];
+        r.on = patternOnDate(value, r.anchor);
         this.draw();
       },
     );

@@ -1,5 +1,6 @@
 const { settings } = require('./archive-policy.cjs');
 const { WriteQueue } = require('./write-queue.cjs');
+const { resolveList } = require('./lists.cjs');
 
 module.exports = async function installSettingsService(plugin) {
   plugin.settings = settings(await plugin.loadData());
@@ -34,11 +35,11 @@ module.exports = async function installSettingsService(plugin) {
       committed: async () => {
         plugin.mountListLinks();
         plugin.tasksChanged();
+        plugin.captureModal?.card?.refreshSettings();
         for (const leaf of plugin.app.workspace.getLeavesOfType('things-project-view')) {
-          if (plugin.settings.captureDestination === 'daily-note' && leaf.view.page === 'inbox')
-            await leaf.view.navigate('today');
-          if (plugin.settings.trashRetention === 'immediately' && leaf.view.page === 'trash')
-            await leaf.view.navigate('inbox');
+          leaf.view.taskEditorController?.refreshSettings();
+          const page = resolveList(leaf.view.page, plugin.settings);
+          if (page !== leaf.view.page) await leaf.view.navigate(page);
         }
         await plugin.maintainArchives();
       },

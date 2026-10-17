@@ -1,20 +1,14 @@
 const TaskEditor = require('./task-editor.cjs');
 const InboxSession = require('./inbox-session.cjs');
-const { taskIndicators } = require('./task-indicators.cjs');
+const { taskIndicators, waitingIndicator } = require('./task-indicators.cjs');
 const { ItemView, Notice, Platform, setIcon } = require('obsidian');
-const {
-  compareTasks,
-  insertionOrder,
-  inList,
-  upcomingDates,
-  upcomingDays,
-  inEvening,
-} = require('./model.cjs');
+const { compareTasks, insertionOrder, inList } = require('./model.cjs');
 const { taskState } = require('./task-presentation.cjs');
 const { compareList, listInsertion } = require('./list-order.cjs');
 const { VIEW, PAGES, resolveList } = require('./lists.cjs');
-const { today, dayAfter } = require('./local-date.cjs');
+const { today } = require('./local-date.cjs');
 const { button, closePopover } = require('./dom.cjs');
+const { WriteQueue } = require('./write-queue.cjs');
 class ThingsMDView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -33,6 +27,7 @@ class ThingsMDView extends ItemView {
     this.expanded = null;
     this.editing = false;
     this.busy = false;
+    this.actionQueue = new WriteQueue();
     this.selected = null;
   }
   getViewType() {
@@ -59,16 +54,18 @@ class ThingsMDView extends ItemView {
     const refresh = () => {
       clearTimeout(this.refreshTimer);
       this.refreshTimer = setTimeout(() => {
+        this.taskEditorController.refreshSettings();
         if (!this.editing && !this.busy && !this.dragging) this.render();
       }, 180);
     };
     for (const event of ['modify', 'create', 'delete', 'rename'])
       this.registerEvent(this.app.vault.on(event, refresh));
     this.registerEvent(this.app.workspace.on('things-tasks-changed', refresh));
-    this.registerDomEvent(this.contentEl.ownerDocument, 'mousedown', (e) => {
-      if (!this.taskDraft || e.target.closest('.ot-task.is-expanded')) return;
+    this.registerDomEvent(this.contentEl.ownerDocument, 'pointerdown', (e) => {
       if (e.target.closest('.ot-task,.ot-capture')) return;
-      this.finishTask();
+      if (this.contentEl.contains(e.target) && !e.target.closest('button,a,input,textarea,select'))
+        this.clearSelection();
+      if (this.taskDraft) this.finishTask();
     });
     // Handle planner shortcuts before Obsidian's document-level keymap.
     this.registerDomEvent(
@@ -81,6 +78,12 @@ class ThingsMDView extends ItemView {
           e.preventDefault();
           e.stopImmediatePropagation();
           if (!closePopover(this.contentEl)) this.finishTask();
+          return;
+        }
+        if (e.key === 'Escape' && this.selected) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          this.clearSelection();
           return;
         }
         if (e.target.closest('input,textarea,select,button,.ot-date-picker')) return;
@@ -106,19 +109,22 @@ class ThingsMDView extends ItemView {
     for (const row of this.contentEl.querySelectorAll('.ot-task')) row._otTouchDrag?.cancel();
     await this.taskEditorController.flushTaskDraft();
   }
-  async run(action) {
-    if (this.busy) return;
-    this.busy = true;
-    try {
-      await action();
-      this.editing = false;
-      await this.render();
-    } catch (error) {
-      new Notice(error.message);
-      console.error('ThingsMD:', error);
-    } finally {
-      this.busy = false;
-    }
+  run(action) {
+    // A refresh can expose the next list before the preceding action returns.
+    // Queue subsequent clicks instead of silently discarding the user's action.
+    return this.actionQueue.run('actions', async () => {
+      this.busy = true;
+      try {
+        await action();
+        // The user may have opened a draft while this action was saving.
+        await this.render();
+      } catch (error) {
+        new Notice(error.message);
+        console.error('ThingsMD:', error);
+      } finally {
+        this.busy = false;
+      }
+    });
   }
   async navigate(page) {
     page = resolveList(page, this.plugin.settings);
@@ -160,6 +166,7 @@ class ThingsMDView extends ItemView {
         today(),
         this.plugin.settings.logbook,
         this.plugin.settings.captureDestination,
+        this.plugin.settings.enableWaiting,
       ),
     );
     const archived = ['trash', 'logbook'].includes(this.page);
@@ -186,128 +193,7 @@ class ThingsMDView extends ItemView {
     });
     setIcon(headingIcon, PAGES.find(([key]) => key === this.page)?.[2] || 'inbox');
     top.createEl('h1', { text: this.getDisplayText(), cls: 'inline-title' });
-    if (this.page === 'upcoming') {
-      const dates = upcomingDays(active, today());
-      for (const date of dates) {
-        const section = paper.createEl('section', {
-          cls: 'ot-section',
-          attr: { 'data-date': date },
-        });
-        const [y, m, d] = date.split('-').map(Number);
-        const dayHeading = section.createEl('h2', { cls: 'ot-day-heading' });
-        dayHeading.createSpan({ cls: 'ot-day-number', text: String(d) });
-        dayHeading.createSpan({
-          cls: 'ot-day-name',
-          text:
-            date === dayAfter(1)
-              ? 'Tomorrow'
-              : new Intl.DateTimeFormat('en', {
-                  weekday: 'long',
-                  ...(date > dayAfter(7)
-                    ? {
-                        month: 'short',
-                        ...(y !== new Date().getFullYear() ? { year: 'numeric' } : {}),
-                      }
-                    : {}),
-                }).format(new Date(y, m - 1, d, 12)),
-        });
-        this.group(
-          section,
-          active.filter((task) => upcomingDates(task.meta, today()).includes(date)),
-          date,
-        );
-      }
-    } else if (this.page === 'today') {
-      const waiting = this.plugin.settings.showWaitingInToday
-        ? active.filter((task) => task.meta.is_waiting === true)
-        : [];
-      const regular = active.filter((task) => !waiting.includes(task));
-      this.group(
-        paper,
-        regular.filter((task) => !inEvening(task.meta, today())),
-        null,
-      );
-      const evening = regular.filter((task) => inEvening(task.meta, today()));
-      if (evening.length) {
-        const section = paper.createEl('section', { cls: 'ot-section ot-evening-section' });
-        const h = section.createEl('h2');
-        setIcon(h.createSpan({ cls: 'ot-evening-icon', attr: { 'aria-hidden': 'true' } }), 'moon');
-        h.createSpan({ text: 'This Evening' });
-        this.group(section, evening, 'evening');
-      }
-      if (waiting.length) {
-        const section = paper.createEl('section', {
-          cls: 'ot-section ot-evening-section ot-waiting-section',
-        });
-        const h = section.createEl('h2');
-        setIcon(
-          h.createSpan({ cls: 'ot-evening-icon', attr: { 'aria-hidden': 'true' } }),
-          'send-horizontal',
-        );
-        h.createSpan({ text: 'Waiting For' });
-        this.group(section, waiting, 'waiting');
-      }
-    } else if (['anytime', 'someday', 'waiting', 'repeating'].includes(this.page)) {
-      const groups = new Map();
-      for (const task of active) {
-        const key =
-          task.references?.[0] ||
-          this.projects.find(
-            (p) => p.meta.id === task.meta.project || p.file.path === task.meta.project,
-          )?.file.path ||
-          '';
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key).push(task);
-      }
-      this.group(paper, groups.get('') || [], null);
-      groups.delete('');
-      for (const [key, tasks] of groups) {
-        const section = paper.createEl('section', { cls: 'ot-section' });
-        const project = this.projects.find((p) => p.file.path === key || p.meta.id === key);
-        const heading = section.createEl('h2');
-        if (project) {
-          const link = button(
-            heading,
-            '',
-            async (event) => {
-              if (this.taskDraft && !(await this.finishTask(false))) return;
-              const file = this.app.vault.getAbstractFileByPath(project.file.path);
-              if (!file) {
-                new Notice('This note is no longer available.');
-                return;
-              }
-              const leaf =
-                event.metaKey || event.ctrlKey ? this.app.workspace.getLeaf('tab') : this.leaf;
-              await leaf.openFile(file);
-              this.app.workspace.setActiveLeaf(leaf, { focus: true });
-            },
-            'ot-project-link',
-          );
-          link.setAttribute('aria-label', `Open note: ${project.meta.title}`);
-          if (progress.has(project.file.path))
-            require('./project-progress.cjs').renderProgress(link, progress.get(project.file.path));
-          link.createSpan({ text: project.meta.title });
-        } else heading.textContent = key;
-        this.group(section, tasks, key);
-      }
-    } else this.group(paper, active, null);
-    if (this.page === 'inbox') {
-      const moved = this.inboxSession.update(
-        this.tasks,
-        active,
-        today(),
-        this.plugin.settings.logbook,
-      );
-      if (moved.length) {
-        const section = paper.createEl('section', { cls: 'ot-section ot-inbox-moved' });
-        section.createEl('h2', {
-          text: `${moved.length} ${moved.length === 1 ? 'to-do was' : 'to-dos were'} moved out of the Inbox`,
-        });
-        const group = section.createDiv('ot-group');
-        group.dataset.orderKey = 'inbox';
-        for (const task of moved) this.taskRow(group, task);
-      }
-    }
+    require('./list-contents.cjs')(this, paper, active, progress);
     main.scrollTop = scroll;
   }
   group(parent, tasks, sectionId) {
@@ -368,6 +254,11 @@ class ThingsMDView extends ItemView {
       row.toggleClass('is-selected', selected);
       row.setAttribute('aria-selected', String(selected));
     });
+  }
+  clearSelection() {
+    const focused = this.contentEl.ownerDocument.activeElement;
+    this.selectTask(null, null);
+    if (this.contentEl.contains(focused) && focused.matches('.ot-task')) focused.blur();
   }
   selectedRow() {
     return (
@@ -450,6 +341,7 @@ class ThingsMDView extends ItemView {
     taskState(row, task.meta);
     if (['trash', 'logbook'].includes(this.page)) {
       line.createSpan({ text: task.meta.title || 'New task', cls: 'ot-task-title' });
+      waitingIndicator(line, task.meta, this.page, this.plugin.settings.enableWaiting);
       const stamp = this.page === 'trash' ? task.meta.deletedAt : task.meta.completed;
       if (stamp && !Number.isNaN(new Date(stamp).getTime()))
         line.createSpan({
@@ -471,15 +363,7 @@ class ThingsMDView extends ItemView {
     if (expanded) this.taskEditorController.taskEditor(row, line, task);
     else {
       line.createSpan({ text: task.meta.title || 'New task', cls: 'ot-task-title' });
-      taskIndicators(line, task, this.page);
-      if (this.page === 'upcoming') {
-        const due = task.meta.deadline === occurrence,
-          start = task.meta.when === occurrence;
-        line.createSpan({
-          cls: 'ot-occurrence-label',
-          text: due ? (start ? 'Start · Deadline' : 'Deadline') : 'Start',
-        });
-      }
+      taskIndicators(line, task, this.page, this.plugin.settings.enableWaiting);
       const project = this.projects.find(
         (p) =>
           p.file.path === task.references?.[0] ||
@@ -573,10 +457,8 @@ class ThingsMDView extends ItemView {
     const date = group.closest('[data-date]')?.dataset.date;
     if (date && occurrence !== date) {
       this.dragging = false;
-      const task = this.tasks.find((t) => t.meta.id === id);
-      const kind =
-        task?.meta.deadline === occurrence && task?.meta.when !== occurrence ? 'deadline' : 'when';
-      this.scheduleDrop(id, date, kind);
+      // Dragging in Things changes When, including a deadline-only row.
+      this.scheduleDrop(id, date);
       return;
     }
     if (![...group.querySelectorAll(':scope > .ot-task')].some((row) => row.dataset.taskId === id))

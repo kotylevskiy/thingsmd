@@ -20,7 +20,8 @@ try {
   );
   await modal.locator('.ot-task-notes').fill('Captured notes');
   await modal.getByRole('button', { name: 'Deadline', exact: true }).click();
-  await modal.getByRole('button', { name: /^Tomorrow/ }).click();
+  await modal.getByLabel('Deadline date').fill('tomorrow');
+  await modal.getByLabel('Deadline date').press('Enter');
   await title.focus();
   await title.press('Enter');
   await modal.waitFor({ state: 'hidden' });

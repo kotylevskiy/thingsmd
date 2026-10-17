@@ -1,7 +1,7 @@
 const { WriteQueue } = require('./write-queue.cjs');
 const { parseYaml, stringifyYaml } = require('obsidian');
 const { TASKS } = require('./lists.cjs');
-const { normalizeSchedule } = require('./task-schedule.cjs');
+const { applySchedulePolicy } = require('./task-schedule.cjs');
 const { taskReferences } = require('./task-references.cjs');
 const uid = () => crypto.randomUUID();
 function decode(text) {
@@ -31,7 +31,9 @@ const methods = {
   async taskRecords() {
     const adapter = this.app.vault.adapter;
     if (!(await adapter.exists(TASKS))) return [];
-    const { files } = await adapter.list(TASKS);
+    const listing = await readDuringScan(adapter, TASKS, () => adapter.list(TASKS));
+    if (!listing) return [];
+    const { files } = listing;
     const records = await Promise.all(
       files
         .filter((path) => path.endsWith('.md'))
@@ -104,9 +106,19 @@ const methods = {
   },
   async createTask(fields, id = uid(), body = '') {
     if (!/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error('Invalid task id');
-    fields = normalizeSchedule(fields);
+    fields = applySchedulePolicy({}, fields, undefined, { creating: true });
     const adapter = this.app.vault.adapter;
-    if (!(await adapter.exists(TASKS))) await adapter.mkdir(TASKS);
+    // Different task IDs still share their parent folder. Serialize its first
+    // creation separately so simultaneous captures cannot race on mkdir.
+    await this.taskQueue.run(TASKS, async () => {
+      if (await adapter.exists(TASKS)) return;
+      try {
+        await adapter.mkdir(TASKS);
+      } catch (error) {
+        // Sync or another Obsidian window may have created it in the meantime.
+        if (!(await adapter.exists(TASKS))) throw error;
+      }
+    });
     const path = `${TASKS}/${id}.md`;
     return this.taskQueue.run(path, async () => {
       if (await adapter.exists(path)) throw new Error('Task already exists');

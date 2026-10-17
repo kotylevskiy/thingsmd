@@ -39,7 +39,15 @@ function search(records, query, { broad = false, today, settings = {} } = {}) {
     if (!matches(text)) continue;
     const page =
       ['logbook', 'waiting', 'repeating', 'today', 'someday', 'upcoming', 'inbox', 'anytime'].find(
-        (p) => inList(t, p, today, settings.logbook, settings.captureDestination),
+        (p) =>
+          inList(
+            t,
+            p,
+            today,
+            settings.logbook,
+            settings.captureDestination,
+            settings.enableWaiting,
+          ),
       ) || 'anytime';
     const refs = [
       ...new Set([

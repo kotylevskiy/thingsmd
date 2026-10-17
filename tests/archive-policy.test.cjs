@@ -9,6 +9,7 @@ test('archive settings default safely and validate saved values', () => {
     captureDestination: 'inbox',
     showProjectProgress: true,
     showWaitingInToday: true,
+    enableWaiting: true,
   });
   assert.deepEqual(settings({ logbook: 'bad', trashRetention: 'bad' }), settings());
 });

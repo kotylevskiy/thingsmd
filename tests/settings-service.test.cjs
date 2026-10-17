@@ -80,3 +80,24 @@ test('failed persistence rolls back a prepared side effect; unload rejects queue
   cleanup.forEach((cb) => cb());
   await assert.rejects(plugin.persistSettings({ logbook: 'manually' }), /unloaded/);
 });
+
+test('disabling Waiting For persists the setting and redirects its open list without rewriting tasks', async () => {
+  const { plugin, writes } = await fixture();
+  const navigated = [];
+  let refreshed = 0;
+  plugin.app = {
+    workspace: {
+      getLeavesOfType: () => [
+        { view: { page: 'waiting', navigate: async (page) => navigated.push(page) } },
+      ],
+    },
+  };
+  plugin.mountListLinks = () => {};
+  plugin.tasksChanged = () => {};
+  plugin.maintainArchives = async () => {};
+  plugin.captureModal = { card: { refreshSettings: () => refreshed++ } };
+  await plugin.updateSettings({ enableWaiting: false });
+  assert.equal(writes.at(-1).enableWaiting, false);
+  assert.deepEqual(navigated, ['anytime']);
+  assert.equal(refreshed, 1);
+});

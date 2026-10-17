@@ -111,7 +111,8 @@ try {
     .fill('Details saved independently.');
   const card = page.locator('.workspace-leaf.mod-active .ot-task.is-expanded');
   await card.getByRole('button', { name: 'When', exact: true }).click();
-  await card.getByRole('button', { name: /Tomorrow/ }).click();
+  await card.getByLabel('When date').fill('tomorrow');
+  await card.getByLabel('When date').press('Enter');
   await card.getByRole('button', { name: 'Deadline', exact: true }).click();
   const dateInput = card.getByRole('textbox', { name: 'Deadline date', exact: true });
   await dateInput.fill('2027-02-29');
@@ -191,7 +192,8 @@ try {
   );
   await collapsed.press('Enter');
   await card.getByRole('button', { name: 'When', exact: true }).click();
-  await card.getByRole('button', { name: /Tomorrow/ }).click();
+  await card.getByLabel('When date').fill('tomorrow');
+  await card.getByLabel('When date').press('Enter');
   await page.locator('.workspace-leaf.mod-active .ot-title-input').press('Enter');
   await page.locator('.workspace-leaf.mod-active .ot-title-input').waitFor({ state: 'hidden' });
   assert.equal(
@@ -215,6 +217,16 @@ try {
     e.setCursor({ line: e.lineCount() - 1, ch: 0 });
     e.focus();
   });
+  await page.evaluate((note) => {
+    const plugin = app.plugins.getPlugin('thingsmd');
+    const create = plugin.createTask;
+    const retry = (window.nativeCreationTest = { plugin, create, attempts: 0 });
+    plugin.createTask = async function (fields, ...args) {
+      if (fields.project === note && fields.title === '' && ++retry.attempts === 1)
+        throw new Error('Injected inline creation failure');
+      return create.call(this, fields, ...args);
+    };
+  }, note);
   await page.keyboard.type('+ ');
   const newTitle = page.locator('.workspace-leaf.mod-active .ot-native .ot-title-input');
   await newTitle.waitFor();
@@ -233,6 +245,16 @@ try {
     return records.find((r) => r.meta.title === 'Created from the note')?.file.path;
   });
   assert.ok(createdPath);
+  assert.equal(await page.evaluate(() => window.nativeCreationTest.attempts), 2);
+  assert.match(
+    await page.evaluate((path) => app.vault.adapter.read(path), createdPath),
+    /Created from the note/,
+  );
+  await page.evaluate(() => {
+    const retry = window.nativeCreationTest;
+    retry.plugin.createTask = retry.create;
+    delete window.nativeCreationTest;
+  });
   await page.evaluate(() => {
     const e = app.workspace.activeLeaf.view.editor;
     e.setCursor({ line: e.lineCount() - 1, ch: 0 });
@@ -254,7 +276,7 @@ try {
   );
   assert.equal(errors.length, 0, errors.join('\n'));
   console.log(
-    'PASS: native task rendering, inline editing, independent autosave, typed creation, native prose and Source Mode.',
+    'PASS: native task rendering, inline editing, independent autosave, typed creation retry after a failed write without lost text or duplicate tasks, native prose and Source Mode.',
   );
 } catch (error) {
   console.error('Native errors:', errors);
@@ -269,6 +291,11 @@ try {
 } finally {
   await page.evaluate(
     async ({ note, taskPath, createdPath }) => {
+      if (window.nativeCreationTest) {
+        const retry = window.nativeCreationTest;
+        retry.plugin.createTask = retry.create;
+        delete window.nativeCreationTest;
+      }
       await app.plugins.getPlugin('thingsmd').openList('inbox');
       // Typed creation may fail before createdPath is assigned. Clean every task
       // belonging to this disposable note so failures do not leave orphan fixtures.

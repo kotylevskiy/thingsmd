@@ -1,12 +1,14 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
-export async function browserFixture() {
+export async function browserFixture({ browserType = chromium } = {}) {
   const executablePath =
-    process.env.THINGSMD_CHROME_PATH ||
-    (process.platform === 'darwin'
-      ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-      : undefined);
-  const browser = await chromium.launch({ executablePath, headless: true });
+    browserType.name() !== 'chromium'
+      ? undefined
+      : process.env.THINGSMD_CHROME_PATH ||
+        (process.platform === 'darwin'
+          ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+          : undefined);
+  const browser = await browserType.launch({ executablePath, headless: true });
   const page = await browser.newPage();
   const sources = Object.fromEntries(
     await Promise.all(
@@ -20,7 +22,7 @@ export async function browserFixture() {
   );
   const css = await readFile(new URL('../plugin/styles.css', import.meta.url), 'utf8');
   await page.setContent(
-    `<style>:root {--size-4-1:4px;--size-4-2:8px;--size-4-3:12px;--size-4-4:16px;--size-2-1:2px;--size-2-3:6px;--line-height-tight:1.3;--file-margins:16px;--font-text-size:16px;--file-line-width:700px;} *{box-sizing:border-box} body{margin:0}.modal{position:fixed;inset:20px;background:white;overflow:auto}.modal-close-button{display:block}${css}</style>`,
+    `<style>:root {--size-4-1:4px;--size-4-2:8px;--size-4-3:12px;--size-4-4:16px;--size-2-1:2px;--size-2-3:6px;--line-height-tight:1.3;--file-margins:16px;--font-text-size:16px;--file-line-width:700px;} *{box-sizing:border-box} body{margin:0}.modal-container{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}.modal{position:relative;display:flex;flex-direction:column;max-height:calc(100% - 40px);background:white;overflow:auto}.modal-close-button{display:block}${css}</style>`,
   );
   await page.evaluate((sources) => {
     const proto = HTMLElement.prototype;
@@ -60,7 +62,8 @@ export async function browserFixture() {
     class Modal {
       constructor(app) {
         this.app = app;
-        this.modalEl = document.body.createDiv('modal');
+        this.containerEl = document.body.createDiv('modal-container');
+        this.modalEl = this.containerEl.createDiv('modal');
         this.modalEl.createDiv('modal-close-button');
         this.modalEl.createDiv('modal-header-button').innerHTML = '<svg class="lucide-x"></svg>';
         this.contentEl = this.modalEl.createDiv('modal-content');
@@ -82,7 +85,7 @@ export async function browserFixture() {
       }
       close() {
         document.removeEventListener('keydown', this.keyHandler);
-        this.modalEl.remove();
+        this.containerEl.remove();
         this.onClose();
       }
     }

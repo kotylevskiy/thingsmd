@@ -32,7 +32,7 @@ try {
   const row = (i) => active.locator(`.ot-task[data-task-id="${state.tasks[i].meta.id}"]`);
   await active.locator('.ot-waiting-section').waitFor();
   assert.equal(await active.locator('.ot-waiting-section').locator('.ot-task').count(), 1);
-  assert.ok(await row(0).locator('input[type=checkbox] + .ot-waiting-marker').count());
+  assert.ok(await row(0).locator('.ot-task-title ~ .ot-waiting-marker').count());
   assert.ok(
     await active
       .locator('.ot-waiting-section')
@@ -54,6 +54,7 @@ try {
   await row(0).waitFor();
   await page.evaluate(() => app.plugins.getPlugin('thingsmd').openList('waiting'));
   await row(1).waitFor();
+  assert.equal(await row(1).locator('.ot-waiting-marker').count(), 0);
   await page.screenshot({ path: 'artifacts/waiting-list-mobile.png' });
   await row(1).click({ button: 'right' });
   await page.locator('.menu').getByText('Stop Waiting', { exact: true }).click();
@@ -89,10 +90,7 @@ try {
       },
       { path: state.path, mode },
     );
-    await row(0)
-      .filter({ visible: true })
-      .locator('input[type=checkbox] + .ot-waiting-marker')
-      .waitFor();
+    await row(0).filter({ visible: true }).locator('.ot-task-title ~ .ot-waiting-marker').waitFor();
     await page.screenshot({ path: `artifacts/waiting-${mode}.png` });
   }
   await page.evaluate(() => app.plugins.getPlugin('thingsmd').openList('waiting'));
@@ -138,7 +136,7 @@ try {
   );
   await active.getByText('Waiting capture fixture', { exact: true }).waitFor();
   console.log(
-    'PASS waiting: Today grouping/order and setting off, dedicated list, context toggle, transfer preserves date, airplane follows checkbox in lists and both note modes.',
+    'PASS waiting: Today grouping/order and setting off, dedicated list, context toggle, transfer preserves date, accent waiting badge trails the title in lists and both note modes, and is omitted in Waiting For.',
   );
 } finally {
   await page.evaluate(async (s) => {

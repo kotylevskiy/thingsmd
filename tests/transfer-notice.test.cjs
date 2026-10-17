@@ -138,6 +138,21 @@ test('confirmed Upcoming moves return the saved record', async () => {
   assert.equal(saved.meta.when, '2099-06-15');
 });
 
+test('disabled waiting rejects its destination and preserves flags during normal moves and copies', async () => {
+  const { plugin, notes, copies } = fixture();
+  plugin.settings = { enableWaiting: false };
+  await plugin.patchTask((await plugin.records())[0], { is_waiting: true });
+  const before = [...notes];
+  await assert.rejects(plugin.transferTask({ id: 'a', list: 'waiting' }), /disabled/);
+  assert.deepEqual([...notes], before);
+  for (const list of ['inbox', 'anytime']) {
+    await plugin.transferTask({ id: 'a', list });
+    assert.equal((await plugin.records())[0].meta.is_waiting, true);
+    await plugin.transferTask({ id: 'a', list, copy: true });
+    assert.equal(copies.at(-1).meta.is_waiting, true);
+  }
+});
+
 test('a move waits for the source editor save before committing metadata', async () => {
   const { plugin, notes } = fixture();
   let buffer = notes.get('From.md'),

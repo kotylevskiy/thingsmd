@@ -7,7 +7,16 @@ function moveMessage(before, after, settings = {}, day = today(), preferred) {
   if (!after || before.meta.deleted || after.meta.deleted || after.meta.status === 'done')
     return null;
   const membership = (task) =>
-    lists.filter((list) => inList(task, list, day, settings.logbook, settings.captureDestination));
+    lists.filter((list) =>
+      inList(
+        task,
+        list,
+        day,
+        settings.logbook,
+        settings.captureDestination,
+        settings.enableWaiting,
+      ),
+    );
   const oldLists = membership(before),
     newLists = membership(after);
   const placementChanged =

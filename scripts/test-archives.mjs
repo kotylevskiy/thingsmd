@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault();
+const consoleErrors = [];
+page.on('console', (message) => {
+  if (message.type() === 'error') consoleErrors.push(message.text());
+});
 page.setDefaultTimeout(8000);
 const note = `Archive test ${Date.now()}.md`;
 let path;
@@ -105,15 +109,44 @@ try {
   await logged.press('Delete');
   await logged.waitFor({ state: 'hidden' });
   await openList('trash');
+  // Hold the preceding action after its new DOM is visible. A quick navigation
+  // and Restore click must still be honored while that refresh is finishing.
+  await page.evaluate(() => {
+    const view = app.workspace.activeLeaf.view;
+    const render = view.render;
+    const pending = (window.archiveRefreshTest = { view, render, blocked: false });
+    view.render = async function (...args) {
+      await render.apply(this, args);
+      if (this.busy && !pending.blocked) {
+        pending.blocked = true;
+        await new Promise((resolve) => {
+          pending.release = resolve;
+        });
+      }
+    };
+  });
   await active
     .locator('.ot-task')
     .filter({ hasText: 'Archive verification' })
     .getByRole('button', { name: 'Restore' })
     .click();
+  await page.waitForFunction(() => !!window.archiveRefreshTest?.release);
   await openList('logbook');
   await logged.waitFor();
   await logged.getByRole('button', { name: 'Restore' }).click();
-  await logged.waitFor({ state: 'hidden' });
+  assert.equal((await record()).meta.status, 'done', 'The second action waits for the first');
+  await page.evaluate(() => {
+    const pending = window.archiveRefreshTest;
+    pending.view.render = pending.render;
+    pending.release();
+    delete window.archiveRefreshTest;
+  });
+  try {
+    await logged.waitFor({ state: 'hidden' });
+  } catch (error) {
+    console.error('Archive restore diagnostics:', consoleErrors, await record());
+    throw error;
+  }
   await openNote('preview');
   await active.locator('.ot-native .ot-task:visible').waitFor();
   assert.equal((await record()).meta.status, 'todo');
@@ -125,6 +158,12 @@ try {
 } finally {
   await page.evaluate(
     async ({ note, path }) => {
+      if (window.archiveRefreshTest) {
+        const pending = window.archiveRefreshTest;
+        pending.view.render = pending.render;
+        pending.release?.();
+        delete window.archiveRefreshTest;
+      }
       for (const l of app.workspace.getLeavesOfType('markdown'))
         if (l.view.file?.path === note) l.detach();
       const f = app.vault.getAbstractFileByPath(note);

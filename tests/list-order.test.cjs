@@ -16,15 +16,15 @@ test('list ranks are independent and retain original note order', () => {
   );
   assert.equal(b.meta.order, 2);
 });
-test('Upcoming includes distinct start and deadline dates but deduplicates a shared date', () => {
+test('Upcoming has one scheduled placement and uses a deadline only without a dated When', () => {
   assert.deepEqual(upcomingDates({ when: '2099-01-02', deadline: '2099-01-04' }, '2099-01-01'), [
     '2099-01-02',
-    '2099-01-04',
   ]);
   assert.deepEqual(upcomingDates({ when: '2099-01-02', deadline: '2099-01-02' }, '2099-01-01'), [
     '2099-01-02',
   ]);
-  assert.deepEqual(upcomingDates({ when: '2099-01-01', deadline: '2099-01-04' }, '2099-01-02'), [
+  assert.deepEqual(upcomingDates({ when: '2099-01-01', deadline: '2099-01-04' }, '2099-01-02'), []);
+  assert.deepEqual(upcomingDates({ when: 'anytime', deadline: '2099-01-04' }, '2099-01-02'), [
     '2099-01-04',
   ]);
 });

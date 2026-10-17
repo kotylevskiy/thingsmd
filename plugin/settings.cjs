@@ -64,16 +64,35 @@ module.exports = function installSettingsUI(plugin) {
           );
         });
       new Setting(this.containerEl)
-        .setName('Group waiting tasks in Today')
+        .setName('Enable Waiting For')
         .setDesc(
-          'Show waiting tasks scheduled for Today in a separate Waiting For section after This Evening. Turning this off keeps them in their normal Today or Evening section.',
+          'Show the Waiting For list and airplane controls. When off, waiting tasks appear in their normal lists. Their waiting status is kept.',
         )
-        .addToggle((t) => {
-          t.toggleEl.setAttribute('aria-label', 'Group waiting tasks in Today');
-          t.setValue(plugin.settings.showWaitingInToday).onChange((v) =>
-            plugin.updateSettings({ showWaitingInToday: v }).catch((e) => new Notice(e.message)),
-          );
+        .addToggle((toggle) => {
+          toggle.toggleEl.setAttribute('aria-label', 'Enable Waiting For');
+          toggle.setValue(plugin.settings.enableWaiting).onChange(async (value) => {
+            try {
+              await plugin.updateSettings({ enableWaiting: value });
+            } catch (error) {
+              new Notice(error.message);
+            } finally {
+              this.display();
+              this.containerEl.querySelector('[aria-label="Enable Waiting For"]')?.focus();
+            }
+          });
         });
+      if (plugin.settings.enableWaiting)
+        new Setting(this.containerEl)
+          .setName('Group waiting tasks in Today')
+          .setDesc(
+            'Show waiting tasks scheduled for Today in a separate Waiting For section after This Evening. Turning this off keeps them in their normal Today or Evening section.',
+          )
+          .addToggle((t) => {
+            t.toggleEl.setAttribute('aria-label', 'Group waiting tasks in Today');
+            t.setValue(plugin.settings.showWaitingInToday).onChange((v) =>
+              plugin.updateSettings({ showWaitingInToday: v }).catch((e) => new Notice(e.message)),
+            );
+          });
       new Setting(this.containerEl)
         .setName('Show project progress')
         .setDesc(

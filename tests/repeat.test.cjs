@@ -151,6 +151,61 @@ test('interruption after creating a copy retries placement and cursor advancemen
   assert.equal(f.get().meta.repeat.next, null);
   assert.equal((f.notes.get('Project.md').match(/repeat-template/g) || []).length, 1);
 });
+
+test('repeat placement waits for an existing host save and durably preserves the latest editor text', async () => {
+  const f = fixture({ end: '2026-10-01' });
+  let text = f.notes.get('Project.md'),
+    saves = 0;
+  const view = {
+    file: { path: 'Project.md' },
+    saving: true,
+    getMode: () => 'source',
+    editor: {
+      getValue: () => text,
+      offsetToPos: (ch) => ({ line: 0, ch }),
+      replaceRange: (next) => {
+        text = next;
+      },
+    },
+    save: async () => {
+      saves++;
+      // Obsidian returns early while saving, scheduling another save later.
+      if (!view.saving) f.notes.set('Project.md', text);
+    },
+  };
+  f.plugin.app.workspace.getLeavesOfType = () => [{ view }];
+  const generating = f.api.tick(new Date('2026-10-01T12:00:00'));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(saves, 0, 'Do not compete with the host save');
+  text += 'Latest unsaved prose\n';
+  view.saving = false;
+  await generating;
+  assert.equal(saves, 1);
+  assert.match(f.notes.get('Project.md'), /Latest unsaved prose/);
+  assert.match(f.notes.get('Project.md'), /repeat-template-test-2026-10-01/);
+  assert.equal(f.get().meta.repeat.next, null);
+});
+
+test('a note changed during repeat placement is retained and placement retries without duplicate copies', async () => {
+  const f = fixture({ end: '2026-10-01' });
+  const process = f.plugin.app.vault.process;
+  f.plugin.app.vault.process = async (file, fn) => {
+    f.notes.set(file.path, f.notes.get(file.path) + 'External edit\n');
+    return process(file, fn);
+  };
+  await assert.rejects(f.api.tick(new Date('2026-10-01T12:00:00')), /note changed/);
+  assert.match(f.notes.get('Project.md'), /External edit/);
+  assert.equal(f.copies().length, 1);
+  assert.equal(f.get().meta.repeat.next, '2026-10-01');
+  f.plugin.app.vault.process = process;
+  await f.api.tick(new Date('2026-10-01T12:00:00'));
+  assert.equal(f.copies().length, 1);
+  assert.equal(
+    (f.notes.get('Project.md').match(/repeat-template-test-2026-10-01/g) || []).length,
+    1,
+  );
+  assert.match(f.notes.get('Project.md'), /External edit/);
+});
 test('paused, deleted and ended rules do not generate; deadlines and early completion remain independent', async () => {
   const f = fixture({
     next: '2099-01-15',
@@ -217,4 +272,43 @@ test('unloading the plugin stops queued scheduler work', async () => {
   f.plugin.unload();
   await f.api.tick(new Date('2026-10-10T12:00:00'));
   assert.equal(f.copies().length, 0);
+});
+
+test('repeat templates and generated copies obey single-placement list rules across availability and deadline days', async () => {
+  const { inList, upcomingDates } = require('../plugin/model.cjs');
+  for (const mode of ['regular', 'completion']) {
+    const f = fixture({
+      mode,
+      unit: 'week',
+      interval: 1,
+      on: [{ weekday: 2 }],
+      anchor: '2026-10-20',
+      next: '2026-10-20',
+      deadline: true,
+      leadDays: 2,
+    });
+    f.get().meta.when = '2026-10-18';
+    assert.equal(inList(f.get(), 'upcoming', '2026-10-17'), true);
+    assert.deepEqual(upcomingDates(f.get().meta, '2026-10-17'), ['2026-10-18']);
+    await f.api.tick(new Date('2026-10-18T12:00:00'));
+    const copy = f.copies()[0];
+    assert.equal(copy.meta.deadline, '2026-10-20');
+    assert.equal(copy.meta.when, '2026-10-18');
+    for (const day of ['2026-10-18', '2026-10-19', '2026-10-20', '2026-10-21']) {
+      assert.equal(inList(copy, 'today', day), true);
+      assert.equal(inList(copy, 'anytime', day), true);
+      assert.equal(inList(copy, 'upcoming', day), false);
+      assert.deepEqual(upcomingDates(copy.meta, day), []);
+    }
+    assert.equal(inList(f.get(), 'today', '2026-10-18'), false);
+    assert.equal(inList(f.get(), 'upcoming', '2026-10-18'), mode === 'regular');
+    copy.meta.status = 'done';
+    copy.meta.completed = '2026-10-18T12:00:00';
+    await f.api.tick(new Date('2026-10-18T12:00:00'));
+    assert.equal(f.get().meta.repeat.next, mode === 'regular' ? '2026-10-27' : '2026-10-25');
+    assert.equal(inList(copy, 'logbook', '2026-10-19'), true);
+    assert.equal(inList(copy, 'today', '2026-10-19'), false);
+    await f.api.pause('template', true);
+    assert.equal(inList(f.get(), 'upcoming', '2026-10-18'), false);
+  }
 });

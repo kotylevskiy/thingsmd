@@ -12,6 +12,7 @@ const DEFAULTS = {
   trashRetention: 'never',
   captureDestination: 'inbox',
   showProjectProgress: true,
+  enableWaiting: true,
   showWaitingInToday: true,
 };
 function settings(data = {}) {
@@ -19,6 +20,7 @@ function settings(data = {}) {
     globalCaptureHotkey:
       typeof data?.globalCaptureHotkey === 'string' ? data.globalCaptureHotkey.trim() : '',
     showWaitingInToday: data?.showWaitingInToday !== false,
+    enableWaiting: data?.enableWaiting !== false,
     showProjectProgress: data?.showProjectProgress !== false,
     captureDestination: data?.captureDestination === 'daily-note' ? 'daily-note' : 'inbox',
     logbook: LOG_MODES.includes(data?.logbook) ? data.logbook : DEFAULTS.logbook,

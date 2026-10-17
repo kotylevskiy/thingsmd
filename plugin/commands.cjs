@@ -2,8 +2,10 @@ const { dayAfter } = require('./local-date.cjs');
 const { LISTS, isListAvailable } = require('./lists.cjs');
 const { Notice } = require('obsidian');
 const { referenceRanges } = require('./task-references.cjs');
+const { noteAccess } = require('./note-access.cjs');
 module.exports = function (plugin) {
   const app = plugin.app;
+  const notes = noteAccess(app);
   let last = null;
   const remember = (e) => {
     const row = e.target.closest?.('.ot-task[data-task-id]');
@@ -36,8 +38,7 @@ module.exports = function (plugin) {
       view.selected ||
       (last?.leaf === leaf ? last.id : null);
     if (!id) return null;
-    // Upcoming can render the same task twice. Keep the selected date occurrence
-    // when commands open a popup, restore focus, or reorder its group.
+    // Retain the selected group when commands open a popup or restore focus.
     const occurrence =
       focused?.dataset.occurrence ||
       view.selectedOccurrence ||
@@ -106,7 +107,7 @@ module.exports = function (plugin) {
         ?.focus();
     }
   };
-  const patch = (id, name, fields) =>
+  const patch = (id, name, fields, valid = editable) =>
     register(
       id,
       name,
@@ -117,7 +118,7 @@ module.exports = function (plugin) {
           await refocus(c);
         }
       },
-      editable,
+      valid,
     );
   const openEditor = async (c) => {
     if (c.card.taskDraft) return;
@@ -179,7 +180,12 @@ module.exports = function (plugin) {
       return !!ok;
     },
   });
-  patch('toggle-waiting', 'Toggle waiting', (t) => ({ is_waiting: !t.meta.is_waiting }));
+  patch(
+    'toggle-waiting',
+    'Toggle waiting',
+    (t) => ({ is_waiting: !t.meta.is_waiting }),
+    (c) => editable(c) && plugin.settings.enableWaiting !== false,
+  );
   patch('complete-task', 'Toggle task completion', (t) => ({
     status: t.meta.status === 'done' ? 'todo' : 'done',
   }));
@@ -192,7 +198,9 @@ module.exports = function (plugin) {
   ])
     patch(id, name, () => ({
       when: id === 'task-tomorrow' ? dayAfter(1) : value,
-      ...(value === 'anytime' ? { is_waiting: false } : {}),
+      ...(value === 'anytime' && plugin.settings.enableWaiting !== false
+        ? { is_waiting: false }
+        : {}),
     }));
   for (const [kind, name] of [
     ['when', 'Schedule task…'],
@@ -343,8 +351,7 @@ module.exports = function (plugin) {
             await c.view.reorderInGroup(c.id, group, target.dataset.taskId, direction > 0);
         } else {
           const file = c.view.file,
-            source = c.view.getMode() === 'source',
-            text = source ? c.view.editor.getValue() : await app.vault.read(file);
+            text = await notes.read(file);
           const records = await plugin.taskRecords();
           const ranges = records
             .flatMap((t) =>
@@ -366,18 +373,7 @@ module.exports = function (plugin) {
             text.slice(firstEnd, second.from) +
             text.slice(first.from, firstEnd) +
             text.slice(secondEnd);
-          if (source) {
-            c.view.editor.replaceRange(
-              next,
-              { line: 0, ch: 0 },
-              c.view.editor.offsetToPos(text.length),
-            );
-            await c.view.save();
-          } else
-            await app.vault.process(file, (current) => {
-              if (current !== text) throw Error('Note changed; try again.');
-              return next;
-            });
+          await notes.write(file, text, next, { save: true });
           await refocus(c);
         }
       },

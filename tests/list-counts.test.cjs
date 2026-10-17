@@ -28,12 +28,24 @@ test('sidebar counts unfinished Inbox and Today tasks once, including evening an
       '2026-10-16',
       { logbook: 'manually', captureDestination: 'inbox' },
     ),
-    { inbox: 2, today: 6 },
+    { inbox: 1, today: 6 },
   );
 });
 test('empty lists have zero counts and reached dates enter Today', () => {
   assert.deepEqual(listCounts([], '2026-10-16', {}), { inbox: 0, today: 0 });
   assert.deepEqual(listCounts([task({ when: '2026-10-17' })], '2026-10-17', {}), {
+    inbox: 0,
+    today: 1,
+  });
+});
+
+test('disabling waiting returns unfiled waiting tasks to the Inbox counter', () => {
+  const tasks = [task({ is_waiting: true }), task({ is_waiting: true, when: 'today' })];
+  assert.deepEqual(listCounts(tasks, '2026-10-17', { enableWaiting: false }), {
+    inbox: 1,
+    today: 1,
+  });
+  assert.deepEqual(listCounts(tasks, '2026-10-17', { enableWaiting: true }), {
     inbox: 0,
     today: 1,
   });

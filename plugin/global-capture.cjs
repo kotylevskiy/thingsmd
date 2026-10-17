@@ -1,7 +1,8 @@
 const { Platform, Notice } = require('obsidian');
 
 module.exports = function installGlobalCapture(plugin) {
-  if (!Platform.isDesktopApp) return;
+  // Obsidian's mobile emulation still runs in a desktop shell, but blocks Node imports.
+  if (!Platform.isDesktopApp || Platform.isMobile) return;
   let remote,
     window,
     systemCapture,

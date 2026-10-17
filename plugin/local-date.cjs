@@ -2,11 +2,26 @@
 const dayKey = (date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const today = () => dayKey(new Date());
-const dayAfter = (offset) => {
-  const date = new Date();
-  date.setDate(date.getDate() + offset);
-  return dayKey(date);
+const dayAfter = (offset) => addDays(today(), offset);
+const date = (key) => {
+  const [year, month, day] = key.split('-').map(Number);
+  return new Date(year, month - 1, day, 12);
 };
+const addDays = (key, offset) => {
+  const value = date(key);
+  value.setDate(value.getDate() + offset);
+  return dayKey(value);
+};
+// Compare calendar days, independent of daylight-saving clock changes.
+const daysBetween = (from, to) => {
+  const midnight = (key) => {
+    const [year, month, day] = key.split('-').map(Number);
+    return Date.UTC(year, month - 1, day);
+  };
+  return Math.round((midnight(to) - midnight(from)) / 86400000);
+};
+const validDate = (key) =>
+  typeof key === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(key) && parseDate(key) === key;
 function fromParts(year, month, day) {
   const date = new Date(year, month - 1, day, 12);
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
@@ -14,6 +29,7 @@ function fromParts(year, month, day) {
     : null;
 }
 function parseDate(value, now = new Date()) {
+  if (typeof value !== 'string') return null;
   const text = value.trim().toLowerCase();
   const relative = { today: 0, tomorrow: 1, 'next week': 7 };
   if (Object.hasOwn(relative, text)) {
@@ -29,4 +45,4 @@ function parseDate(value, now = new Date()) {
   return date ? dayKey(date) : null;
 }
 
-module.exports = { dayKey, today, dayAfter, parseDate };
+module.exports = { dayKey, today, dayAfter, date, addDays, daysBetween, validDate, parseDate };

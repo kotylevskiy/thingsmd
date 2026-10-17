@@ -27,7 +27,7 @@ module.exports = function installSidebar(plugin) {
             'ot-list-link tree-item-self is-clickable',
           );
           row.dataset.list = key;
-          setIcon(row.createSpan('ot-list-link-icon'), icon);
+          setIcon(row.createSpan('ot-list-link-icon tree-item-icon'), icon);
           row.createSpan({ text: label, cls: 'tree-item-inner' });
           if (key === 'inbox' || key === 'today') {
             const count = row.createSpan({ cls: 'ot-list-count', attr: { 'aria-hidden': 'true' } });
