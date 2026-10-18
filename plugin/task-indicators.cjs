@@ -8,7 +8,7 @@ function waitingIndicator(line, meta, page, enableWaiting = true) {
     cls: 'ot-waiting-marker' + (meta.status === 'done' ? ' is-completed' : ''),
     attr: { role: 'img', 'aria-label': 'Waiting For', title: 'Waiting For' },
   });
-  setIcon(marker, 'send-horizontal');
+  setIcon(marker, 'thingsmd-paper-plane');
 }
 function taskIndicators(line, task, page, enableWaiting = true) {
   if (task.meta.repeat || task.meta.repeatSource) {
@@ -17,7 +17,6 @@ function taskIndicators(line, task, page, enableWaiting = true) {
       attr: { 'aria-label': task.meta.repeat ? 'Repeating template' : 'Repeating copy' },
     });
     setIcon(repeat, 'repeat');
-    line.insertBefore(repeat, line.querySelector('.ot-task-title'));
   }
   const details =
     task.meta.checklist?.length || task.body.trim() ? line.createSpan('ot-task-details') : null;

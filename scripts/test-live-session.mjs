@@ -23,7 +23,7 @@ try {
     );
     assert.equal(await modal.locator('svg.lucide-x:visible').count(), 0);
     const waiting = modal.getByRole('button', { name: 'Waiting For', exact: true });
-    assert.equal(await waiting.locator('svg.lucide-send-horizontal').count(), 1);
+    assert.equal(await waiting.locator('svg .ot-paper-plane').count(), 1);
     assert.equal((await waiting.innerText()).trim(), '');
     await waiting.click();
     assert.equal(await waiting.getAttribute('aria-pressed'), 'true');

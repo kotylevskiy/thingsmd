@@ -9,6 +9,7 @@ const { VIEW, PAGES, resolveList } = require('./lists.cjs');
 const { today } = require('./local-date.cjs');
 const { button, closePopover } = require('./dom.cjs');
 const { WriteQueue } = require('./write-queue.cjs');
+let taskLabelId = 0;
 class ThingsMDView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -286,6 +287,7 @@ class ThingsMDView extends ItemView {
   taskRow(parent, task) {
     const occurrence = parent.closest('[data-date]')?.dataset.date || this.page;
     const expanded = this.expanded === task.meta.id && this.expandedOccurrence === occurrence;
+    const labelId = `ot-list-task-label-${++taskLabelId}`;
     const row = parent.createDiv({
       cls: `ot-task ${task.meta.status === 'done' ? 'is-done' : ''} ${expanded ? 'is-expanded' : ''} ${this.selected === task.meta.id && this.selectedOccurrence === occurrence ? 'is-selected' : ''}`,
       attr: {
@@ -293,7 +295,8 @@ class ThingsMDView extends ItemView {
         'data-occurrence': occurrence,
         tabindex: '0',
         role: 'option',
-        'aria-label': task.meta.title,
+        // Obsidian turns aria-label into a tooltip; use the visible task title.
+        'aria-labelledby': labelId,
         'aria-selected': String(
           this.selected === task.meta.id && this.selectedOccurrence === occurrence,
         ),
@@ -315,7 +318,7 @@ class ThingsMDView extends ItemView {
     };
     const line = row.createDiv('ot-task-line');
     const check = line.createEl('input', {
-      attr: { type: 'checkbox', 'aria-label': `Complete ${task.meta.title}` },
+      attr: { type: 'checkbox', 'aria-labelledby': labelId },
     });
     check.checked = task.meta.status === 'done';
     check.disabled = this.page === 'trash' || (!!task.meta.repeat && !task.meta.repeat.next);
@@ -340,7 +343,11 @@ class ThingsMDView extends ItemView {
     };
     taskState(row, task.meta);
     if (['trash', 'logbook'].includes(this.page)) {
-      line.createSpan({ text: task.meta.title || 'New task', cls: 'ot-task-title' });
+      line.createSpan({
+        text: task.meta.title || 'New task',
+        cls: 'ot-task-title',
+        attr: { id: labelId },
+      });
       waitingIndicator(line, task.meta, this.page, this.plugin.settings.enableWaiting);
       const stamp = this.page === 'trash' ? task.meta.deletedAt : task.meta.completed;
       if (stamp && !Number.isNaN(new Date(stamp).getTime()))
@@ -360,9 +367,15 @@ class ThingsMDView extends ItemView {
       );
       return;
     }
-    if (expanded) this.taskEditorController.taskEditor(row, line, task);
-    else {
-      line.createSpan({ text: task.meta.title || 'New task', cls: 'ot-task-title' });
+    if (expanded) {
+      this.taskEditorController.taskEditor(row, line, task);
+      line.querySelector('.ot-title-input').id = labelId;
+    } else {
+      line.createSpan({
+        text: task.meta.title || 'New task',
+        cls: 'ot-task-title',
+        attr: { id: labelId },
+      });
       taskIndicators(line, task, this.page, this.plugin.settings.enableWaiting);
       const project = this.projects.find(
         (p) =>

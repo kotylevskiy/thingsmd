@@ -316,7 +316,7 @@ try {
         if (file) await app.vault.delete(file);
       }
       const folder = app.vault.getAbstractFileByPath(target);
-      if (folder && !folder.children.length) await app.vault.delete(folder);
+      if (folder && !folder.children.length) await app.vault.delete(folder, true);
       if (original)
         await p.updateSettings({
           tasksFolderDisplay: original.tasksFolderDisplay || 'hidden',

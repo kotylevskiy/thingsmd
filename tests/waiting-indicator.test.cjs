@@ -25,7 +25,7 @@ test('waiting badge follows details, survives completion and is omitted in Waiti
     };
     mod.exports.waitingIndicator(line, { is_waiting: true, status }, 'logbook');
     assert.equal(children.length, 4);
-    assert.equal(children[3].icon, 'send-horizontal');
+    assert.equal(children[3].icon, 'thingsmd-paper-plane');
     assert.equal(children[3].cls.includes('is-completed'), status === 'done');
     assert.equal(children[3].attr['aria-label'], 'Waiting For');
     mod.exports.waitingIndicator(line, { is_waiting: true, status }, 'waiting');

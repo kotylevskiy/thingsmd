@@ -50,6 +50,19 @@ try {
   await page.locator('.ot-list-link[data-list="upcoming"]').click();
   await template().waitFor();
   assert.equal(await template().locator('.ot-repeat-indicator.is-template').count(), 1);
+  assert.equal(
+    await template().evaluate((row) => {
+      const repeat = row.querySelector('.ot-repeat-indicator');
+      return (
+        repeat.previousElementSibling.matches('.ot-task-title') &&
+        repeat.nextElementSibling.matches('.ot-task-details') &&
+        !!repeat.nextElementSibling.querySelector('.ot-note-icon') &&
+        !!repeat.nextElementSibling.querySelector('.ot-checklist-indicator')
+      );
+    }),
+    true,
+    'Repeat is the first indicator after the title, before notes and checklist',
+  );
   await template().getByRole('checkbox').check();
   await waitForAsync(
     page,
@@ -178,6 +191,13 @@ try {
   );
   const nativeCopy = active.locator(
     `.ot-native .ot-task[data-task-id="${completion.copy}"]:visible`,
+  );
+  assert.equal(
+    await nativeCopy
+      .locator('.ot-repeat-indicator')
+      .evaluate((marker) => marker.previousElementSibling.matches('.ot-task-title')),
+    true,
+    'Generated copies also show recurrence after the title',
   );
   await nativeCopy.getByRole('checkbox').check();
   await active

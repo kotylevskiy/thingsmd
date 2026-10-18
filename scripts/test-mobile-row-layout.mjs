@@ -29,11 +29,11 @@ try {
     ${css}
     </style><div class="ot-root"><div class="ot-shell"><main class="ot-main"><div class="ot-paper">
     <div class="ot-list-heading"><h1 class="inline-title">Anytime</h1></div>
-    ${['', '<span class="ot-today-marker">★</span>', '<span class="ot-repeat-indicator">↻</span>']
+    ${['', 'today', 'repeat']
       .map(
-        (icons) => `
+        (marker) => `
     <div class="ot-task is-selected"><div class="ot-task-line">
-    <input type="checkbox">${icons}<span class="ot-task-title">${title}</span>
+    <input type="checkbox">${marker === 'today' ? '<span class="ot-today-marker">★</span>' : ''}<span class="ot-task-title">${title}</span>${marker === 'repeat' ? '<span class="ot-repeat-indicator">↻</span>' : ''}
     <span class="ot-task-details"><span class="ot-note-icon">▤</span></span>
     <span class="ot-waiting-marker">➜</span><span class="ot-row-indicators"><span class="ot-row-date ot-row-deadline">⚑ Oct 20</span></span>
     </div></div>`,
@@ -89,12 +89,19 @@ try {
       assert.equal(metrics.overflow, 'ellipsis');
       if (metrics.text === title && width === 320)
         assert.equal(metrics.clipped, true, 'Long title is truncated rather than wrapped');
+      const repeat = (await row.locator('.ot-repeat-indicator').count())
+        ? await box('.ot-repeat-indicator')
+        : null;
+      if (repeat) {
+        assert.ok(Math.abs(repeat.x - text.x - text.width - 6) < 1, 'Repeat follows the title');
+        assert.ok(Math.abs(repeat.y + repeat.height / 2 - (text.y + text.height / 2)) < 2);
+      }
       if (await row.locator('.ot-task-details').count()) {
         const details = await box('.ot-task-details');
         assert.ok(Math.abs(details.y + details.height / 2 - (text.y + text.height / 2)) < 2);
         assert.ok(
-          Math.abs(details.x - text.x - text.width - 6) < 1,
-          'Notes sit immediately after title',
+          Math.abs(details.x - (repeat || text).x - (repeat || text).width - 6) < 1,
+          'Details follow the title and its optional repeat marker',
         );
       }
       for (const selector of ['.ot-row-indicators']) {

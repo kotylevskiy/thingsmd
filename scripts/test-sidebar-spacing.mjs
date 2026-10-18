@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
-const { browser, page } = await connectTestVault();
+const { browser, page } = await connectTestVault({ settings: { captureDestination: 'inbox' } });
 const note = `Sidebar spacing ${Date.now()}.md`;
 const folder = note.slice(0, -3);
 let state;
@@ -47,6 +47,10 @@ try {
         };
         const nav = document.querySelector('.ot-list-links');
         const rows = [...nav.querySelectorAll('.ot-list-link')].filter((row) => !row.hidden);
+        const gap = (before, after) =>
+          nav.querySelector(`[data-list="${after}"]`).getBoundingClientRect().top -
+          nav.querySelector(`[data-list="${before}"]`).getBoundingClientRect().bottom;
+        const groupGaps = { inbox: gap('inbox', 'today'), archive: gap('someday', 'logbook') };
         const bounds = nav.getBoundingClientRect();
         const navStyle = getComputedStyle(nav);
         const spacing = {
@@ -76,6 +80,7 @@ try {
           });
         return {
           spacing,
+          groupGaps,
           alignment,
           list: get('.ot-list-link'),
           note: get(`.nav-file-title[data-path="${note}"]`),
@@ -84,6 +89,10 @@ try {
       { note, folder },
     );
     assert.deepEqual(metrics.list, metrics.note);
+    assert.ok(
+      Math.abs(metrics.groupGaps.inbox - metrics.groupGaps.archive) < 1,
+      'Inbox/Today and Someday/Logbook have the same group gap',
+    );
     assert.ok(
       Math.abs(metrics.spacing.top - metrics.spacing.bottom) < 1,
       'Inbox and Trash have equal outer spacing',

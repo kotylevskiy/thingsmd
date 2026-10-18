@@ -33,7 +33,7 @@ try {
           type: 'thingsmd-project-view',
           state: { page: 'waiting' },
           title: 'Waiting For',
-          icon: 'send-horizontal',
+          icon: 'thingsmd-paper-plane',
           active: false,
         });
         const live = workspace.getLeaf('tab');

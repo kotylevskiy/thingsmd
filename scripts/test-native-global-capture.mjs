@@ -11,7 +11,8 @@ if (process.platform !== 'darwin') {
 const run = promisify(execFile);
 const { browser, page } = await connectTestVault();
 page.setDefaultTimeout(6000);
-const key = 'Control+Super+Space';
+// Keep native automation separate from the user's usual capture shortcut.
+const key = 'Control+Super+Shift+Space';
 const title = `Native global capture ${Date.now()}`;
 const capture = page.locator('.ot-capture-modal');
 let original;
@@ -28,7 +29,7 @@ async function pressFromFinder() {
       '-e',
       'tell application "Finder" to activate',
       '-e',
-      'tell application "System Events" to key code 49 using {control down, command down}',
+      'tell application "System Events" to key code 49 using {control down, command down, shift down}',
     ],
     { timeout: 10000 },
   );
@@ -52,7 +53,7 @@ try {
   await settings
     .getByRole('button', { name: 'Customize global capture shortcut', exact: true })
     .click();
-  await settings.keyboard.press('Control+Meta+Space');
+  await settings.keyboard.press('Control+Meta+Shift+Space');
   await waitForAsync(
     page,
     async (key) => (await app.plugins.getPlugin('thingsmd').loadData()).globalCaptureHotkey === key,
@@ -90,7 +91,7 @@ try {
       `${title} ${state}`,
     );
     console.log(
-      `PASS native Control+Command+Space from Finder: ${state}, repeat activation, saved task, responsive window`,
+      `PASS native Control+Command+Shift+Space from Finder: ${state}, repeat activation, saved task, responsive window`,
     );
   }
   await page.evaluate(() => {

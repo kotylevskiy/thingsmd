@@ -817,7 +817,10 @@
 .ot-list-link.is-active .ot-list-count {
   color: var(--nav-item-color-active);
 }
-/* Separate active planning lists from the archive group. */
+/* Give Inbox, planning lists, and archives the same group spacing. */
+.ot-list-links
+  button.ot-list-link[data-list='inbox']:not([hidden])
+  + button.ot-list-link[data-list='today'],
 .ot-list-links button.ot-list-link[data-list='logbook'] {
   margin-top: var(--size-4-2);
 }
@@ -1609,9 +1612,7 @@
    used by dates. Keep the full title in the editor and optional details inline. */
 @media (max-width: 520px) {
   .ot-task {
-    --ot-title-indent: calc(
-      15px + var(--size-2-3) + var(--ot-repeat-space, 0px) + var(--ot-today-space, 0px)
-    );
+    --ot-title-indent: calc(15px + var(--size-2-3) + var(--ot-today-space, 0px));
   }
   .ot-task-line:has(> .ot-waiting-marker) {
     --ot-waiting-space: calc(14px + var(--size-2-3) + 4px);
@@ -1671,7 +1672,8 @@
     flex: 0 1 auto;
     min-width: 0;
     max-width: calc(
-      100% - var(--ot-title-indent) - var(--ot-details-space, 0px) - var(--ot-waiting-space, 0px)
+      100% - var(--ot-title-indent) - var(--ot-repeat-space, 0px) - var(--ot-details-space, 0px) -
+        var(--ot-waiting-space, 0px)
     );
     white-space: nowrap;
     overflow: hidden;
@@ -1922,7 +1924,7 @@
 .ot-list-heading-icon.is-waiting,
 .ot-move-option .ot-move-icon.is-waiting,
 .ot-waiting-section .ot-evening-icon,
-.ot-search-icon svg.lucide-send-horizontal {
+.ot-search-icon:has(.ot-paper-plane) {
   color: #808080;
 }
 

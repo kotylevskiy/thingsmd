@@ -8,20 +8,49 @@ let createdPath;
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 try {
-  taskPath = await page.evaluate(async (note) => {
+  taskPath = await page.evaluate(async () => {
     const task = await app.plugins.getPlugin('thingsmd').createTask({ title: 'Native fixture' });
-    const file = await app.vault.create(
-      note,
-      `Ordinary **Markdown**.\n\n![[${task.file.path.slice(0, -3)}]]\n\nMore context.\n\n`,
-    );
-    const leaf = app.plugins.getPlugin('thingsmd').mainWorkspaceLeaf();
-    await leaf.openFile(file);
-    await leaf.setViewState({
-      type: 'markdown',
-      state: { file: note, mode: 'source', source: false },
-    });
+    await app.plugins.getPlugin('thingsmd').openList('inbox');
     return task.file.path;
-  }, note);
+  });
+  const listRow = page.getByRole('option', { name: 'Native fixture', exact: true });
+  await listRow.waitFor();
+  const completion = listRow.getByRole('checkbox', { name: 'Native fixture', exact: true });
+  for (const target of [listRow, completion]) {
+    await target.hover();
+    await page.waitForTimeout(800);
+    assert.equal(
+      await page.locator('.tooltip:visible').filter({ hasText: 'Native fixture' }).count(),
+      0,
+      'List task and completion checkbox retain accessible names without task-title tooltips',
+    );
+  }
+  await listRow.dblclick();
+  assert.equal(
+    await listRow.evaluate(
+      (row) =>
+        document.getElementById(row.getAttribute('aria-labelledby')) ===
+        row.querySelector('.ot-title-input'),
+    ),
+    true,
+    'Expanded list row references its editable title',
+  );
+  await listRow.getByLabel('Task title', { exact: true }).press('Escape');
+  await page.evaluate(
+    async ({ note, taskPath }) => {
+      const file = await app.vault.create(
+        note,
+        `Ordinary **Markdown**.\n\n![[${taskPath.slice(0, -3)}]]\n\nMore context.\n\n`,
+      );
+      const leaf = app.plugins.getPlugin('thingsmd').mainWorkspaceLeaf();
+      await leaf.openFile(file);
+      await leaf.setViewState({
+        type: 'markdown',
+        state: { file: note, mode: 'source', source: false },
+      });
+    },
+    { note, taskPath },
+  );
   // Clicking ordinary prose must place a usable native-editor caret.
   const prose = page
     .locator('.workspace-leaf.mod-active .cm-line')

@@ -30,6 +30,13 @@ try {
   await active.locator('.ot-reading-task').nth(1).waitFor();
   assert.equal(await active.locator('.internal-embed').count(), 0);
   const first = active.locator(`.ot-native[data-task-path="${tasks[0]}"]:visible`);
+  await first.locator('.ot-task').hover();
+  await page.waitForTimeout(800);
+  assert.equal(
+    await page.locator('.tooltip:visible').filter({ hasText: 'Reading first' }).count(),
+    0,
+    'Reading task has no task-title tooltip',
+  );
   await first.locator('.ot-task').dblclick();
   assert.equal(await page.evaluate(() => app.workspace.activeLeaf.view.getMode()), 'preview');
   await first.locator('.ot-title-input').fill('Reading updated');

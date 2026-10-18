@@ -5,6 +5,7 @@ const TaskCapture = require('./task-capture.cjs');
 
 module.exports = class ThingsMDPlugin extends Plugin {
   async onload() {
+    require('./icons.cjs')();
     // Compose services before installing UI adapters that call them.
     require('./dialogs.cjs')(this);
     require('./task-store.cjs')(this);

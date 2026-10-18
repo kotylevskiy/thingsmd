@@ -108,7 +108,7 @@ class TaskEditor {
     iconButton(icons, 'Checklist', 'list-checks', () => checklist.add());
     if (!task.meta.repeat)
       iconButton(icons, 'Deadline', 'flag', () => this.taskControl('deadline'));
-    const waiting = iconButton(icons, 'Waiting For', 'send-horizontal', () => {
+    const waiting = iconButton(icons, 'Waiting For', 'thingsmd-paper-plane', () => {
       if (this.plugin.settings?.enableWaiting === false) return;
       draft.values.is_waiting = !draft.values.is_waiting;
       drawWaiting();

@@ -64,7 +64,7 @@ module.exports = function renderListContents(view, paper, active, progress) {
       const h = section.createEl('h2');
       setIcon(
         h.createSpan({ cls: 'ot-evening-icon', attr: { 'aria-hidden': 'true' } }),
-        'send-horizontal',
+        'thingsmd-paper-plane',
       );
       h.createSpan({ text: 'Waiting For' });
       view.group(section, waiting, 'waiting');

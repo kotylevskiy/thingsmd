@@ -4,7 +4,7 @@ const LISTS = [
   ['today', 'Today', 'star'],
   ['upcoming', 'Upcoming', 'calendar-days'],
   ['anytime', 'Anytime', 'layers'],
-  ['waiting', 'Waiting For', 'send-horizontal'],
+  ['waiting', 'Waiting For', 'thingsmd-paper-plane'],
   ['someday', 'Someday', 'archive'],
   ['logbook', 'Logbook', 'book-check'],
   ['trash', 'Trash', 'trash-2'],

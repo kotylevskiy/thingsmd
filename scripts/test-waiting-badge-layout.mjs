@@ -60,6 +60,9 @@ try {
           const line = el.querySelector('.ot-task-line');
           const plane = line.querySelector('.ot-waiting-marker');
           const rect = plane.getBoundingClientRect();
+          const path = plane.querySelector('.ot-paper-plane path');
+          const glyph = path.getBoundingClientRect();
+          const icon = plane.querySelector('svg').getBoundingClientRect();
           const dates = line.querySelector('.ot-row-indicators').getBoundingClientRect();
           const title = line.querySelector('.ot-task-title').getBoundingClientRect();
           return {
@@ -71,6 +74,16 @@ try {
             dateTop: dates.top,
             titleBottom: title.bottom,
             completed: plane.classList.contains('is-completed'),
+            fill: getComputedStyle(path).fill,
+            stroke: getComputedStyle(path).stroke,
+            color: getComputedStyle(plane).color,
+            glyphFits:
+              glyph.width > 0 &&
+              glyph.height > 0 &&
+              glyph.left >= icon.left - 1 &&
+              glyph.right <= icon.right + 1 &&
+              glyph.top >= icon.top - 1 &&
+              glyph.bottom <= icon.bottom + 1,
           };
         });
         assert.ok(
@@ -78,6 +91,9 @@ try {
           `${mode} ${width}px: airplane at trailing edge`,
         );
         assert.equal(geometry.completed, done);
+        assert.equal(geometry.fill, geometry.color, 'Solid plane inherits the themed state color');
+        assert.equal(geometry.stroke, 'none');
+        assert.equal(geometry.glyphFits, true, 'Bundled plane is visible and fits the icon canvas');
         if (width > 520)
           assert.ok(geometry.dateRight <= geometry.left, 'Deadline precedes airplane');
         else
