@@ -1,4 +1,3 @@
-const LOG_MODES = ['immediately', 'daily', 'weekly', 'monthly', 'manually'];
 const RETENTION_MONTHS = {
   '5-years': 60,
   '3-years': 36,
@@ -6,33 +5,6 @@ const RETENTION_MONTHS = {
   '3-months': 3,
   '1-month': 1,
 };
-const DEFAULTS = {
-  globalCaptureHotkey: '',
-  logbook: 'daily',
-  trashRetention: 'never',
-  captureDestination: 'inbox',
-  showProjectProgress: true,
-  enableWaiting: true,
-  showWaitingInToday: true,
-  mobileTaskNavigation: false,
-};
-function settings(data = {}) {
-  return {
-    globalCaptureHotkey:
-      typeof data?.globalCaptureHotkey === 'string' ? data.globalCaptureHotkey.trim() : '',
-    showWaitingInToday: data?.showWaitingInToday !== false,
-    enableWaiting: data?.enableWaiting !== false,
-    mobileTaskNavigation: data?.mobileTaskNavigation === true,
-    showProjectProgress: data?.showProjectProgress !== false,
-    captureDestination: data?.captureDestination === 'daily-note' ? 'daily-note' : 'inbox',
-    logbook: LOG_MODES.includes(data?.logbook) ? data.logbook : DEFAULTS.logbook,
-    trashRetention: ['never', 'immediately', '1-week', ...Object.keys(RETENTION_MONTHS)].includes(
-      data?.trashRetention,
-    )
-      ? data.trashRetention
-      : DEFAULTS.trashRetention,
-  };
-}
 function shouldLog(meta, today, mode = 'daily') {
   if (meta.status !== 'done') return false;
   if (meta.loggedAt) return true;
@@ -68,4 +40,4 @@ function trashExpired(meta, retention, now = new Date()) {
   } else return false;
   return expires <= now;
 }
-module.exports = { DEFAULTS, settings, shouldLog, trashExpired };
+module.exports = { shouldLog, trashExpired };

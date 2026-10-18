@@ -1,3 +1,4 @@
+import { editTaskNotes } from './edit-task-notes.mjs';
 import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
@@ -73,7 +74,7 @@ try {
   );
   await page.evaluate((id) => app.plugins.getPlugin('thingsmd').showRepeatingTask(id), id);
   assert.equal(await active.getByLabel('Checklist item 1', { exact: true }).isDisabled(), true);
-  await active.locator('.ot-task-notes').fill('Future copies use these notes');
+  await editTaskNotes(page, 'Future copies use these notes');
   await active.getByRole('button', { name: 'Repeating rule', exact: true }).click();
   await page.getByText('Pause', { exact: true }).click();
   await waitForAsync(
@@ -100,7 +101,7 @@ try {
     .getByRole('button', { name: 'This is a copy of a repeating to-do', exact: true })
     .waitFor();
   assert.equal(
-    await active.locator('.ot-task-notes').inputValue(),
+    await active.locator('.ot-task-notes-preview').innerText(),
     'Future copies use these notes',
   );
   await active
@@ -109,7 +110,7 @@ try {
   await active.getByRole('button', { name: 'Repeating rule', exact: true }).waitFor();
   await active.locator('.ot-title-input').press('Enter');
   await active.locator('.ot-title-input').waitFor({ state: 'hidden' });
-  // Fixed-schedule rescheduling presents the Things exception/rule decision.
+  // Fixed-schedule rescheduling presents the ThingsMD exception/rule decision.
   await template().dblclick();
   await active.locator('.is-expanded').getByRole('button', { name: 'When', exact: true }).click();
   await active.getByLabel('When date', { exact: true }).fill('2099-02-10');

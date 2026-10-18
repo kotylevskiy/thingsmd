@@ -42,6 +42,7 @@ try {
       window.waitingOptionPlugin = {
         settings: { enableWaiting: true },
         app: { workspace: {} },
+        renderTaskNotes: window.renderTaskNotesFixture,
         captureDestination: async () => null,
         createTask: async (meta, id, body) => {
           window.waitingOptionSaved = { meta, body };
@@ -277,14 +278,14 @@ try {
       assert.equal(await row(1).locator('.ot-waiting-marker').count(), 0);
       await row(1).dblclick();
       assert.equal(await toggle(row(1)).isVisible(), false);
-      await row(1).getByLabel('Task notes', { exact: true }).fill('Preserved task notes');
+      await row(1).getByLabel('Task title', { exact: true }).fill(`${prefix} preserved title`);
       await enabled(true);
       await toggle(row(1)).waitFor();
       await enabled(false);
       await toggle(row(1)).waitFor({ state: 'hidden' });
       assert.equal(
-        await row(1).getByLabel('Task notes', { exact: true }).inputValue(),
-        'Preserved task notes',
+        await row(1).getByLabel('Task title', { exact: true }).inputValue(),
+        `${prefix} preserved title`,
       );
       await row(1).getByLabel('Task title', { exact: true }).press('Enter');
       await row(1).locator('.ot-title-input').waitFor({ state: 'detached' });

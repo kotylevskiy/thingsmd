@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { browserFixture } from './browser-fixture.mjs';
 import { connectTestVault } from './obsidian-connection.mjs';
+import { waitForAsync } from './wait-for-async.mjs';
 
 await mkdir('artifacts', { recursive: true });
 const fixture = process.argv.includes('--fixture');
@@ -14,6 +15,8 @@ const { browser, page } = fixture
   : await connectTestVault();
 page.setDefaultTimeout(10000);
 const prefix = `Capture keyboard ${Date.now()}`;
+const originalViewport = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+let originalSettings, sidebarCollapsed;
 const wasMobile = !fixture && (await page.evaluate(() => !!localStorage.getItem('EmulateMobile')));
 const ready = () =>
   page.waitForFunction(
@@ -31,6 +34,8 @@ try {
       const Capture = window.loadPluginModule('./task-capture.cjs');
       window.capturePlugin = {
         app: { workspace: {} },
+        settings: { enableWaiting: true },
+        renderTaskNotes: window.renderTaskNotesFixture,
         captureDestination: async () => null,
         createTask: async (fields, id, body) => {
           const task = { meta: fields, body };
@@ -46,7 +51,14 @@ try {
   } else {
     if (!wasMobile) await page.evaluate(() => app.emulateMobile(true));
     await ready();
-    await page.evaluate(() => app.workspace.leftSplit.collapse());
+    ({ originalSettings, sidebarCollapsed } = await page.evaluate(async () => {
+      const plugin = app.plugins.getPlugin('thingsmd');
+      const originalSettings = { ...plugin.settings };
+      const sidebarCollapsed = app.workspace.leftSplit.collapsed;
+      await plugin.updateSettings({ enableWaiting: true });
+      app.workspace.leftSplit.collapse();
+      return { originalSettings, sidebarCollapsed };
+    }));
   }
   // Model an overlay keyboard: the layout viewport stays full size while the
   // visible viewport shrinks/pans. A short browser window alone misses this bug.
@@ -101,18 +113,13 @@ try {
       { fixture, title },
     );
     await capture.waitFor();
+    await capture.getByText('Tab to edit description', { exact: true }).waitFor();
     assert.equal(
       await capture.getByLabel('Task title', { exact: true }).getAttribute('enterkeyhint'),
       'done',
     );
-    const notesInput = capture.getByLabel('Task notes', { exact: true });
-    assert.equal(await notesInput.getAttribute('enterkeyhint'), 'enter');
-    await notesInput.fill('First line');
-    await notesInput.press('End');
-    await notesInput.press('Enter');
-    await notesInput.press('s');
-    assert.equal(await notesInput.inputValue(), 'First line\ns');
-    assert.equal(await capture.isVisible(), true, 'Return in Notes does not save capture');
+    assert.equal(await capture.locator('textarea.ot-task-notes').count(), 0);
+    await capture.locator('.ot-task-notes-preview').waitFor();
     await page.evaluate(({ visible, top }) => {
       const { viewport, keyboard } = window.captureViewportTest;
       viewport.height = visible;
@@ -121,11 +128,7 @@ try {
       viewport.dispatchEvent(new Event('resize'));
       viewport.dispatchEvent(new Event('scroll'));
     }, size);
-    const notes = Array.from({ length: size.lines }, (_, i) => `Description line ${i + 1}`).join(
-      '\n',
-    );
-    await capture.getByLabel('Task notes', { exact: true }).fill(notes);
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < size.lines; i++) {
       await capture.getByRole('button', { name: 'Checklist', exact: true }).click();
       await capture.getByLabel(`Checklist text ${i + 1}`, { exact: true }).fill(`Step ${i + 1}`);
     }
@@ -149,6 +152,18 @@ try {
         bottom: box.bottom,
         viewportTop: viewport.offsetTop,
         viewportBottom: viewport.offsetTop + viewport.height,
+        hint: (() => {
+          const hint = modal.querySelector('.ot-capture-hint');
+          const r = hint.getBoundingClientRect();
+          const cancel = modal.querySelector('.ot-capture-actions button').getBoundingClientRect();
+          return {
+            left: r.left,
+            right: r.right,
+            top: r.top,
+            bottom: r.bottom,
+            cancelLeft: cancel.left,
+          };
+        })(),
         buttons: buttons.map((button) => {
           const r = button.getBoundingClientRect();
           const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
@@ -163,6 +178,11 @@ try {
       };
     });
     assert.ok(geometry.top >= size.top, JSON.stringify(geometry));
+    assert.ok(geometry.hint.right <= geometry.hint.cancelLeft, JSON.stringify(geometry));
+    assert.ok(
+      geometry.hint.top >= geometry.top && geometry.hint.bottom <= geometry.bottom,
+      JSON.stringify(geometry),
+    );
     const inset = Math.min(geometry.notesOffset, Math.max(0, size.visible - 400));
     assert.ok(
       Math.abs(geometry.top - (size.top + geometry.safeTop + inset)) < 2,
@@ -194,7 +214,14 @@ try {
     });
     if (size.lines > 4) assert.ok(scrollable.scrolls);
     assert.ok(scrollable.footerStayed);
-    assert.equal(await capture.getByLabel('Task notes', { exact: true }).inputValue(), notes);
+    assert.equal(await capture.locator('.ot-task-notes-preview').isVisible(), false);
+    assert.equal(
+      await capture
+        .locator('.ot-checklist-row')
+        .first()
+        .evaluate((el) => getComputedStyle(el).borderTopWidth),
+      '0px',
+    );
     await capture.getByRole('button', { name: 'Waiting For', exact: true }).click();
     assert.equal(
       await capture
@@ -247,14 +274,42 @@ try {
       { fixture, title },
     );
     assert.equal(saved.length, 1);
-    assert.equal(saved[0].body, notes);
+    assert.equal(saved[0].body, '');
+    assert.equal(saved[0].meta.checklist.length, size.lines);
     assert.equal(saved[0].meta.is_waiting, true);
     console.log('PASS capture keyboard:', size);
+  }
+  if (!fixture) {
+    await page.evaluate((title) => {
+      const { viewport, keyboard } = window.captureViewportTest;
+      viewport.height = innerHeight;
+      viewport.offsetTop = 0;
+      keyboard.style.top = `${innerHeight}px`;
+      app.plugins.getPlugin('thingsmd').capture({ title });
+    }, prefix + ' native notes');
+    await capture.locator('.ot-task-notes-preview').click();
+    await capture.waitFor({ state: 'hidden' });
+    await waitForAsync(
+      page,
+      async (title) => {
+        const p = app.plugins.getPlugin('thingsmd');
+        const task = (await p.taskRecords()).find((t) => t.meta.title === title);
+        const view = app.workspace.activeLeaf.view;
+        return (
+          task &&
+          !p.taskNotesOpening &&
+          view.file?.path === task.file.path &&
+          view.getMode?.() === 'source'
+        );
+      },
+      prefix + ' native notes',
+    );
+    console.log('PASS: mobile capture notes open the saved task in the native editor.');
   }
 } finally {
   try {
     await page.evaluate(
-      async ({ fixture, prefix }) => {
+      async ({ fixture, prefix, originalSettings, sidebarCollapsed }) => {
         const plugin = fixture ? window.capturePlugin : app.plugins.getPlugin('thingsmd');
         plugin?.captureModal?.close();
         if (window.captureViewportTest) {
@@ -266,17 +321,22 @@ try {
           document.body.classList.toggle('theme-light', light);
           delete window.captureViewportTest;
         }
+        if (!fixture && originalSettings) {
+          await plugin.updateSettings(originalSettings);
+          if (!sidebarCollapsed) app.workspace.leftSplit.expand();
+        }
         if (!fixture)
           for (const task of await plugin.taskRecords())
             if (task.meta.title?.startsWith(prefix)) await plugin.deleteTask(task.file);
       },
-      { fixture, prefix },
+      { fixture, prefix, originalSettings, sidebarCollapsed },
     );
     if (!fixture && !wasMobile) {
       await page.evaluate(() => app.emulateMobile(false));
       await ready();
     }
   } finally {
+    await page.setViewportSize(originalViewport);
     await browser.close();
   }
 }

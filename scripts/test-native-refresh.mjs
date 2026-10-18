@@ -15,7 +15,7 @@ try {
     await page.evaluate(
       async ({ note, id, mode }) => {
         const file = app.vault.getAbstractFileByPath(note);
-        await app.vault.modify(file, `![[.thingsmd-storage/${id}]]\n`);
+        await app.vault.modify(file, `![[ThingsMD/${id}]]\n`);
         const leaf = app.plugins.getPlugin('thingsmd').mainWorkspaceLeaf();
         await leaf.openFile(file);
         await leaf.setViewState({
@@ -27,7 +27,7 @@ try {
       { note, id, mode },
     );
     const active = page.locator('.workspace-leaf.mod-active');
-    const card = active.locator(`.ot-native[data-task-path=".thingsmd-storage/${id}.md"]:visible`);
+    const card = active.locator(`.ot-native[data-task-path="ThingsMD/${id}.md"]:visible`);
     await card.getByText('Task file unavailable', { exact: true }).waitFor();
     await page.evaluate(
       ({ id, prefix }) => app.plugins.getPlugin('thingsmd').createTask({ title: prefix }, id),
@@ -35,7 +35,7 @@ try {
     );
     await card.locator(`.ot-task[data-task-id="${id}"]`).waitFor();
     await page.evaluate(
-      (id) => app.plugins.getPlugin('thingsmd').deleteTask(`.thingsmd-storage/${id}.md`),
+      (id) => app.plugins.getPlugin('thingsmd').deleteTask(`ThingsMD/${id}.md`),
       id,
     );
     await card.getByText('Task file unavailable', { exact: true }).waitFor();

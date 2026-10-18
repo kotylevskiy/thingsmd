@@ -7,6 +7,7 @@ try {
     window.savedTasks = [];
     window.plugin = {
       app: { workspace: {} },
+      renderTaskNotes: window.renderTaskNotesFixture,
       captureDestination: async () => null,
       createTask: async (fields, id, body) => {
         if (window.failSave) throw Error('Simulated disk failure');
@@ -47,13 +48,7 @@ try {
       assert.equal(await waiting.getAttribute('aria-pressed'), 'false');
       if (action === 'Cancel')
         await page.getByRole('button', { name: action, exact: true }).click();
-      else if (action === 'Control+Enter') {
-        const notes = page.getByLabel('Task notes', { exact: true });
-        await notes.fill('Multiline notes');
-        await notes.press('Enter');
-        assert.equal(await page.locator('.modal').count(), 1, 'Enter in notes keeps capture open');
-        await notes.press(action);
-      } else await title.press(action);
+      else await title.press(action);
       await page.locator('.modal').waitFor({ state: 'detached' });
       const expected = before + (action.includes('Enter') ? 1 : 0);
       assert.equal(await page.evaluate(() => window.savedTasks.length), expected);
@@ -147,9 +142,17 @@ try {
   await page.evaluate(async () => {
     const View = window.loadPluginModule('./list-view.cjs');
     const tasks = [
-      { meta: { type: 'things-task', id: 'a', title: 'Inbox fixture', status: 'todo' }, body: '' },
+      {
+        meta: { type: 'thingsmd-task', id: 'a', title: 'Inbox fixture', status: 'todo' },
+        body: '',
+      },
     ];
-    const p = { settings: {}, records: async () => tasks, mountListLinks() {} };
+    const p = {
+      renderTaskNotes: window.renderTaskNotesFixture,
+      settings: {},
+      records: async () => tasks,
+      mountListLinks() {},
+    };
     const app = { workspace: { requestSaveLayout() {} } };
     const view = new View({ app, updateHeader() {} }, p);
     window.inbox = { tasks, view };

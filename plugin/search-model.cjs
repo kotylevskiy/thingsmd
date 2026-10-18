@@ -1,7 +1,7 @@
 const { isLogged, inList } = require('./model.cjs');
 const { PAGES: LISTS, isListAvailable } = require('./lists.cjs');
 function search(records, query, { broad = false, today, settings = {} } = {}) {
-  const projects = records.filter((r) => r.meta.type === 'things-project');
+  const projects = records.filter((r) => r.meta.type === 'thingsmd-project');
   const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const matches = (value) => words.every((w) => String(value).toLocaleLowerCase().includes(w));
   const results = [];
@@ -11,7 +11,7 @@ function search(records, query, { broad = false, today, settings = {} } = {}) {
   }
   const tasks = records.filter(
     (r) =>
-      r.meta.type === 'things-task' &&
+      r.meta.type === 'thingsmd-task' &&
       !r.meta.deleted &&
       (broad || !isLogged(r.meta, today, settings.logbook)),
   );

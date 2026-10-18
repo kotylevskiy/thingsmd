@@ -1,7 +1,7 @@
 const { Notice } = require('obsidian');
 const { today } = require('./local-date.cjs');
 
-// The adapter does not emit events for hidden task files; poll them locally.
+// Poll as a fallback for external file changes and date-based maintenance.
 module.exports = async function installTaskRefresh(plugin) {
   let disposed = false;
   plugin.register(() => {
@@ -26,7 +26,7 @@ module.exports = async function installTaskRefresh(plugin) {
   let currentDay = today();
   plugin.registerInterval(
     window.setInterval(async () => {
-      if (disposed || scanning) return;
+      if (disposed || scanning || plugin.movingTasks) return;
       scanning = true;
       try {
         await plugin.repeating.tick();

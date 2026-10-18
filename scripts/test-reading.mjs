@@ -34,11 +34,24 @@ try {
   assert.equal(await page.evaluate(() => app.workspace.activeLeaf.view.getMode()), 'preview');
   await first.locator('.ot-title-input').fill('Reading updated');
   await first.locator('.ot-title-input').press('Tab');
-  assert.equal(
-    await first.locator('.ot-task-notes').evaluate((e) => e === document.activeElement),
-    true,
+  await waitForAsync(
+    page,
+    (path) =>
+      !app.plugins.getPlugin('thingsmd').taskNotesOpening &&
+      app.workspace.activeLeaf?.view.file?.path === path,
+    tasks[0],
   );
-  await first.locator('.ot-task-notes').fill('Notes saved from reading view.');
+  await page.evaluate(async (fixture) => {
+    const view = app.workspace.activeLeaf.view;
+    view.editor.setValue(view.editor.getValue() + 'Notes saved from reading view.');
+    await view.save();
+    const leaf = app.workspace
+      .getLeavesOfType('markdown')
+      .find((leaf) => leaf.view.file?.path === fixture);
+    await app.workspace.revealLeaf(leaf);
+    app.workspace.setActiveLeaf(leaf, { focus: true });
+  }, fixture);
+  await first.locator('.ot-task').dblclick();
   await first.locator('.ot-title-input').focus();
   await first.locator('.ot-title-input').press('Enter');
   await first.locator('.is-expanded').waitFor({ state: 'hidden' });
@@ -104,7 +117,7 @@ try {
       for (const path of [fixture, ...tasks]) {
         const file = app.vault.getAbstractFileByPath(path);
         if (file) await app.vault.delete(file);
-        else if (path?.startsWith('.thingsmd-storage/') && (await app.vault.adapter.exists(path)))
+        else if (path?.startsWith('ThingsMD/') && (await app.vault.adapter.exists(path)))
           await app.plugins.getPlugin('thingsmd').deleteTask(path);
       }
     },

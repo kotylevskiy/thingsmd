@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
-const { browser, page } = await connectTestVault();
+const { browser, page } = await connectTestVault({ settings: { enableWaiting: true } });
 page.setDefaultTimeout(8000);
 const prefix = `Live session ${Date.now()}`;
 const modal = page.locator('.ot-capture-modal');
@@ -76,13 +76,7 @@ try {
       await title.fill(name);
       if (action === 'Cancel')
         await modal.getByRole('button', { name: 'Cancel', exact: true }).click();
-      else if (action === 'Meta+Enter') {
-        const notes = modal.getByLabel('Task notes', { exact: true });
-        await notes.fill('First line');
-        await notes.press('Enter');
-        assert.equal(await modal.isVisible(), true);
-        await notes.press(action);
-      } else await title.press(action);
+      else await title.press(action);
       await modal.waitFor({ state: 'hidden' });
       assert.equal(
         await page.evaluate(

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
-// Freshly observed in Things 3.24.1 on 2026-10-17; action order is significant.
+// Freshly observed in the reference app (version 3.24.1) on 2026-10-17; action order is significant.
 const cases = [
   {
     label: 'new Inbox',
@@ -211,7 +211,7 @@ try {
     0,
   );
   console.log(
-    'PASS: all 21 Things transitions match real Obsidian; explicit Inbox return survives reload.',
+    'PASS: all 21 ThingsMD transitions match real Obsidian; explicit Inbox return survives reload.',
   );
 } finally {
   try {

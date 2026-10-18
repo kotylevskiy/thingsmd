@@ -81,7 +81,10 @@ function matches(rule, key) {
 }
 function nextDate(rule, after, inclusive = false) {
   validate(rule);
-  if (rule.mode === 'completion') return addInterval(after, rule.interval, rule.unit);
+  if (rule.mode === 'completion') {
+    const next = addInterval(after, rule.interval, rule.unit);
+    return rule.end && next > rule.end ? null : next;
+  }
   let key = inclusive ? after : addDays(after, 1);
   if (key < rule.anchor) key = rule.anchor;
   // Covers the maximum supported interval, plus leap-year/ordinal gaps.

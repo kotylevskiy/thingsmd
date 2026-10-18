@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 
-const { browser, page } = await connectTestVault();
+const { browser, page } = await connectTestVault({ settings: { enableWaiting: true } });
 page.setDefaultTimeout(10000);
 const folder = `Sidebar reveal ${Date.now()}`;
 const wasMobile = await page.evaluate(() => !!localStorage.getItem('EmulateMobile'));
@@ -101,6 +101,30 @@ try {
   await page.screenshot({ path: 'artifacts/sidebar-real-mobile-open.png' });
   await page.locator('.ot-list-link[data-list="today"]').click();
   await page.locator('.workspace-leaf.mod-active h1').getByText('Today', { exact: true }).waitFor();
+  // The real drawer also guards the old fixture's observer-loop regression.
+  await page.evaluate(() => {
+    const plugin = app.plugins.getPlugin('thingsmd');
+    window.sidebarMountProbe = { plugin, original: plugin.mountListLinks, calls: 0 };
+    plugin.mountListLinks = function (...args) {
+      window.sidebarMountProbe.calls++;
+      return window.sidebarMountProbe.original.apply(this, args);
+    };
+  });
+  await reveal();
+  await page.waitForTimeout(150);
+  const calls = await page.evaluate(() => window.sidebarMountProbe.calls);
+  assert.ok(calls > 0, 'Drawer reveal exercises the repaint observer');
+  await page.waitForTimeout(150);
+  assert.equal(
+    await page.evaluate(() => window.sidebarMountProbe.calls),
+    calls,
+    'Drawer repaint settles without an observer loop',
+  );
+  await page.evaluate(() => {
+    const probe = window.sidebarMountProbe;
+    probe.plugin.mountListLinks = probe.original;
+    delete window.sidebarMountProbe;
+  });
   await page.evaluate(async () => {
     await app.plugins.disablePlugin('thingsmd');
     await app.plugins.enablePlugin('thingsmd');
@@ -113,6 +137,11 @@ try {
   );
 } finally {
   try {
+    await page.evaluate(() => {
+      const probe = window.sidebarMountProbe;
+      if (probe) probe.plugin.mountListLinks = probe.original;
+      delete window.sidebarMountProbe;
+    });
     await page.evaluate(async (folder) => {
       const file = app.vault.getAbstractFileByPath(folder);
       if (file) await app.vault.delete(file, true);

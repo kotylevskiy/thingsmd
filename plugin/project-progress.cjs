@@ -3,10 +3,12 @@ function projectProgress(records) {
   const result = new Map();
   const tasks = new Map(
     records
-      .filter((task) => task.meta.type === 'things-task' && !task.meta.deleted && !task.meta.repeat)
+      .filter(
+        (task) => task.meta.type === 'thingsmd-task' && !task.meta.deleted && !task.meta.repeat,
+      )
       .map((task) => [task.file.path, task]),
   );
-  for (const note of records.filter((record) => record.meta.type === 'things-project')) {
+  for (const note of records.filter((record) => record.meta.type === 'thingsmd-project')) {
     const paths = new Set(taskReferences(note.body || '').map((reference) => reference.path));
     let total = 0,
       done = 0;
@@ -129,7 +131,7 @@ function install(plugin) {
     clearTimeout(timer);
     timer = setTimeout(refresh, 100);
   };
-  plugin.registerEvent(plugin.app.workspace.on('things-tasks-changed', schedule));
+  plugin.registerEvent(plugin.app.workspace.on('thingsmd-tasks-changed', schedule));
   plugin.registerEvent(plugin.app.workspace.on('layout-change', attach));
   for (const event of ['create', 'modify', 'delete', 'rename'])
     plugin.registerEvent(plugin.app.vault.on(event, schedule));

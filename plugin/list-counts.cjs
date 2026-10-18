@@ -1,11 +1,11 @@
 const { inList } = require('./model.cjs');
 const { today } = require('./local-date.cjs');
 
-// Like Things, badge the capture queue and today's work, not every archive/list.
+// Like ThingsMD, badge the capture queue and today's work, not every archive/list.
 function listCounts(records, day, settings) {
   const counts = { inbox: 0, today: 0 };
   for (const task of records) {
-    if (task.meta.type !== 'things-task' || task.meta.status === 'done' || task.meta.repeat)
+    if (task.meta.type !== 'thingsmd-task' || task.meta.status === 'done' || task.meta.repeat)
       continue;
     for (const key of Object.keys(counts)) {
       if (
@@ -62,7 +62,7 @@ function install(plugin) {
     clearTimeout(timer);
     timer = setTimeout(refresh, 100);
   };
-  plugin.registerEvent(plugin.app.workspace.on('things-tasks-changed', schedule));
+  plugin.registerEvent(plugin.app.workspace.on('thingsmd-tasks-changed', schedule));
   for (const event of ['create', 'modify', 'delete', 'rename']) {
     plugin.registerEvent(plugin.app.vault.on(event, schedule));
   }

@@ -1,3 +1,4 @@
+import { editTaskNotes } from './edit-task-notes.mjs';
 import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
@@ -58,7 +59,7 @@ try {
   }, a);
   await page.setViewportSize({ width: 390, height: 844 });
   await row().dblclick();
-  await active.getByLabel('Task notes', { exact: true }).fill('Keep this draft when moving.');
+  await editTaskNotes(page, 'Keep this draft when moving.');
   await row().getByRole('button', { name: 'Move', exact: true }).click();
   await modal().getByRole('button', { name: 'Inbox', exact: true }).waitFor();
   assert.equal(await modal().locator('.ot-move-current').count(), 1);
@@ -131,7 +132,7 @@ try {
         const f = app.vault.getAbstractFileByPath(path);
         if (f) await app.vault.delete(f);
       }
-      if (id) await p.deleteTask('.thingsmd-storage/' + id + '.md');
+      if (id) await p.deleteTask('ThingsMD/' + id + '.md');
       if (!sidebarCollapsed) app.workspace.leftSplit.expand();
     },
     { id, a, b, sidebarCollapsed },

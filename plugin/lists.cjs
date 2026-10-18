@@ -1,5 +1,4 @@
-const VIEW = 'things-project-view';
-const TASKS = '.thingsmd-storage';
+const VIEW = 'thingsmd-project-view';
 const LISTS = [
   ['inbox', 'Inbox', 'inbox'],
   ['today', 'Today', 'star'],
@@ -25,4 +24,4 @@ function resolveList(page, settings) {
   if (page === 'trash' && !isListAvailable(page, settings)) page = 'inbox';
   return isListAvailable(page, settings) ? page : 'today';
 }
-module.exports = { VIEW, TASKS, LISTS, PAGES, isListAvailable, resolveList };
+module.exports = { VIEW, LISTS, PAGES, isListAvailable, resolveList };

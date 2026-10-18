@@ -1,15 +1,15 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { projectProgress } = require('../plugin/project-progress.cjs');
-const { settings } = require('../plugin/archive-policy.cjs');
+const { settings } = require('../plugin/settings-model.cjs');
 test('progress counts unique task references including logged completions, excluding trash, templates and code', () => {
   const task = (id, meta = {}) => ({
     file: { path: `.thingsmd-storage/${id}.md` },
-    meta: { type: 'things-task', ...meta },
+    meta: { type: 'thingsmd-task', ...meta },
   });
   const note = {
     file: { path: 'Project.md' },
-    meta: { type: 'things-project' },
+    meta: { type: 'thingsmd-project' },
     body: '![[.thingsmd-storage/a]]\n![[.thingsmd-storage/a.md]]\n![[.thingsmd-storage/b]]\n![[.thingsmd-storage/trash]]\n![[.thingsmd-storage/template]]\n```\n![[.thingsmd-storage/code]]\n```\n',
   };
   const records = [

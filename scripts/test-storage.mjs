@@ -9,7 +9,7 @@ let task;
 try {
   task = await page.evaluate(async (note) => {
     const plugin = app.plugins.getPlugin('thingsmd');
-    const task = await plugin.createTask({ title: 'Hidden storage verification', project: note });
+    const task = await plugin.createTask({ title: 'Indexed storage verification', project: note });
     await app.vault.create(note, `Normal notes, no frontmatter.\n\n![[${task.file.path}]]\n`);
     const leaf = app.workspace.getLeaf('tab');
     await leaf.setViewState({
@@ -20,21 +20,21 @@ try {
     app.workspace.setActiveLeaf(leaf, { focus: true });
     return task.file.path;
   }, note);
-  assert.ok(task.startsWith('.thingsmd-storage/'));
+  assert.ok(task.startsWith('ThingsMD/'));
   await page
     .locator('.workspace-leaf.mod-active .ot-task-title')
-    .getByText('Hidden storage verification', { exact: true })
+    .getByText('Indexed storage verification', { exact: true })
     .waitFor();
   const indexed = await page.evaluate(
     (task) => app.vault.getMarkdownFiles().some((f) => f.path === task),
     task,
   );
-  assert.equal(indexed, false, 'Hidden task is not an ordinary indexed vault note');
+  assert.equal(indexed, true, 'Task is an indexed vault note');
   await page.evaluate(async (task) => {
     const text = await app.vault.adapter.read(task);
     await app.vault.adapter.write(
       task,
-      text.replace('Hidden storage verification', 'Changed externally'),
+      text.replace('Indexed storage verification', 'Changed externally'),
     );
   }, task);
   await page
@@ -62,7 +62,7 @@ try {
   assert.equal(
     await page.evaluate((task) => app.vault.adapter.read(task), task),
     before,
-    'Reload preserves hidden task data',
+    'Reload preserves indexed task data',
   );
   const refs = await page.evaluate(
     async (task) =>
@@ -93,7 +93,7 @@ try {
   }, task);
   assert.deepEqual(deletionRace, { removed: true, indexed: false });
   console.log(
-    'PASS: ordinary note without project metadata, hidden Markdown task, external update polling, note rename, reference indexing, reload, and deletion during an actual file scan.',
+    'PASS: ordinary note without project metadata, indexed Markdown task, external update polling, note rename, reference indexing, reload, and deletion during an actual file scan.',
   );
 } finally {
   await page.evaluate(

@@ -13,7 +13,7 @@ const create = (fields) => ({
 });
 const change = (meta, fields) => ({ ...meta, ...applySchedulePolicy(meta, fields, day) });
 
-// Observed in Things 3.24.1 on 2026-10-17, using marked experiment tasks.
+// Observed in the reference app (version 3.24.1) on 2026-10-17, using marked experiment tasks.
 const observed = [
   ['Inbox without dates', {}, ['inbox'], []],
   ['Inbox with future deadline', { deadline: '2026-10-21' }, ['inbox'], []],
@@ -80,7 +80,7 @@ for (const [name, fields, expected, dates] of observed)
     assert.deepEqual(inList({ meta }, 'upcoming', day) ? upcomingDates(meta, day) : [], dates);
   });
 
-test('deadline edits and explicit moves match Things transitions without erasing dates', () => {
+test('deadline edits and explicit moves match ThingsMD transitions without erasing dates', () => {
   let meta = create({});
   meta = change(meta, { deadline: '2026-10-18' });
   assert.deepEqual(lists(meta), ['inbox']);

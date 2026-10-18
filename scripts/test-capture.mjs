@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
+import { waitForAsync } from './wait-for-async.mjs';
 const { browser, page } = await connectTestVault();
 page.setDefaultTimeout(8000);
 const prefix = `Capture test ${Date.now()}`;
@@ -22,23 +23,47 @@ try {
   );
   await page.evaluate(() => app.plugins.getPlugin('thingsmd').openList('today'));
   assert.equal(await page.locator('input.ot-capture').count(), 0);
-  await page.locator('.workspace-leaf.mod-active button.ot-capture').click();
+  await page.locator('.workspace-leaf.mod-active button.ot-capture').first().click();
   const title = modal.locator('.ot-title-input');
   await title.waitFor();
+  await modal.getByText('Tab to edit description', { exact: true }).waitFor();
   assert.equal(await title.evaluate((el) => el === document.activeElement), true);
+  const notes = modal.locator('.ot-task-notes-preview');
+  await notes.waitFor();
+  await modal.getByRole('button', { name: 'Checklist', exact: true }).click();
+  assert.equal(await notes.isVisible(), false);
+  const checklistText = modal.getByLabel('Checklist text 1', { exact: true });
+  await checklistText.press('Backspace');
+  await notes.waitFor();
   await title.fill(prefix + ' Today');
-  await title.press('Tab');
-  assert.equal(
-    await modal.locator('.ot-task-notes').evaluate((el) => el === document.activeElement),
-    true,
-  );
-  await modal.locator('.ot-task-notes').fill('Captured notes');
   await modal.getByRole('button', { name: 'Deadline', exact: true }).click();
   await modal.getByLabel('Deadline date').fill('tomorrow');
   await modal.getByLabel('Deadline date').press('Enter');
   await title.focus();
-  await title.press('Enter');
+  assert.equal(await modal.locator('textarea.ot-task-notes').count(), 0);
+  await title.press('Tab');
   await modal.waitFor({ state: 'hidden' });
+  await waitForAsync(page, () => {
+    const p = app.plugins.getPlugin('thingsmd');
+    return !p.taskNotesOpening && app.workspace.activeLeaf.view.getMode?.() === 'source';
+  });
+  await page.keyboard.type('Typed after Tab.');
+  await waitForAsync(page, () =>
+    app.workspace.activeLeaf.view.editor.getValue().includes('Typed after Tab.'),
+  );
+  await page.evaluate(() => {
+    const view = app.workspace.activeLeaf.view;
+    view.editor.setValue(view.editor.getValue() + '\n**Captured notes**');
+  });
+  await waitForAsync(
+    page,
+    async (prefix) =>
+      (await app.plugins.getPlugin('thingsmd').taskRecords())
+        .find((t) => t.meta.title === prefix + ' Today')
+        ?.body.includes('**Captured notes**'),
+    prefix,
+  );
+
   const today = await page.evaluate(
     async (prefix) =>
       (await app.plugins.getPlugin('thingsmd').taskRecords()).find(
@@ -48,7 +73,7 @@ try {
   );
   assert.equal(today.meta.when, 'today');
   assert.ok(today.meta.deadline);
-  assert.equal(today.body, 'Captured notes');
+  assert.ok(today.body.includes('**Captured notes**'));
   await page.evaluate(async (note) => {
     await app.vault.create(note, 'Capture fixture\n');
     const leaf = app.plugins.getPlugin('thingsmd').mainWorkspaceLeaf();
@@ -99,6 +124,35 @@ try {
   );
   await modal.getByRole('button', { name: 'Cancel', exact: true }).click();
   await modal.waitFor({ state: 'hidden' });
+  // A failed creation keeps the same form and draft available for retry.
+  await page.evaluate(() => {
+    const p = app.plugins.getPlugin('thingsmd');
+    p.capture({ when: 'today' });
+    const create = p.createTask;
+    p.createTask = async () => {
+      p.createTask = create;
+      throw new Error('Capture write regression');
+    };
+  });
+  await title.fill(prefix + ' Retry notes');
+  await modal.locator('.ot-task-notes-preview').click();
+  await modal.getByRole('alert').waitFor();
+  assert.equal(await title.inputValue(), prefix + ' Retry notes');
+  await modal.locator('.ot-task-notes-preview').click();
+  await modal.waitFor({ state: 'hidden' });
+  await waitForAsync(
+    page,
+    async (prefix) => {
+      const p = app.plugins.getPlugin('thingsmd');
+      const tasks = (await p.taskRecords()).filter((t) => t.meta.title === prefix + ' Retry notes');
+      return (
+        !p.taskNotesOpening &&
+        tasks.length === 1 &&
+        app.workspace.activeLeaf.view.file?.path === tasks[0].file.path
+      );
+    },
+    prefix,
+  );
   console.log(
     'PASS: task-shaped list capture, title focus, Tab to notes, deadline, Enter save, Today destination, ribbon capture into the active project without navigation, Escape discards, and outside-click draft retention.',
   );

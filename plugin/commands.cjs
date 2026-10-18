@@ -36,7 +36,8 @@ module.exports = function (plugin) {
       (focused && root.contains(focused) ? focused.dataset.taskId : null) ||
       view.taskDraft?.task.meta.id ||
       view.selected ||
-      (last?.leaf === leaf ? last.id : null);
+      (last?.leaf === leaf ? last.id : null) ||
+      root.querySelector('.ot-task-note-controls .ot-task')?.dataset.taskId;
     if (!id) return null;
     // Retain the selected group when commands open a popup or restore focus.
     const occurrence =
@@ -48,7 +49,7 @@ module.exports = function (plugin) {
     );
     const row = candidates.find((r) => r.dataset.occurrence === occurrence) || candidates[0];
     if (!row) return null;
-    const card = row.closest('.ot-native')?._thingsCard || view;
+    const card = require('./task-controller.cjs')(row, view);
     const task =
       card.taskDraft?.task || card.currentTask || view.tasks?.find((t) => t.meta.id === id);
     return {
@@ -85,7 +86,7 @@ module.exports = function (plugin) {
     const allowed = () =>
       app.workspace.activeLeaf?.view === c.view && !document.querySelector('.modal-container');
     if (!allowed()) return;
-    if (c.view.getViewType() === 'things-project-view') {
+    if (c.view.getViewType() === 'thingsmd-project-view') {
       await c.view.render();
       if (!allowed()) return;
       const row =
@@ -129,7 +130,7 @@ module.exports = function (plugin) {
     );
   const openEditor = async (c) => {
     if (c.card.taskDraft) return;
-    if (c.view.getViewType() === 'things-project-view') await c.view.openTask(c.id);
+    if (c.view.getViewType() === 'thingsmd-project-view') await c.view.openTask(c.id);
     else c.row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
   };
   for (const [key, name] of LISTS)
@@ -160,7 +161,7 @@ module.exports = function (plugin) {
     await leaf.loadIfDeferred?.();
     const view = leaf.view;
     if (
-      view?.getViewType() === 'things-project-view' &&
+      view?.getViewType() === 'thingsmd-project-view' &&
       !['trash', 'logbook', 'repeating'].includes(view.page)
     ) {
       if (view.taskDraft && !(await view.finishTask())) return;
@@ -176,8 +177,13 @@ module.exports = function (plugin) {
         project: c?.task?.references?.[0] || null,
         when: view.page === 'anytime' ? 'anytime' : date || null,
       });
-    } else if (view?.file?.extension === 'md') plugin.capture({ project: view.file.path });
-    else plugin.capture();
+    } else if (view?.file?.extension === 'md') {
+      const path = view.file.path;
+      // A reused Markdown view can retain its previous task-note CSS class
+      // until the next render. Resolve the file's identity from task records.
+      const task = (await plugin.taskRecords()).some((task) => task.file.path === path);
+      plugin.capture(task ? undefined : { project: path });
+    } else plugin.capture();
   };
   plugin.addCommand({
     id: 'capture',
@@ -343,7 +349,7 @@ module.exports = function (plugin) {
       'Move task ' + label,
       async (c) => {
         if (!(await fresh(c))) return;
-        if (c.view.getViewType() === 'things-project-view') {
+        if (c.view.getViewType() === 'thingsmd-project-view') {
           const row =
               [...c.view.contentEl.querySelectorAll('.ot-task')].find(
                 (r) => r.dataset.taskId === c.id && r.dataset.occurrence === c.occurrence,

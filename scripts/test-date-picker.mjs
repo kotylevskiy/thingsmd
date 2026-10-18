@@ -49,6 +49,7 @@ try {
       const Capture = window.loadPluginModule('./task-capture.cjs');
       window.pickerPlugin = {
         app: { workspace: {} },
+        renderTaskNotes: window.renderTaskNotesFixture,
         captureDestination: async () => null,
         createTask: async (meta, id, body) => ({ meta, body }),
       };

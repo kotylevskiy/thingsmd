@@ -1,7 +1,7 @@
 const { test } = require('node:test'),
   assert = require('node:assert/strict');
 const { inList } = require('../plugin/model.cjs');
-const { settings } = require('../plugin/archive-policy.cjs');
+const { settings } = require('../plugin/settings-model.cjs');
 test('waiting is independent of scheduling, excluded from actionable lists, and respects archives', () => {
   const t = { meta: { is_waiting: true, status: 'todo' }, references: [] },
     d = '2026-10-16';
@@ -26,10 +26,17 @@ test('Today waiting grouping defaults on and can be disabled', () => {
   assert.equal(settings({ showWaitingInToday: false }).showWaitingInToday, false);
 });
 
-test('Waiting For is enabled by default and only an explicit false disables it', () => {
-  for (const data of [undefined, {}, { showWaitingInToday: false }, { enableWaiting: 'false' }])
-    assert.equal(settings(data).enableWaiting, true);
+test('Waiting For defaults off and preserves explicit preferences', () => {
+  for (const data of [
+    undefined,
+    null,
+    {},
+    { showWaitingInToday: false },
+    { enableWaiting: 'true' },
+  ])
+    assert.equal(settings(data).enableWaiting, false);
   assert.equal(settings({ enableWaiting: false }).enableWaiting, false);
+  assert.equal(settings({ enableWaiting: true }).enableWaiting, true);
 });
 
 test('disabled waiting follows ordinary list policies without changing task metadata', () => {

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { search } = require('../plugin/search-model.cjs');
 const task = (id, meta = {}, body = '') => ({
   file: { path: '.thingsmd-storage/' + id + '.md' },
-  meta: { id, type: 'things-task', title: id, ...meta },
+  meta: { id, type: 'thingsmd-task', title: id, ...meta },
   body,
 });
 const opts = { today: '2026-10-16', settings: { logbook: 'daily' } };
@@ -23,7 +23,7 @@ test('Quick Find separates fast search from body/checklist/Logbook and excludes 
   );
 });
 test('Quick Find includes project navigation and preserves each reference context', () => {
-  const p = { file: { path: 'Trip.md' }, meta: { type: 'things-project', title: 'Trip' } };
+  const p = { file: { path: 'Trip.md' }, meta: { type: 'thingsmd-project', title: 'Trip' } };
   const t = task('Tickets');
   t.references = ['Trip.md', 'Other.md'];
   const rows = [p, t];

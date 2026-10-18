@@ -11,8 +11,10 @@ for (const [name, command] of Object.entries(scripts)) {
   if (name === start) running = true;
   if (!running) continue;
   console.log(`\nRunning ${name}`);
-  const result = spawnSync(process.execPath, [command.replace(/^node /, '')], { stdio: 'inherit' });
-  results.push({ name, passed: result.status === 0 });
+  const started = Date.now();
+  // Commands come from this repository's package.json; preserve their flags.
+  const result = spawnSync(command, { shell: true, stdio: 'inherit' });
+  results.push({ name, passed: result.status === 0, durationMs: Date.now() - started });
   if (result.status !== 0 && !process.env.THINGSMD_CONTINUE_ON_FAILURE) break;
 }
 mkdirSync(new URL('../artifacts/', import.meta.url), { recursive: true });

@@ -1,3 +1,4 @@
+import { editTaskNotes } from './edit-task-notes.mjs';
 import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
@@ -30,22 +31,15 @@ try {
   await page.evaluate(async (note) => {
     await app.vault.create(note, '# Controls\n');
   }, note);
-  for (const view of ['inbox', 'today', 'upcoming', 'anytime', 'someday', 'source', 'preview']) {
+  // List membership/transitions belong to the parity suites. Exercise each editor host once.
+  for (const view of ['inbox', 'source', 'preview']) {
     const task = await page.evaluate(
       async ({ view, prefix, note }) => {
         const p = app.plugins.getPlugin('thingsmd');
         const t = await p.createTask({
           title: prefix + ' ' + view,
-          when:
-            view === 'today'
-              ? 'today'
-              : view === 'upcoming'
-                ? '2099-01-01'
-                : view === 'someday'
-                  ? 'someday'
-                  : view === 'inbox'
-                    ? null
-                    : 'anytime',
+          when: view === 'inbox' ? null : 'anytime',
+          customMetadata: 'preserve-existing',
         });
         if (['source', 'preview'].includes(view)) {
           await app.vault.append(app.vault.getAbstractFileByPath(note), `\n![[${t.file.path}]]\n`);
@@ -73,7 +67,7 @@ try {
     await row()
       .getByLabel('Task title', { exact: true })
       .fill(prefix + ' ' + view + ' edited');
-    await row().getByLabel('Task notes', { exact: true }).fill('Notes survive control edits.');
+    await editTaskNotes(page, 'Notes survive control edits.');
     await row().getByRole('button', { name: 'Checklist', exact: true }).click();
     await row().getByLabel('Checklist text 1', { exact: true }).fill('First step');
     await row().getByLabel('Checklist item 1', { exact: true }).check();
@@ -90,12 +84,21 @@ try {
         };
       });
     assert.ok(geometry.glyphWidth <= geometry.width && geometry.glyphHeight <= geometry.height);
+    await row()
+      .getByLabel('Checklist text 1', { exact: true })
+      .dispatchEvent('keydown', { key: 'Enter', isComposing: true });
+    assert.equal(await row().locator('.ot-checklist-row').count(), 1);
     await row().getByLabel('Checklist text 1', { exact: true }).press('Enter');
     await row().getByLabel('Checklist text 2', { exact: true }).fill('Second step');
     await row().getByLabel('Checklist text 2', { exact: true }).press('Enter');
     await row().getByLabel('Checklist text 3', { exact: true }).press('Backspace');
     assert.equal(await row().locator('.ot-checklist-row').count(), 2);
     await dateControl('When');
+    await picker().getByLabel('When date').fill('tomorrow');
+    await picker()
+      .getByLabel('When date')
+      .dispatchEvent('keydown', { key: 'Enter', isComposing: true });
+    assert.equal(await picker().count(), 1);
     await picker().getByLabel('When date').fill('2026-02-31');
     await picker().getByLabel('When date').press('Enter');
     assert.equal(await picker().getByLabel('When date').getAttribute('aria-invalid'), 'true');
@@ -139,6 +142,7 @@ try {
           (t) => t.meta.id === id,
         );
         return (
+          t.meta.customMetadata === 'preserve-existing' &&
           t.meta.when === 'anytime' &&
           t.meta.deadline === '2099-06-02' &&
           t.meta.checklist?.length === 2 &&

@@ -31,7 +31,7 @@ function fixture() {
   const plugin = {
     app: { workspace: {} },
     captureDestination: async () => null,
-    createTask: async (fields, id, body) => {
+    createTask: async (fields, id, body = '') => {
       const task = { meta: { ...fields, id: 'new' }, body };
       writes.push(task);
       return task;
@@ -58,7 +58,7 @@ test('explicit save preserves capture fields and prevents duplicate concurrent w
   assert.equal(writes.length, 1);
   assert.equal(writes[0].meta.is_waiting, true);
   assert.equal(writes[0].meta.when, 'today');
-  assert.equal(writes[0].body, 'Notes');
+  assert.equal(writes[0].body, '');
   assert.equal(modal.closed, true);
 });
 test('saving an empty capture leaves no task behind', async () => {
@@ -70,11 +70,24 @@ test('saving an empty capture leaves no task behind', async () => {
   assert.equal(modal.closed, true);
 });
 
-test('notes-only capture saves an empty title without inventing replacement text', async () => {
+test('checklist-only capture saves an empty title without inventing replacement text', async () => {
   const { modal, writes } = fixture();
   modal.card.taskDraft.values.title = '   ';
+  modal.card.taskDraft.values.checklist = [{ text: 'Checklist only', done: false }];
   await modal.save();
   assert.equal(writes.length, 1);
   assert.equal(writes[0].meta.title, '');
-  assert.equal(writes[0].body, 'Notes');
+  assert.equal(writes[0].body, '');
+});
+
+test('opening notes creates exactly one file even before a title is entered', async () => {
+  const { modal, writes } = fixture();
+  modal.card.taskDraft.values.title = '';
+  modal.card.taskDraft.body = '';
+  await Promise.all([modal.save({ forNotes: true }), modal.save({ forNotes: true })]);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].meta.title, '');
+  assert.equal(writes[0].meta.when, 'today');
+  assert.equal(modal.createdTask, writes[0]);
+  assert.equal(modal.closed, true);
 });

@@ -37,9 +37,10 @@ module.exports = function install(plugin) {
         return;
       }
       const row = e.target.closest('.ot-task[data-task-id]');
+      const taskNote = row?.closest('.ot-task-note-controls');
       if (
         !row ||
-        row.classList.contains('is-expanded') ||
+        (row.classList.contains('is-expanded') && !taskNote) ||
         e.target.closest('input,textarea,button,a')
       )
         return;
@@ -51,7 +52,9 @@ module.exports = function install(plugin) {
         id: t.identifier,
         x: t.clientX,
         y: t.clientY,
-        driver: native ? native._otTouchDrag : row._otTouchDrag,
+        // Task notes keep their controls expanded. They still need a hold menu,
+        // but dragging this header must never reorder the native Markdown note.
+        driver: taskNote ? undefined : native ? native._otTouchDrag : row._otTouchDrag,
       };
       state.driver?.hold?.();
       state.timer = setTimeout(() => {

@@ -36,7 +36,7 @@
   margin-top: 0;
   margin-bottom: 0;
 }
-.ot-paper h2 {
+.ot-paper > .ot-section > h2 {
   font-size: var(--font-ui-small);
   letter-spacing: -0.3px;
   font-weight: 600;
@@ -125,24 +125,6 @@
 .ot-task-editor {
   padding: 0 var(--size-4-3) 0 calc(15px + var(--size-4-2) * 2 + var(--size-2-1) * 2);
 }
-.ot-task textarea.ot-task-notes {
-  display: block;
-  width: 100%;
-  min-height: 30px;
-  resize: none;
-  overflow: hidden;
-  line-height: 1.65;
-  font: inherit;
-  font-size: 14px;
-  padding: var(--size-2-1) 0;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  border-radius: 0;
-}
-.ot-task-notes::placeholder {
-  color: var(--text-faint);
-}
 .ot-card-footer {
   display: flex;
   justify-content: space-between;
@@ -216,7 +198,6 @@
   display: flex;
   align-items: center;
   gap: calc(var(--size-4-1) * 2.25);
-  border-top: 1px solid var(--background-modifier-border);
   min-height: 31px;
 }
 .ot-checklist-row > input[type='checkbox'] {
@@ -1229,7 +1210,7 @@
   }
 }
 
-/* Things-style destination picker: compact rows, not a stack of form buttons. */
+/* ThingsMD-style destination picker: compact rows, not a stack of form buttons. */
 .ot-move-container .modal-bg {
   opacity: 0;
 }
@@ -1439,7 +1420,7 @@
   display: none !important;
 }
 
-/* Things-style progress pies: a filled sector, not a generic note icon. */
+/* ThingsMD-style progress pies: a filled sector, not a generic note icon. */
 .ot-project-progress {
   display: inline-flex;
   flex: 0 0 16px;
@@ -1479,7 +1460,7 @@
   }
 }
 
-/* In Things, Someday is recognizable by its quiet, dashed checkbox. */
+/* In ThingsMD, Someday is recognizable by its quiet, dashed checkbox. */
 .ot-task.is-someday .ot-task-line > input[type='checkbox']:not(:checked) {
   appearance: none;
   -webkit-appearance: none;
@@ -1957,10 +1938,191 @@
   margin-top: var(--size-4-3);
   padding: 0 var(--size-4-4) max(var(--size-4-3), env(safe-area-inset-bottom, 0px));
 }
+.ot-capture-hint {
+  flex: 1;
+  min-width: 0;
+  align-self: center;
+  color: var(--text-muted);
+  font-size: var(--font-smallest);
+  line-height: 1.4;
+}
 .is-mobile .ot-capture-actions button {
   min-width: 96px;
 }
 .ot-setting-badge {
   margin-inline-start: var(--size-4-2);
   vertical-align: middle;
+}
+
+/* Explorer presentation does not change indexing or the selected sort order. */
+.ot-task-folder-hidden {
+  display: none !important;
+}
+.ot-task-folder-siblings {
+  display: flex;
+  flex-direction: column;
+}
+.ot-task-folder-last {
+  order: 1;
+}
+.ot-task-notes-preview {
+  cursor: text;
+  overflow-x: auto;
+  overflow-wrap: anywhere;
+  font-size: var(--font-text-size);
+}
+.ot-task-fields:has(> .ot-checklist:not(:empty))
+  > .ot-task-notes-preview:has(.ot-task-notes-placeholder) {
+  display: none;
+}
+.ot-task-notes-placeholder {
+  color: var(--text-faint);
+}
+.ot-task-notes-preview > :first-child {
+  margin-top: 0;
+}
+.ot-task-notes-preview img {
+  max-width: 100%;
+}
+.ot-task-notes-preview pre,
+.ot-task-notes-preview .table-wrapper {
+  overflow-x: auto;
+}
+.ot-task-notes-preview h1 {
+  font-size: max(1em, calc(var(--h1-size) * 0.75));
+}
+.ot-task-notes-preview h2 {
+  font-size: max(1em, calc(var(--h2-size) * 0.75));
+}
+.ot-task-notes-preview h3 {
+  font-size: max(1em, calc(var(--h3-size) * 0.75));
+}
+.ot-task-notes-preview h4 {
+  font-size: max(1em, calc(var(--h4-size) * 0.75));
+}
+.ot-task-notes-preview h5 {
+  font-size: max(1em, calc(var(--h5-size) * 0.75));
+}
+.ot-task-notes-preview h6 {
+  font-size: max(1em, calc(var(--h6-size) * 0.75));
+}
+
+.ot-task-note-original-title {
+  display: none !important;
+}
+.ot-task-note-title[data-empty='true']::before {
+  float: left;
+  height: 0;
+  content: attr(data-placeholder);
+  color: var(--text-faint);
+  pointer-events: none;
+}
+.ot-task-title-error {
+  color: var(--text-error);
+  font-size: var(--font-ui-small);
+}
+
+.ot-task-note-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35em;
+  min-width: 0;
+}
+.ot-task-note-heading[hidden] {
+  display: none;
+}
+.ot-task-note-heading > .ot-task-note-title {
+  flex: 1;
+  min-width: 0;
+}
+.ot-task-note-heading-icon {
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  color: var(--text-muted);
+}
+.ot-task-note-heading-icon[aria-disabled='true'] {
+  cursor: default;
+  opacity: 0.5;
+}
+.ot-task-note-heading-icon svg {
+  width: calc(var(--inline-title-size, 2em) * 0.7);
+  height: calc(var(--inline-title-size, 2em) * 0.7);
+}
+.ot-task-note-heading:not(.is-inline) .ot-task-note-heading-icon svg {
+  width: var(--icon-size, 16px);
+  height: var(--icon-size, 16px);
+}
+
+.workspace
+  .mod-root
+  .workspace-tab-header
+  .workspace-tab-header-inner
+  .workspace-tab-header-inner-icon.ot-task-note-tab-icon,
+.workspace-tab-header .workspace-tab-header-inner-icon.ot-task-note-tab-icon {
+  display: flex;
+}
+
+.ot-task-note-heading-icon:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+/* Task metadata is edited with task controls, independent of the vault's
+   Properties preference. Keep the native Markdown editor for the description. */
+.ot-task-note-view .metadata-container,
+.ot-task-note-view .mod-frontmatter > * {
+  display: none !important;
+}
+/* Reading view measures sections using their offsets. Keep the empty YAML
+   section in layout so it does not steal the preceding checklist's height. */
+.ot-task-note-view .mod-frontmatter {
+  display: block !important;
+}
+.ot-task-note-controls {
+  margin-bottom: var(--size-4-4);
+  font-size: var(--font-text-size);
+}
+.ot-task-note-controls > .ot-task.is-expanded {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  animation: none;
+}
+.ot-task-note-controls .ot-task-line[hidden] {
+  display: none;
+}
+.ot-task-note-controls > .ot-task.is-expanded > .ot-task-editor {
+  padding: 0;
+}
+.ot-task-note-controls .ot-card-footer {
+  flex-direction: column;
+  align-items: flex-start;
+  margin-top: 0;
+  margin-bottom: var(--size-4-2);
+  margin-left: 0;
+}
+.ot-task-note-controls .ot-card-icons {
+  margin-left: 0;
+}
+.ot-task-note-controls .ot-card-badges {
+  padding-left: 0;
+}
+.ot-task-note-controls .ot-card-badges:empty {
+  display: none;
+}
+.ot-task-note-view .ot-task-note-heading.is-inline > .inline-title {
+  margin-bottom: var(--size-4-2);
+}
+.ot-task-note-controls .ot-checklist:not(:empty) {
+  margin-top: 0;
+}
+
+.ot-task-note-controls .ot-task-fields:has(.ot-checklist:not(:empty)) + .ot-card-footer {
+  margin-top: var(--size-4-2);
+}
+.setting-item.ot-dependent-setting.is-disabled {
+  opacity: 0.5;
 }

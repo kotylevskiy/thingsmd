@@ -19,7 +19,7 @@ function fixture() {
     ['To.md', '# Destination\n'],
   ]);
   let task = {
-    meta: { type: 'things-task', id: 'a', title: 'Move me', project: 'From.md' },
+    meta: { type: 'thingsmd-task', id: 'a', title: 'Move me', project: 'From.md' },
     file: { path: '.thingsmd-storage/a.md' },
     body: '',
   };
@@ -170,8 +170,8 @@ test('a move waits for the source editor save before committing metadata', async
     editor: {
       getValue: () => buffer,
       offsetToPos: (ch) => ({ line: 0, ch }),
-      replaceRange: (value) => {
-        buffer = value;
+      replaceRange: (value, from, to) => {
+        buffer = buffer.slice(0, from.ch) + value + buffer.slice(to.ch);
       },
     },
     save: async () => {

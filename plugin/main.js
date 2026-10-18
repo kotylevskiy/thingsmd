@@ -8,18 +8,34 @@ module.exports = class ThingsMDPlugin extends Plugin {
     // Compose services before installing UI adapters that call them.
     require('./dialogs.cjs')(this);
     require('./task-store.cjs')(this);
+    require('./task-note-frontmatter.cjs')(this);
     require('./task-actions.cjs')(this);
     require('./move-notice.cjs').install(this);
     await require('./settings-service.cjs')(this);
+    await require('./task-folder.cjs')(this);
+    await require('./identifier-migration.cjs')(this);
+    require('./task-folder-explorer.cjs')(this);
+    require('./task-notes.cjs')(this);
+    require('./task-note-title.cjs')(this);
     require('./archives.cjs')(this, (path) => {
-      const cards = [...document.querySelectorAll('.ot-native')].map((el) => el._thingsCard);
+      const cards = [...document.querySelectorAll('.ot-native')].map((el) => el._thingsmdCard);
       cards.push(...this.app.workspace.getLeavesOfType(VIEW).map((leaf) => leaf.view));
-      return cards.some((card) => card?.taskDraft?.task.file.path === path);
+      cards.push(...(this.taskNoteControllers || []));
+      return (
+        this.taskNoteTitleDrafts?.has(path) ||
+        cards.some((card) => card?.taskDraft?.task.file.path === path)
+      );
     });
     require('./settings.cjs')(this);
     require('./task-menu.cjs')(this);
     require('./daily-capture.cjs')(this);
     this.registerView(VIEW, (leaf) => new ThingsMDView(leaf, this));
+    // Restore old saved tabs through the new view, whose getViewType writes VIEW.
+    this.registerView(
+      require('./legacy-identifiers.cjs').LEGACY_VIEW,
+      (leaf) => new ThingsMDView(leaf, this),
+    );
+    this.app.workspace.onLayoutReady(() => this.app.workspace.requestSaveLayout());
     require('./search.cjs')(this);
     require('./repeat-engine.cjs')(this);
     require('./repeat-ui.cjs').install(this);
@@ -64,6 +80,6 @@ module.exports = class ThingsMDPlugin extends Plugin {
     this.captureModal.open();
   }
   tasksChanged() {
-    this.app.workspace.trigger('things-tasks-changed');
+    this.app.workspace.trigger('thingsmd-tasks-changed');
   }
 };

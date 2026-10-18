@@ -19,7 +19,7 @@ try {
     return settings;
   }, note);
   const buttons = page.locator('.side-dock-ribbon-action');
-  assert.equal(await buttons.locator('svg.things-task-search').count(), 1);
+  assert.equal(await buttons.locator('svg.thingsmd-task-search').count(), 1);
   for (const context of [
     'empty',
     'inbox',

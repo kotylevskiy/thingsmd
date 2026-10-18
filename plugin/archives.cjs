@@ -1,3 +1,4 @@
+const { rollbackNotes, recoveryError } = require('./note-rollback.cjs');
 const { trashExpired } = require('./archive-policy.cjs');
 const { isLogged } = require('./model.cjs');
 const { removeReferences } = require('./task-references.cjs');
@@ -39,11 +40,10 @@ module.exports = function installArchives(plugin, hasOpenDraft) {
         await plugin.app.vault.adapter.remove(path);
         plugin.tasksChanged();
       } catch (error) {
-        for (const edit of edits.reverse())
-          try {
-            await notes.write(edit.file, edit.after, edit.before, { save: true });
-          } catch {}
-        throw error;
+        const failures = await rollbackNotes(edits, (file, before, after) =>
+          notes.write(file, before, after, { save: true }),
+        );
+        throw recoveryError(error, failures);
       }
     });
   };

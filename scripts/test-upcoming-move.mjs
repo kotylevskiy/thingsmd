@@ -97,7 +97,7 @@ try {
         const task = (await p.taskRecords()).find((t) => t.meta.id === id);
         // Hidden task files are owned by the task store, not Obsidian's indexed vault.
         if (task) await p.deleteTask(task.file);
-        return !(await app.vault.adapter.exists(`.thingsmd-storage/${id}.md`));
+        return !(await app.vault.adapter.exists(`ThingsMD/${id}.md`));
       }, id);
       assert.equal(removed, true, 'Upcoming test removes its hidden task fixture');
     }

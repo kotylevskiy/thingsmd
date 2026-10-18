@@ -13,8 +13,8 @@ test('note access prefers unsaved editor text and refuses stale writes or rollba
     editor: {
       getValue: () => text,
       offsetToPos: (ch) => ({ line: 0, ch }),
-      replaceRange: (next) => {
-        text = next;
+      replaceRange: (next, from, to) => {
+        text = text.slice(0, from.ch) + next + text.slice(to.ch);
       },
     },
   };
@@ -59,8 +59,8 @@ test('note access waits for a host save already in progress before reading and w
     editor: {
       getValue: () => text,
       offsetToPos: (ch) => ({ line: 0, ch }),
-      replaceRange: (value) => {
-        text = value;
+      replaceRange: (value, from, to) => {
+        text = text.slice(0, from.ch) + value + text.slice(to.ch);
       },
     },
   };
@@ -75,4 +75,107 @@ test('note access waits for a host save already in progress before reading and w
   await writing;
   assert.equal(text, 'After');
   assert.equal(saves, 1);
+});
+
+test('metadata writes replace only the changed text and retain the description cursor', async () => {
+  let text = '---\ntitle: Task\nis_waiting: false\n---\nDescription with unsaved text.\n';
+  let cursor = text.indexOf('unsaved');
+  const file = { path: 'ThingsMD/task.md' };
+  const before = text;
+  const next = text.replace('is_waiting: false', 'is_waiting: true');
+  const edits = [];
+  const view = {
+    file,
+    getMode: () => 'source',
+    save: async () => {},
+    editor: {
+      getValue: () => text,
+      offsetToPos: (ch) => ({ line: 0, ch }),
+      replaceRange: (insert, from, to) => {
+        edits.push({ insert, from: from.ch, to: to.ch });
+        // Model the native editor's selection mapping through a replacement.
+        cursor =
+          cursor >= to.ch ? cursor + insert.length - (to.ch - from.ch) : from.ch + insert.length;
+        text = text.slice(0, from.ch) + insert + text.slice(to.ch);
+      },
+    },
+  };
+  const access = noteAccess({ workspace: { getLeavesOfType: () => [{ view }] } });
+  await access.write(file, before, next, { save: true });
+  assert.equal(text, next);
+  assert.equal(cursor, text.indexOf('unsaved'));
+  assert.ok(edits[0].to < before.indexOf('Description'));
+  assert.ok(
+    edits[0].insert.length < 5,
+    'A boolean metadata change does not replace the description',
+  );
+});
+
+test('checked native writes use the registered background writer and unregister cleanly', async () => {
+  const { registerEditorWriter } = require('../plugin/note-access.cjs');
+  let text = 'Old text',
+    nativeCalls = 0,
+    fallbackCalls = 0;
+  const file = { path: 'Note.md' };
+  const editor = {
+    getValue: () => text,
+    offsetToPos: (ch) => ({ line: 0, ch }),
+    replaceRange: (insert, from, to) => {
+      fallbackCalls++;
+      text = text.slice(0, from.ch) + insert + text.slice(to.ch);
+    },
+  };
+  const view = { file, editor, getMode: () => 'source' };
+  const access = noteAccess({ workspace: { getLeavesOfType: () => [{ view }] } });
+  const unregister = registerEditorWriter(editor, ({ from, to, insert }) => {
+    nativeCalls++;
+    text = text.slice(0, from) + insert + text.slice(to);
+  });
+  await access.write(file, 'Old text', 'New text');
+  assert.equal(text, 'New text');
+  assert.equal(nativeCalls, 1);
+  assert.equal(fallbackCalls, 0);
+  await assert.rejects(access.write(file, 'Stale text', 'Overwrite'), /note changed/);
+  assert.equal(nativeCalls, 1, 'Compare snapshots before dispatching any native write');
+  unregister();
+  await access.write(file, 'New text', 'Final text');
+  assert.equal(text, 'Final text');
+  assert.equal(fallbackCalls, 1);
+});
+
+test('an editor input filter cannot silently turn a rejected write into a successful save', async () => {
+  const text = 'Original',
+    file = { path: 'Note.md' };
+  let saves = 0;
+  const view = {
+    file,
+    getMode: () => 'source',
+    save: async () => saves++,
+    editor: {
+      getValue: () => text,
+      offsetToPos: (ch) => ({ line: 0, ch }),
+      replaceRange: () => {},
+    },
+  };
+  const access = noteAccess({ workspace: { getLeavesOfType: () => [{ view }] } });
+  await assert.rejects(
+    access.write(file, text, 'Changed', { save: true }),
+    /editor did not accept/,
+  );
+  assert.equal(saves, 0);
+});
+
+test('divergent native tabs are never picked arbitrarily for a task write', async () => {
+  const file = { path: 'Task.md' };
+  const buffers = ['First unsaved draft', 'Second unsaved draft'];
+  const leaves = buffers.map((text) => ({
+    view: { file, getMode: () => 'source', editor: { getValue: () => text } },
+  }));
+  const access = noteAccess({ workspace: { getLeavesOfType: () => leaves }, vault: {} });
+  await assert.rejects(access.read(file), /different drafts/);
+  await assert.rejects(access.write(file, buffers[0], 'Changed'), /different drafts/);
+  assert.deepEqual(
+    leaves.map(({ view }) => view.editor.getValue()),
+    buffers,
+  );
 });

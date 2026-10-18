@@ -20,7 +20,7 @@ class TaskEditor {
     for (const button of this.contentEl.querySelectorAll('.ot-waiting-toggle'))
       button.hidden = this.plugin.settings?.enableWaiting === false;
   }
-  taskEditor(row, line, task) {
+  taskEditor(row, line, task, { nativeDescription = false, fallbackFocus } = {}) {
     taskState(row, task.meta);
     this.editing = true;
     const draft = (this.taskDraft = {
@@ -34,7 +34,6 @@ class TaskEditor {
         deadlineDeferredOn: task.meta.deadlineDeferredOn || null,
         checklist: JSON.parse(JSON.stringify(task.meta.checklist || [])),
       },
-      body: task.body,
       dirty: false,
       error: null,
     });
@@ -43,31 +42,19 @@ class TaskEditor {
       attr: { 'aria-label': 'Task title', placeholder: 'New To-Do' },
     });
     title.value = draft.values.title;
+    if (nativeDescription) title.remove();
     const editor = row.createDiv('ot-task-editor');
     const fields = editor.createDiv('ot-task-fields');
-    const notes = fields.createEl('textarea', {
-      cls: 'ot-task-notes',
-      attr: { 'aria-label': 'Task notes', placeholder: 'Notes', rows: '1' },
-    });
-    notes.value = task.body;
-    const size = () => {
-      notes.style.height = 'auto';
-      notes.style.height = `${Math.max(30, notes.scrollHeight)}px`;
-    };
-    requestAnimationFrame(size);
     title.oninput = () => {
       draft.values.title = title.value;
       this.queueTaskSave();
     };
-    notes.oninput = () => {
-      draft.body = notes.value;
-      size();
-      this.queueTaskSave();
-    };
+    if (nativeDescription) delete draft.values.title;
+    else this.plugin.renderTaskNotes(this, fields, task, title);
     const checklist = require('./checklist-editor.cjs')(fields, draft.values.checklist, {
       disabled: !!task.meta.repeat,
       onChange: () => this.queueTaskSave(),
-      fallbackFocus: title,
+      fallbackFocus: fallbackFocus || title,
     });
     this.cancelChecklistDrag = checklist.cancelDrag;
     if (task.meta.repeat) {
@@ -157,6 +144,10 @@ class TaskEditor {
       }
     };
   }
+  async openNotes(task, newTab = false) {
+    if (!(await this.finishTask())) return;
+    await this.plugin.openTaskNotes(task, newTab);
+  }
   async openRepeat() {
     const id = this.taskDraft?.task.meta.id;
     if (!id || !(await this.finishTask())) return;
@@ -212,8 +203,7 @@ class TaskEditor {
     const draft = this.taskDraft;
     if (!draft || !draft.dirty) return !draft?.error;
     const values = JSON.parse(JSON.stringify(draft.values));
-    values.title = values.title.trim();
-    const body = draft.body;
+    if (Object.hasOwn(values, 'title')) values.title = values.title.trim();
     const patch = {};
     for (const [key, value] of Object.entries(values))
       if (
@@ -223,16 +213,21 @@ class TaskEditor {
         )
       )
         patch[key] = value;
-    const changedBody = body !== draft.task.body ? body : undefined;
     draft.dirty = false;
     const saving = (async () => {
       try {
-        const saved =
-          Object.keys(patch).length || changedBody !== undefined
-            ? await this.plugin.patchTask(draft.task, patch, changedBody)
-            : null;
-        draft.task = saved || { ...draft.task, meta: { ...draft.task.meta, ...patch }, body };
+        const saved = Object.keys(patch).length
+          ? await this.plugin.patchTask(draft.task, patch)
+          : null;
+        const previous = draft.task;
+        draft.task = saved || { ...draft.task, meta: { ...draft.task.meta, ...patch } };
         const schedule = ['when', 'evening', 'deadline', 'deadlineDeferredOn'];
+        if (saved)
+          for (const key of Object.keys(values))
+            if (!Object.hasOwn(patch, key) && !schedule.includes(key))
+              // Untouched controls still display the original snapshot. Keep
+              // their conflict baseline until the host refreshes their UI.
+              draft.task.meta[key] = previous.meta[key];
         if (saved && schedule.every((key) => draft.values[key] === values[key])) {
           // Cancellation and scheduling policy may change several linked fields.
           // Reconcile them together without replacing edits received during I/O.
@@ -282,7 +277,11 @@ class TaskEditor {
     const closing = (async () => {
       if (!(await this.flushTaskDraft())) return false;
       this.cancelChecklistDrag?.();
-      const task = this.taskDraft.task;
+      let task = this.taskDraft.task;
+      if (task.file && this.plugin.taskRecords)
+        task =
+          (await this.plugin.taskRecords()).find((record) => record.meta.id === task.meta.id) ||
+          task;
       this.taskDraft = null;
       this.editing = false;
       await this.afterClose(render, task);

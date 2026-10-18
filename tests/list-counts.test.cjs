@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { listCounts } = require('../plugin/list-counts.cjs');
 const task = (meta = {}, references = []) => ({
-  meta: { type: 'things-task', status: 'todo', ...meta },
+  meta: { type: 'thingsmd-task', status: 'todo', ...meta },
   references,
 });
 test('sidebar counts unfinished Inbox and Today tasks once, including evening and waiting', () => {
@@ -23,7 +23,7 @@ test('sidebar counts unfinished Inbox and Today tasks once, including evening an
         task({ project: 'Project.md' }),
         task({}, ['Project.md']),
         task({ is_waiting: true }),
-        { meta: { type: 'things-project' } },
+        { meta: { type: 'thingsmd-project' } },
       ],
       '2026-10-16',
       { logbook: 'manually', captureDestination: 'inbox' },

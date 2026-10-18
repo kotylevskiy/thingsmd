@@ -34,9 +34,9 @@ try {
     ),
   );
   await page.keyboard.press('Meta+z');
-  const row = page
-    .locator('.workspace-leaf.mod-active .ot-native .ot-task')
-    .filter({ hasText: 'Native fixture' });
+  const row = page.locator(
+    `.workspace-leaf.mod-active .ot-native[data-task-path="${taskPath}"]:visible .ot-task`,
+  );
   await row.waitFor();
   // Enter the reference source: Obsidian may add a second embed at its boundary.
   await page.evaluate(() => {
@@ -65,22 +65,6 @@ try {
   await page
     .locator('.workspace-leaf.mod-active .ot-native .ot-title-input')
     .fill('Edited native task');
-  await page.locator('.workspace-leaf.mod-active .ot-title-input').press('Tab');
-  assert.equal(
-    await page
-      .locator('.workspace-leaf.mod-active .ot-task-notes')
-      .evaluate((el) => el === document.activeElement),
-    true,
-    'Tab moves title to notes',
-  );
-  await page.keyboard.press('Shift+Tab');
-  assert.equal(
-    await page
-      .locator('.workspace-leaf.mod-active .ot-title-input')
-      .evaluate((el) => el === document.activeElement),
-    true,
-    'Shift+Tab returns to title',
-  );
   await page.keyboard.press('Enter');
   await page.locator('.workspace-leaf.mod-active .ot-title-input').waitFor({ state: 'hidden' });
   assert.equal(await page.evaluate(() => app.workspace.getActiveFile()?.path), note);
@@ -97,18 +81,28 @@ try {
     'The next Enter reopens the same task',
   );
   await page.locator('.workspace-leaf.mod-active .ot-title-input').press('Tab');
-  await page.keyboard.type('First line');
-  await page.keyboard.press('Enter');
-  await page.keyboard.type('Second line');
-  assert.equal(
-    await page.locator('.workspace-leaf.mod-active .ot-task-notes').inputValue(),
-    'First line\nSecond line',
-    'Enter in notes still inserts a newline',
+  await waitForAsync(
+    page,
+    (path) =>
+      !app.plugins.getPlugin('thingsmd').taskNotesOpening &&
+      app.workspace.activeLeaf?.view.file?.path === path,
+    taskPath,
   );
-
+  await page.evaluate(async (note) => {
+    const view = app.workspace.activeLeaf.view;
+    view.editor.setValue(view.editor.getValue() + 'Details saved independently.');
+    await view.save();
+    const project = app.workspace
+      .getLeavesOfType('markdown')
+      .find((leaf) => leaf.view.file?.path === note);
+    await app.workspace.revealLeaf(project);
+    app.workspace.setActiveLeaf(project, { focus: true });
+  }, note);
+  await row.dblclick();
   await page
-    .locator('.workspace-leaf.mod-active .ot-native .ot-task-notes')
-    .fill('Details saved independently.');
+    .locator('.workspace-leaf.mod-active .ot-task-notes-preview')
+    .getByText('Details saved independently.')
+    .waitFor();
   const card = page.locator('.workspace-leaf.mod-active .ot-task.is-expanded');
   await card.getByRole('button', { name: 'When', exact: true }).click();
   await card.getByLabel('When date').fill('tomorrow');
@@ -150,6 +144,7 @@ try {
   assert.equal(await card.locator('.ot-date-picker').count(), 0);
   assert.equal(await card.count(), 1, 'Escape closes only the picker');
   await page.locator('.workspace-leaf.mod-active .ot-native .ot-title-input').press('Enter');
+  await card.waitFor({ state: 'detached' });
   const dated = await page.evaluate(
     async (path) =>
       (await app.plugins.getPlugin('thingsmd').records()).find((r) => r.file.path === path).meta,
@@ -237,7 +232,7 @@ try {
   await newTitle.waitFor({ state: 'hidden' });
   await page.waitForFunction(
     () =>
-      app.workspace.activeLeaf.view.editor.getValue().includes('![[.thingsmd-storage/') &&
+      app.workspace.activeLeaf.view.editor.getValue().includes('![[ThingsMD/') &&
       !app.workspace.activeLeaf.view.editor.getValue().includes('+ Created'),
   );
   createdPath = await page.evaluate(async () => {
@@ -306,7 +301,7 @@ try {
       for (const path of new Set([note, taskPath, createdPath, ...typed])) {
         const f = path && app.vault.getAbstractFileByPath(path);
         if (f) await app.vault.delete(f);
-        else if (path?.startsWith('.thingsmd-storage/') && (await app.vault.adapter.exists(path)))
+        else if (path?.startsWith('ThingsMD/') && (await app.vault.adapter.exists(path)))
           await app.plugins.getPlugin('thingsmd').deleteTask(path);
       }
     },

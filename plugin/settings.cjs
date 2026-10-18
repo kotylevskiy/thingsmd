@@ -42,6 +42,7 @@ module.exports = function installSettingsUI(plugin) {
         });
       new Setting(this.containerEl)
         .setName('Group waiting tasks in Today')
+        .setClass('ot-dependent-setting')
         .setDesc(
           'Show waiting tasks scheduled for Today in a separate Waiting For section after This Evening. Turning this off keeps them in their normal Today or Evening section.',
         )
@@ -63,6 +64,71 @@ module.exports = function installSettingsUI(plugin) {
           t.setValue(plugin.settings.showProjectProgress).onChange((v) =>
             plugin.updateSettings({ showProjectProgress: v }).catch((e) => new Notice(e.message)),
           );
+        });
+      new Setting(this.containerEl)
+        .setName('Open task notes in')
+        .setDesc(
+          'Choose where clicking task notes or pressing Tab from the title opens the editor. Cmd/Ctrl+click always opens a new tab.',
+        )
+        .addDropdown((dropdown) => {
+          dropdown.addOption('new', 'New tab').addOption('current', 'Current tab');
+          dropdown.selectEl.setAttribute('aria-label', 'Open task notes in');
+          dropdown
+            .setValue(plugin.settings.taskNotesTab)
+            .onChange((value) =>
+              plugin
+                .updateSettings({ taskNotesTab: value })
+                .catch((error) => new Notice(error.message)),
+            );
+        });
+      new Setting(this.containerEl)
+        .setName('Tasks home folder')
+        .setDesc(
+          'Vault-relative folder for task notes. Press Enter or leave the field to move existing tasks and update their references.',
+        )
+        .addText((input) => {
+          input.setValue(plugin.settings.tasksFolder);
+          input.inputEl.setAttribute('aria-label', 'Tasks home folder');
+          let saving = false;
+          const save = async () => {
+            if (saving || input.getValue() === plugin.settings.tasksFolder) return;
+            saving = true;
+            input.inputEl.readOnly = true;
+            try {
+              await plugin.changeTasksFolder(input.getValue());
+            } catch (error) {
+              new Notice(error.message);
+            } finally {
+              input.setValue(plugin.settings.tasksFolder);
+              input.inputEl.readOnly = false;
+              saving = false;
+            }
+          };
+          input.inputEl.addEventListener('blur', save);
+          input.inputEl.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' || event.isComposing) return;
+            event.preventDefault();
+            void save();
+          });
+        });
+      new Setting(this.containerEl)
+        .setName('Tasks folder in File Explorer')
+        .setDesc(
+          'Hiding affects only File Explorer. Show last places the folder after its siblings regardless of sorting.',
+        )
+        .addDropdown((dropdown) => {
+          dropdown
+            .addOption('normal', 'Show normally')
+            .addOption('last', 'Show last')
+            .addOption('hidden', 'Hide');
+          dropdown.selectEl.setAttribute('aria-label', 'Tasks folder in File Explorer');
+          dropdown
+            .setValue(plugin.settings.tasksFolderDisplay)
+            .onChange((value) =>
+              plugin
+                .updateSettings({ tasksFolderDisplay: value })
+                .catch((error) => new Notice(error.message)),
+            );
         });
       new Setting(this.containerEl)
         .setName('Move completed tasks to Logbook')

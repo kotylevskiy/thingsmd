@@ -68,14 +68,15 @@ try {
       }, state);
     await pressFromFinder();
     await capture.getByLabel('Task title', { exact: true }).fill(`${title} ${state}`);
-    await capture.getByLabel('Task notes', { exact: true }).fill('Preserve this draft');
+    await capture.getByRole('button', { name: 'Checklist', exact: true }).click();
+    await capture.getByLabel('Checklist text 1', { exact: true }).fill('Preserve this draft');
     await pressFromFinder();
     assert.equal(
       await capture.getByLabel('Task title', { exact: true }).inputValue(),
       `${title} ${state}`,
     );
     assert.equal(
-      await capture.getByLabel('Task notes', { exact: true }).inputValue(),
+      await capture.getByLabel('Checklist text 1', { exact: true }).inputValue(),
       'Preserve this draft',
     );
     await capture.getByRole('button', { name: 'Save', exact: true }).click();

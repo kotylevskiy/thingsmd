@@ -28,6 +28,7 @@ module.exports = function nativeTaskCard(
     card.signature = null;
     await card.render();
   });
+  card.measure = () => view?.requestMeasure();
   card.render = async () => {
     card.refreshSettings();
     if (card.taskDraft) return;
@@ -211,7 +212,7 @@ module.exports = function nativeTaskCard(
     card.saveTaskDraft();
     onDispose(card);
   };
-  root._thingsCard = card;
+  root._thingsmdCard = card;
   onMount(card);
   card.render();
   return root;

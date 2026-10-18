@@ -8,7 +8,7 @@ module.exports = function installMobileNavigation(plugin, doc = document) {
     {
       selector: '.mobile-navbar-action-quick-switcher',
       label: 'Search Tasks',
-      icon: 'things-task-search',
+      icon: 'thingsmd-task-search',
       run: () => plugin.openSearch(),
     },
   ];

@@ -8,7 +8,7 @@ module.exports = function installGlobalCapture(plugin) {
     systemCapture,
     registered = '',
     disposed = false;
-  const channel = `things-global-capture-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const channel = `thingsmd-global-capture-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const { ipcRenderer } = require('electron');
   try {
     remote = require('@electron/remote');

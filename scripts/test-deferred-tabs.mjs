@@ -30,7 +30,7 @@ try {
         // when its saved state supplies the title and icon. No view is mocked.
         dormant.containerEl.style.display = 'none';
         await dormant.setViewState({
-          type: 'things-project-view',
+          type: 'thingsmd-project-view',
           state: { page: 'waiting' },
           title: 'Waiting For',
           icon: 'send-horizontal',
@@ -38,7 +38,7 @@ try {
         });
         const live = workspace.getLeaf('tab');
         await live.setViewState({
-          type: 'things-project-view',
+          type: 'thingsmd-project-view',
           state: { page: 'today' },
           active: true,
         });
@@ -61,8 +61,8 @@ try {
           deferred: dormant.isDeferred,
           content: !!dormant.view.contentEl,
           beforeLive:
-            workspace.getLeavesOfType('things-project-view').indexOf(dormant) <
-            workspace.getLeavesOfType('things-project-view').indexOf(live),
+            workspace.getLeavesOfType('thingsmd-project-view').indexOf(dormant) <
+            workspace.getLeavesOfType('thingsmd-project-view').indexOf(live),
         };
       },
       { prefix, note },
@@ -77,7 +77,7 @@ try {
           const { live } = window.deferredTabFixture;
           if (mode === 'list')
             await live.setViewState({
-              type: 'things-project-view',
+              type: 'thingsmd-project-view',
               state: { page: 'today' },
               active: true,
             });
@@ -96,8 +96,8 @@ try {
       if (mobile) await row.click();
       else await row.dblclick();
       await row
-        .getByLabel('Task notes', { exact: true })
-        .fill(`Draft preserved in ${mode}, mobile=${mobile}`);
+        .getByLabel('Task title', { exact: true })
+        .fill(`${prefix} Draft preserved in ${mode}, mobile=${mobile}`);
       await row.getByRole('button', { name: 'Move', exact: true }).click();
       const move = page.locator('.ot-move-modal');
       await move.getByRole('button', { name: 'Inbox', exact: true }).waitFor();
@@ -117,7 +117,7 @@ try {
           (await app.plugins.getPlugin('thingsmd').taskRecords()).find((t) => t.meta.id === id),
         fixture.id,
       );
-      assert.equal(saved.body, `Draft preserved in ${mode}, mobile=${mobile}`);
+      assert.equal(saved.meta.title, `${prefix} Draft preserved in ${mode}, mobile=${mobile}`);
       assert.equal(saved.meta.when, 'today');
       console.log(
         `PASS deferred tabs: Move button, context menu and saved draft in ${mode}, mobile=${mobile}`,

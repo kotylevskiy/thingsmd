@@ -39,6 +39,8 @@ export default [
   {
     files: [
       'plugin/model.cjs',
+      'plugin/settings-model.cjs',
+      'plugin/markdown-document.cjs',
       'plugin/lists.cjs',
       'plugin/local-date.cjs',
       'plugin/date-picker-model.cjs',

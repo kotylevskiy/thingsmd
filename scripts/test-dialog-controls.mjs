@@ -17,6 +17,34 @@ try {
     { width: 800, height: 500 },
   ]) {
     await page.setViewportSize(size);
+    if (size.width === 800) {
+      // Exercise theme density in this existing scenario instead of rerunning
+      // the entire control, dialog and Move suites under another stylesheet.
+      await page.evaluate(() => {
+        const css = getComputedStyle(document.body);
+        const names = [
+          '--size-2-1',
+          '--size-2-3',
+          '--size-4-1',
+          '--size-4-2',
+          '--size-4-3',
+          '--size-4-4',
+          '--size-4-5',
+          '--size-4-6',
+          '--size-4-8',
+          '--size-4-12',
+        ];
+        const style = document.createElement('style');
+        style.id = 'ot-dialog-density-test';
+        style.textContent =
+          'body {' +
+          names
+            .map((name) => `${name}:${parseFloat(css.getPropertyValue(name)) * 1.25}px !important;`)
+            .join('') +
+          '}';
+        document.head.appendChild(style);
+      });
+    }
     await page.locator('.workspace-leaf.mod-active button.ot-capture').click();
     const card = page.locator('.ot-capture-modal');
     await card.getByLabel('Task title', { exact: true }).fill(prefix + ' ' + size.width);
@@ -67,13 +95,35 @@ try {
   }, prefix);
   const row = page.locator(`.workspace-leaf.mod-active .ot-task[data-task-id="${id}"]`);
   await row.dblclick();
+  await row.getByRole('button', { name: 'Move', exact: true }).click();
+  const move = page.locator('.ot-move-modal');
+  await move.getByLabel('Find destination').waitFor();
+  const bounds = await move.boundingBox();
+  assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= viewport.width + 1);
+  assert.equal(await move.evaluate((el) => el.scrollWidth > el.clientWidth + 1), false);
+  await page.keyboard.press('Escape');
+  await move.waitFor({ state: 'hidden' });
+  // Opening Move commits and closes the row editor; reopen it for Repeat.
+  await row.dblclick();
   await row.getByRole('button', { name: 'Repeat', exact: true }).click();
   const modal = page.locator('.ot-repeat-modal');
+  assert.equal(await modal.locator('input[type="date"]').count(), 0);
   await modal.getByLabel('Next repeat date', { exact: true }).click();
   await modal.getByRole('textbox', { name: 'Date', exact: true }).fill('2099-01-01');
   await modal.getByRole('textbox', { name: 'Date', exact: true }).press('Enter');
   for (const unit of ['day', 'week', 'month', 'year']) {
     await modal.getByLabel('Repeat unit', { exact: true }).selectOption(unit);
+    for (const width of [320, 390, 1100]) {
+      await page.setViewportSize({ width, height: 844 });
+      const bounds = await modal.boundingBox();
+      assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width + 1);
+      assert.equal(
+        await modal.evaluate((el) => el.scrollWidth > el.clientWidth + 1),
+        false,
+        `${unit} layout fits at ${width}px`,
+      );
+    }
+    await page.setViewportSize(viewport);
     await modal.getByLabel('Repeat interval', { exact: true }).fill('2');
     if (unit !== 'day') {
       await modal.getByRole('button', { name: '+ Add day', exact: true }).click();
@@ -122,6 +172,7 @@ try {
   );
 } finally {
   await page.keyboard.press('Escape');
+  await page.evaluate(() => document.getElementById('ot-dialog-density-test')?.remove());
   await page.setViewportSize(viewport);
   await page.evaluate(
     async ({ prefix, collapsed }) => {

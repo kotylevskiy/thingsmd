@@ -15,7 +15,7 @@ try {
     const task = await page.evaluate(
       async ({ note, mode }) => {
         const p = app.plugins.getPlugin('thingsmd');
-        for (const leaf of app.workspace.getLeavesOfType('things-project-view')) leaf.detach();
+        for (const leaf of app.workspace.getLeavesOfType('thingsmd-project-view')) leaf.detach();
         const t = await p.createTask({
           title: mode === 'preview' ? '' : 'New task drag ' + mode,
           project: note,

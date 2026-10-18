@@ -33,7 +33,7 @@ class MoveDialog extends Modal {
         .filter(([id]) => isListAvailable(id, plugin.settings))
         .map(([list, label]) => ({ list, label })),
       ...records
-        .filter((t) => t.meta.type === 'things-project')
+        .filter((t) => t.meta.type === 'thingsmd-project')
         .map((t) => ({ label: t.meta.title, path: t.file.path })),
     ];
     const counts = new Map();

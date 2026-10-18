@@ -1,6 +1,7 @@
+import { editTaskNotes } from './edit-task-notes.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
-const { browser, page } = await connectTestVault();
+const { browser, page } = await connectTestVault({ settings: { enableWaiting: true } });
 page.setDefaultTimeout(8000);
 const prefix = `Empty title ${Date.now()}`;
 const note = prefix + '.md';
@@ -38,9 +39,7 @@ try {
     const title = row.getByLabel('Task title', { exact: true });
     if (mode !== 'waiting') assert.equal(await title.inputValue(), '');
     await title.fill('');
-    await row
-      .getByLabel('Task notes', { exact: true })
-      .fill('Notes retained after clearing the title.');
+    await editTaskNotes(page, 'Notes retained after clearing the title.');
     await page.waitForTimeout(400);
     const editorMarkers = await row.locator('.ot-waiting-marker').count();
     await page.locator('.workspace-leaf.mod-active .view-header-title').click();
@@ -71,7 +70,7 @@ try {
   await page.evaluate(
     async ({ id, note }) => {
       const p = app.plugins.getPlugin('thingsmd');
-      const views = app.workspace.getLeavesOfType('things-project-view');
+      const views = app.workspace.getLeavesOfType('thingsmd-project-view');
       for (const { view } of views) {
         if (view.taskDraft) {
           view.taskDraft.values.title = 'Cleanup';

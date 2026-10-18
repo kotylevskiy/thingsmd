@@ -17,6 +17,11 @@ class TaskCapture extends Modal {
       this.inboxVisit = view.inboxSession?.seen;
     }
   }
+  open() {
+    super.open();
+    // Modal.open may apply its default first-input focus after onOpen returns.
+    this.contentEl.querySelector('.ot-title-input')?.focus();
+  }
   onOpen() {
     this.modalEl.addClass('ot-capture-modal');
     removeModalCloseButton(this.modalEl);
@@ -60,13 +65,16 @@ class TaskCapture extends Modal {
       card.taskDraft.dirty = true;
     };
     card.finishTask = () => this.save();
+    card.openNotes = async (task, newTab = false) => {
+      if ((await this.save({ forNotes: true })) && this.createdTask)
+        await this.plugin.openTaskNotes(this.createdTask, newTab);
+    };
     card.openRepeat = async () => {
       if ((await this.save()) && this.createdTask)
         await this.plugin.showRepeat(this.createdTask.meta.id);
     };
     card.taskEditor(row, line, { meta: { title: '', ...this.fields }, body: '' });
     line.querySelector('.ot-title-input').setAttribute('enterkeyhint', 'done');
-    row.querySelector('.ot-task-notes').setAttribute('enterkeyhint', 'enter');
     this.scope.register([], 'Enter', (event) => {
       if (
         event.isComposing ||
@@ -89,6 +97,7 @@ class TaskCapture extends Modal {
       } else taskKeydown(event);
     };
     const actions = this.contentEl.createDiv('ot-capture-actions');
+    actions.createSpan({ cls: 'ot-capture-hint', text: 'Tab to edit description' });
     button(actions, 'Cancel', () => this.close());
     button(actions, 'Save', () => this.save(), 'mod-cta');
     check.onchange = () => {
@@ -97,7 +106,7 @@ class TaskCapture extends Modal {
     // Lower phone capture by its initial title area, to the former Notes position.
     container.style.setProperty(
       '--ot-capture-notes-offset',
-      `${row.querySelector('.ot-task-notes').getBoundingClientRect().top - this.modalEl.getBoundingClientRect().top}px`,
+      `${row.querySelector('.ot-task-notes-preview').getBoundingClientRect().top - this.modalEl.getBoundingClientRect().top}px`,
     );
     line.querySelector('.ot-title-input').focus();
   }
@@ -114,7 +123,7 @@ class TaskCapture extends Modal {
     super.close();
     return true;
   }
-  async save() {
+  async save({ forNotes = false } = {}) {
     if (this.saving) return this.saving;
     const draft = this.card?.taskDraft;
     if (!draft) {
@@ -122,16 +131,15 @@ class TaskCapture extends Modal {
       return true;
     }
     const values = JSON.parse(JSON.stringify(draft.values));
-    const hasContent =
-      values.title.trim() || draft.body.trim() || values.checklist.some((item) => item.text.trim());
-    if (!hasContent) {
+    const hasContent = values.title.trim() || values.checklist.some((item) => item.text.trim());
+    if (!hasContent && !forNotes) {
       super.close();
       return true;
     }
     this.saving = (async () => {
       try {
         // Keep the capture draft local until it closes, and create the complete
-        // Markdown task in one write. Empty captures never leave blank files.
+        // Markdown task in one write. Opening notes explicitly creates its file.
         for (const input of this.contentEl.querySelectorAll('input,textarea,button'))
           input.disabled = true;
         const destination =
@@ -145,8 +153,8 @@ class TaskCapture extends Modal {
         };
         // Retain the task on placement failure; retry must never duplicate it.
         if (this.createdTask)
-          this.createdTask = await this.plugin.patchTask(this.createdTask, fields, draft.body);
-        else this.createdTask = await this.plugin.createTask(fields, undefined, draft.body);
+          this.createdTask = await this.plugin.patchTask(this.createdTask, fields);
+        else this.createdTask = await this.plugin.createTask(fields);
         if (destination) {
           await this.plugin.transferTask({ id: this.createdTask.meta.id, destination });
           this.createdTask =
@@ -155,7 +163,7 @@ class TaskCapture extends Modal {
         }
         super.close();
         const view = this.app.workspace.activeLeaf?.view;
-        if (view?.getViewType() === 'things-project-view') {
+        if (view?.getViewType() === 'thingsmd-project-view') {
           if (
             view === this.inboxView &&
             view.page === 'inbox' &&

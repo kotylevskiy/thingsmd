@@ -103,8 +103,8 @@ test('a failing editor save restores the note buffer and retains the trashed tas
     editor: {
       getValue: () => buffer,
       offsetToPos: (ch) => ({ line: 0, ch }),
-      replaceRange: (value) => {
-        buffer = value;
+      replaceRange: (value, from, to) => {
+        buffer = buffer.slice(0, from.ch) + value + buffer.slice(to.ch);
       },
     },
     save: async () => {

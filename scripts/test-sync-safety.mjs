@@ -1,3 +1,4 @@
+import { editTaskNotes } from './edit-task-notes.mjs';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -8,7 +9,6 @@ let task, path;
 const prefix = `Sync safety ${Date.now()}`;
 const active = page.locator('.workspace-leaf.mod-active');
 const title = () => active.locator('.ot-title-input');
-const notes = () => active.locator('.ot-task-notes');
 const disk = () => readFile(path, 'utf8');
 const external = async (fn) => writeFile(path, fn(await disk()));
 const record = () =>
@@ -36,7 +36,7 @@ try {
   }, prefix);
   path = resolve(process.env.THINGSMD_TEST_VAULT, task.file.path);
   await row().dblclick();
-  await notes().fill('Saved local notes');
+  await editTaskNotes(page, 'Saved local notes');
   await close();
   assert.match(await disk(), /Saved local notes/);
   // Real filesystem writes bypass the plugin and Obsidian adapter notifications.
@@ -64,29 +64,36 @@ try {
   await reload();
   await row().dblclick();
   await title().waitFor();
+  const stale = await record();
   await external((s) => s + '\nSecond remote notes');
-  await notes().fill('Unsaved local notes');
-  await active.getByRole('alert').waitFor();
-  assert.equal(await notes().inputValue(), 'Unsaved local notes');
+  const conflict = await page.evaluate(async (stale) => {
+    try {
+      await app.plugins.getPlugin('thingsmd').patchTask(stale, {}, 'Unsaved local notes');
+      return '';
+    } catch (error) {
+      return error.message;
+    }
+  }, stale);
+  assert.match(conflict, /changed elsewhere/);
   assert.match(await disk(), /Second remote notes/);
-  await reload();
-  // Inject an adapter write failure for this fixture only, then retry the same draft.
+  await close();
+  // Inject an indexed-file write failure for this fixture only, then retry the same draft.
   await row().dblclick();
   await page.evaluate((path) => {
-    const a = app.vault.adapter;
-    window.syncTestWrite = a.write;
-    a.write = async function (p, ...args) {
-      if (p === path) throw new Error('Injected disk failure');
+    const a = app.vault;
+    window.syncTestWrite = a.process;
+    a.process = async function (p, ...args) {
+      if (p.path === path) throw new Error('Injected disk failure');
       return window.syncTestWrite.call(this, p, ...args);
     };
   }, task.file.path);
   const before = await disk();
-  await notes().fill('Recover after failed write');
+  await title().fill('Recover after failed write');
   await active.getByRole('alert').waitFor();
   assert.equal(await disk(), before);
-  assert.equal(await notes().inputValue(), 'Recover after failed write');
+  assert.equal(await title().inputValue(), 'Recover after failed write');
   await page.evaluate(() => {
-    app.vault.adapter.write = window.syncTestWrite;
+    app.vault.process = window.syncTestWrite;
     delete window.syncTestWrite;
   });
   await close();
@@ -155,7 +162,7 @@ try {
 } finally {
   await page.evaluate(async (task) => {
     if (window.syncTestWrite) {
-      app.vault.adapter.write = window.syncTestWrite;
+      app.vault.process = window.syncTestWrite;
       delete window.syncTestWrite;
     }
     const p = app.plugins.getPlugin('thingsmd');

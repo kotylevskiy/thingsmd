@@ -321,6 +321,7 @@ function datePicker(
   }
   input.oninput = searchDates;
   input.onkeydown = (event) => {
+    if (event.isComposing) return;
     if (event.key === 'Enter') {
       event.preventDefault();
       event.stopPropagation();

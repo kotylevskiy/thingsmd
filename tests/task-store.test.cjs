@@ -22,9 +22,10 @@ function fixture({ storageExists = true } = {}) {
   const plugin = {
     tasksChanged() {},
     app: {
+      workspace: { getLeavesOfType: () => [] },
       vault: {
         adapter: {
-          exists: async (path) => (path === '.thingsmd-storage' ? storageExists : files.has(path)),
+          exists: async (path) => (path === 'ThingsMD' ? storageExists : files.has(path)),
           mkdir: async () => {
             // Yield before checking: two uncoordinated creators both see an
             // absent directory, but the second mkdir must fail on a real disk.
@@ -33,7 +34,7 @@ function fixture({ storageExists = true } = {}) {
             storageExists = true;
           },
           list: async () => ({
-            files: [...files.keys()].filter((path) => path.startsWith('.thingsmd-storage/')),
+            files: [...files.keys()].filter((path) => path.startsWith('ThingsMD/')),
           }),
           read: async (path) => {
             if (!files.has(path)) throw Error('Missing file');
@@ -42,9 +43,7 @@ function fixture({ storageExists = true } = {}) {
           write: async (path, text) => files.set(path, text),
         },
         getMarkdownFiles: () =>
-          [...files.keys()]
-            .filter((path) => !path.startsWith('.thingsmd-storage/'))
-            .map((path) => ({ path, basename: path.slice(0, -3) })),
+          [...files.keys()].map((path) => ({ path, basename: path.slice(0, -3) })),
         read: async (file) => files.get(file.path),
       },
     },
@@ -59,9 +58,9 @@ test('placement ignores fenced, inline and frontmatter examples but indexes real
   const task = await plugin.createTask({ title: 'Example' }, 'example');
   files.set(
     'Examples.md',
-    '---\n{"example":"![[.thingsmd-storage/example]]"}\n---\n````md\n```\n![[.thingsmd-storage/example]]\n````\nInline ![[.thingsmd-storage/example]]\n',
+    '---\n{"example":"![[ThingsMD/example]]"}\n---\n````md\n```\n![[ThingsMD/example]]\n````\nInline ![[ThingsMD/example]]\n',
   );
-  files.set('Project.md', 'Before\n![[.thingsmd-storage/example.md]]\nAfter\n');
+  files.set('Project.md', 'Before\n![[ThingsMD/example.md]]\nAfter\n');
   const found = (await plugin.records()).find((record) => record.meta.id === task.meta.id);
   assert.equal(JSON.stringify(found.references), JSON.stringify(['Project.md']));
 });
@@ -168,7 +167,7 @@ test('refresh still reports a read failure when the file exists', async () => {
 test('a note removed during reference indexing does not break remaining task records', async () => {
   const { plugin, files } = fixture();
   await plugin.createTask({ title: 'Keep' }, 'keep');
-  files.set('Removed.md', '![[.thingsmd-storage/keep]]');
+  files.set('Removed.md', '![[ThingsMD/keep]]');
   plugin.app.vault.read = async (file) => {
     files.delete(file.path);
     throw Error('Note disappeared');
@@ -250,4 +249,29 @@ test('feedback compares with persisted state instead of stale editor fields', as
     [],
     'A title edit must not announce an unrelated prior schedule change',
   );
+});
+
+test('placement follows unsaved note references and does not reread known task files', async () => {
+  const { plugin, files } = fixture();
+  const task = await plugin.createTask({ title: 'Buffered placement' }, 'buffered');
+  files.set('Project.md', 'Old on-disk prose');
+  plugin.app.workspace.getLeavesOfType = () => [
+    {
+      view: {
+        file: { path: 'Project.md' },
+        getMode: () => 'source',
+        editor: { getValue: () => `Unsaved prose\n![[${task.file.path}]]\n` },
+      },
+    },
+  ];
+  const read = plugin.app.vault.read;
+  plugin.app.vault.read = (file) => {
+    assert.notEqual(file.path, task.file.path, 'Task file was already scanned');
+    return read(file);
+  };
+  const records = await plugin.records();
+  assert.deepEqual(Array.from(records.find((t) => t.meta.id === 'buffered').references), [
+    'Project.md',
+  ]);
+  assert.equal(files.get('Project.md'), 'Old on-disk prose');
 });

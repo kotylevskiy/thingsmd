@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
-const { browser, page } = await connectTestVault();
+const { browser, page } = await connectTestVault({ settings: { enableWaiting: true } });
 const note = `Waiting badge layout ${Date.now()}.md`;
 let task, settings;
 try {

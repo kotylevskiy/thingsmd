@@ -23,8 +23,8 @@ const checkSearchIcon = async () => {
       .locator('.clickable-icon')
       .evaluate(
         (element) =>
-          element.dataset.icon === 'things-task-search' ||
-          !!element.querySelector('svg.things-task-search'),
+          element.dataset.icon === 'thingsmd-task-search' ||
+          !!element.querySelector('svg.thingsmd-task-search'),
       ),
     true,
     'Search uses the task-search icon',
@@ -229,15 +229,19 @@ try {
           .getMarkdownFiles()
           .map((file) => file.path)
           .sort(),
-        tasks: (await app.plugins.getPlugin('thingsmd').taskRecords()).filter(
-          (task) => task.meta.title === prefix,
-        ).length,
+        tasks: (await app.plugins.getPlugin('thingsmd').taskRecords())
+          .filter((task) => task.meta.title === prefix)
+          .map((task) => task.file.path),
       }),
       prefix,
     );
-    assert.equal(after.tasks, 1);
+    assert.equal(after.tasks.length, 1);
     assert.equal(after.leaves, beforeCapture.leaves, 'No native New tab action');
-    assert.deepEqual(after.notes, beforeCapture.notes, 'No ordinary note created');
+    assert.deepEqual(
+      after.notes,
+      [...beforeCapture.notes, ...after.tasks].sort(),
+      'Only the task note was created',
+    );
     await tap(search);
     const find = page.locator('.ot-search-modal');
     await find.getByLabel('Quick Find', { exact: true }).fill(prefix);
@@ -306,7 +310,7 @@ try {
       'Original Quick switcher restored',
     );
     await page.keyboard.press('Escape');
-    await page.evaluate(() => app.plugins.enablePlugin('thingsmd'));
+    await page.evaluate(() => app.plugins.enablePluginAndSave('thingsmd'));
     await ready();
     await page.waitForFunction(
       () =>
@@ -319,6 +323,7 @@ try {
     `PASS mobile navigation ${fixture ? browserType?.name() || 'chromium fixture' : 'real Obsidian mobile emulation'}: default-off, opt-in, touch/keyboard, task capture/search, reload/rebuild, disable/unload restoration, untouched other actions.`,
   );
 } catch (error) {
+  console.error(error);
   if (!fixture) {
     console.log(
       await page.evaluate(() => ({
@@ -338,7 +343,7 @@ try {
     await page.evaluate(
       async ({ original, prefix }) => {
         app.setting.close();
-        if (!app.plugins.getPlugin('thingsmd')) await app.plugins.enablePlugin('thingsmd');
+        if (!app.plugins.getPlugin('thingsmd')) await app.plugins.enablePluginAndSave('thingsmd');
         const plugin = app.plugins.getPlugin('thingsmd');
         plugin.captureModal?.close();
         plugin.searchModal?.close();

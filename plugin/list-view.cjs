@@ -60,7 +60,7 @@ class ThingsMDView extends ItemView {
     };
     for (const event of ['modify', 'create', 'delete', 'rename'])
       this.registerEvent(this.app.vault.on(event, refresh));
-    this.registerEvent(this.app.workspace.on('things-tasks-changed', refresh));
+    this.registerEvent(this.app.workspace.on('thingsmd-tasks-changed', refresh));
     this.registerDomEvent(this.contentEl.ownerDocument, 'pointerdown', (e) => {
       if (e.target.closest('.ot-task,.ot-capture')) return;
       if (this.contentEl.contains(e.target) && !e.target.closest('button,a,input,textarea,select'))
@@ -148,8 +148,8 @@ class ThingsMDView extends ItemView {
     const generation = (this.generation = (this.generation || 0) + 1);
     const records = await this.plugin.records();
     if (this.closed || generation !== this.generation || this.editing || this.dragging) return;
-    this.projects = records.filter((r) => r.meta.type === 'things-project');
-    this.tasks = records.filter((r) => r.meta.type === 'things-task').sort(compareTasks);
+    this.projects = records.filter((r) => r.meta.type === 'thingsmd-project');
+    this.tasks = records.filter((r) => r.meta.type === 'thingsmd-task').sort(compareTasks);
     const progress = this.plugin.settings.showProjectProgress
       ? require('./project-progress.cjs').projectProgress(records)
       : new Map();
@@ -457,7 +457,7 @@ class ThingsMDView extends ItemView {
     const date = group.closest('[data-date]')?.dataset.date;
     if (date && occurrence !== date) {
       this.dragging = false;
-      // Dragging in Things changes When, including a deadline-only row.
+      // Dragging in ThingsMD changes When, including a deadline-only row.
       this.scheduleDrop(id, date);
       return;
     }

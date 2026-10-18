@@ -14,8 +14,7 @@ function taskReferences(text) {
     } else {
       const previousFence = fence;
       fence = nextFence(fence, value);
-      const match =
-        !previousFence && !fence && value.match(/^!\[\[(\.thingsmd-storage\/[^\]|#]+)\]\]$/);
+      const match = !previousFence && !fence && value.match(/^!\[\[([^\]|#]+)\]\]$/);
       if (match)
         result.push({
           path: match[1].endsWith('.md') ? match[1] : match[1] + '.md',

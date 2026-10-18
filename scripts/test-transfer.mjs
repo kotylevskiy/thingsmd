@@ -70,7 +70,7 @@ try {
   await listRow(ids[1]).press('Meta+x');
   await listRow(ids[1]).locator('..').waitFor();
   await page.waitForFunction(() =>
-    require('electron').clipboard.readText().startsWith('![[.thingsmd-storage/'),
+    require('electron').clipboard.readText().startsWith('![[ThingsMD/'),
   );
   assert.equal((await record(ids[1])).meta.project, undefined, 'Cut alone does not move or delete');
   await openNote(b);
@@ -89,10 +89,10 @@ try {
   );
   assert.match(
     await read(b),
-    new RegExp(`Before B\\n\\n!\\[\\[.thingsmd-storage/${ids[1]}\\]\\]\\nAfter B`),
+    new RegExp(`Before B\\n\\n!\\[\\[ThingsMD/${ids[1]}\\]\\]\\nAfter B`),
   );
   const native = () =>
-    active.locator(`.ot-native[data-task-path=".thingsmd-storage/${ids[1]}.md"] .ot-task:visible`);
+    active.locator(`.ot-native[data-task-path="ThingsMD/${ids[1]}.md"] .ot-task:visible`);
   await native().click();
   await native().press('Meta+c');
   await page.waitForTimeout(100);

@@ -7,7 +7,7 @@ import {
   runtimeNoticePrefix,
 } from './runtime-notice-audit.mjs';
 
-export async function connectTestVault() {
+export async function connectTestVault({ settings = {} } = {}) {
   const expected = await testVault();
   await mkdir(new URL('../artifacts/', import.meta.url), { recursive: true });
   const browser = await chromium.connectOverCDP(
@@ -53,10 +53,12 @@ export async function connectTestVault() {
       return sidebars;
     });
     const disconnect = browser.close.bind(browser);
+    let restoreSettings;
     // Tests may emulate a phone or a larger desktop. Restore the real content
     // size before disconnecting so native footer controls remain on screen.
     browser.close = async () => {
       try {
+        await restoreSettings?.();
         const size = await page.evaluate(() => {
           const bounds = require('@electron/remote').getCurrentWindow().getContentBounds();
           return { width: bounds.width, height: bounds.height };
@@ -89,6 +91,26 @@ export async function connectTestVault() {
         await disconnect();
       }
     };
+    // Suites opt into features explicitly instead of depending on a previous
+    // driver's settings. Restore only these overrides when the driver exits.
+    if (Object.keys(settings).length) {
+      const previous = await page.evaluate(
+        (keys) =>
+          Object.fromEntries(
+            keys.map((key) => [key, app.plugins.getPlugin('thingsmd').settings[key]]),
+          ),
+        Object.keys(settings),
+      );
+      restoreSettings = () =>
+        page.evaluate(
+          (values) => app.plugins.getPlugin('thingsmd').updateSettings(values),
+          previous,
+        );
+      await page.evaluate(
+        (values) => app.plugins.getPlugin('thingsmd').updateSettings(values),
+        settings,
+      );
+    }
     return { browser, page };
   } catch (error) {
     await browser.close();

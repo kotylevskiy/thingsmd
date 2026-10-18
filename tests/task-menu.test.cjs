@@ -10,13 +10,16 @@ function fixture(native = false) {
   vm.runInNewContext(fs.readFileSync('plugin/task-menu.cjs', 'utf8'), {
     module,
     document: { defaultView: {} },
-    require: () => ({
-      Notice: class {
-        constructor(message) {
-          notices.push(message);
-        }
-      },
-    }),
+    require: (name) =>
+      name === './task-controller.cjs'
+        ? require('../plugin/task-controller.cjs')
+        : {
+            Notice: class {
+              constructor(message) {
+                notices.push(message);
+              }
+            },
+          },
   });
   let saves = 0;
   const card = {
@@ -29,7 +32,7 @@ function fixture(native = false) {
   const row = {
     dataset: { taskId: 'task' },
     getBoundingClientRect: () => ({}),
-    closest: () => (native ? { _thingsCard: card } : null),
+    closest: () => (native ? { _thingsmdCard: card } : null),
   };
   const active = {
     ...card,

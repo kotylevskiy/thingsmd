@@ -1,15 +1,19 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { settings, shouldLog, trashExpired } = require('../plugin/archive-policy.cjs');
+const { shouldLog, trashExpired } = require('../plugin/archive-policy.cjs');
+const { settings } = require('../plugin/settings-model.cjs');
 test('archive settings default safely and validate saved values', () => {
   assert.deepEqual(settings(), {
+    tasksFolder: 'ThingsMD',
+    tasksFolderDisplay: 'hidden',
+    taskNotesTab: 'new',
     globalCaptureHotkey: '',
     logbook: 'daily',
     trashRetention: 'never',
     captureDestination: 'inbox',
     showProjectProgress: true,
     showWaitingInToday: true,
-    enableWaiting: true,
+    enableWaiting: false,
     mobileTaskNavigation: false,
   });
   assert.deepEqual(settings({ logbook: 'bad', trashRetention: 'bad' }), settings());
@@ -61,4 +65,10 @@ test('trash retention uses deletion time, calendar months, and safe missing-date
     ),
     true,
   );
+});
+
+test('task notes default to new tabs and preserve the current-tab preference', () => {
+  for (const value of [undefined, null, 'invalid', false, 'new'])
+    assert.equal(settings({ taskNotesTab: value }).taskNotesTab, 'new');
+  assert.equal(settings({ taskNotesTab: 'current' }).taskNotesTab, 'current');
 });

@@ -221,7 +221,7 @@ try {
       for (const path of [note, ...paths]) {
         const f = app.vault.getAbstractFileByPath(path);
         if (f) await app.vault.delete(f);
-        else if (path?.startsWith('.thingsmd-storage/') && (await app.vault.adapter.exists(path)))
+        else if (path?.startsWith('ThingsMD/') && (await app.vault.adapter.exists(path)))
           await app.plugins.getPlugin('thingsmd').deleteTask(path);
       }
     },

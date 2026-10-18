@@ -1,7 +1,7 @@
 import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault, settingsPage as findSettingsPage } from './obsidian-connection.mjs';
-const { browser, page } = await connectTestVault();
+const { browser, page } = await connectTestVault({ settings: { enableWaiting: true } });
 page.setDefaultTimeout(10000);
 let state;
 const prefix = 'Keyboard ' + Date.now();

@@ -22,6 +22,7 @@ module.exports = async function installNative(plugin) {
   let disposed = false,
     version = 0;
   const reload = async () => {
+    if (plugin.movingTasks) return;
     const current = ++version;
     const next = await plugin.records();
     if (disposed || current !== version) return;
@@ -44,7 +45,7 @@ module.exports = async function installNative(plugin) {
       }),
     );
   plugin.registerEvent(
-    plugin.app.workspace.on('things-tasks-changed', () => {
+    plugin.app.workspace.on('thingsmd-tasks-changed', () => {
       version++;
       clearTimeout(timer);
       timer = setTimeout(() => reload().catch(console.error), 50);
@@ -55,7 +56,11 @@ module.exports = async function installNative(plugin) {
     clearTimeout(timer);
   });
   const lookup = (path) =>
-    records.find((r) => r.file.path === path && r.meta.type === 'things-task');
+    records.find((r) => r.file.path === path && r.meta.type === 'thingsmd-task');
+  const isTaskPath = (path) =>
+    !!lookup(path) ||
+    (path.startsWith(plugin.settings.tasksFolder + '/') &&
+      !plugin.app.vault.getAbstractFileByPath(path));
 
   class TaskWidget extends WidgetType {
     constructor(path) {
@@ -79,7 +84,7 @@ module.exports = async function installNative(plugin) {
       });
     }
     destroy(dom) {
-      dom._thingsCard?.dispose();
+      dom._thingsmdCard?.dispose();
     }
     ignoreEvent() {
       return true;
@@ -88,15 +93,21 @@ module.exports = async function installNative(plugin) {
   const readingDrag = require('./reading-drag.cjs')(plugin);
   // Reading mode uses the exact same card and task editor as Live Preview.
   // Replace the embed itself, so Obsidian cannot display its filename/open-link UI.
-  plugin.registerMarkdownPostProcessor((element, context) => {
-    if (element.closest('.ot-native') || element.closest('.cm-editor')) return;
-    readingDrag.section(element, context.getSectionInfo(element), context.sourcePath);
+  plugin.registerMarkdownPostProcessor(async (element, context) => {
+    if (
+      element.closest('.ot-native,.ot-task-notes-preview,.ot-task-notes-render') ||
+      element.closest('.cm-editor')
+    )
+      return;
+    readingDrag.section(element, context.getSectionInfo(element));
     const usedLines = new Set();
     for (const embed of element.querySelectorAll('.internal-embed')) {
       if (embed.closest('.ot-native')) continue;
       const source = embed.getAttribute('src') || '';
-      if (!/^\.thingsmd-storage\/[^#|]+$/.test(source)) continue;
+      if (/[#|]/.test(source)) continue;
       const path = source.endsWith('.md') ? source : source + '.md';
+      if (!lookup(path) && path.startsWith(plugin.settings.tasksFolder + '/')) await reload();
+      if (!isTaskPath(path)) continue;
       const section = context.getSectionInfo(embed);
       if (!section) continue;
       const lines = section.text.split('\n');
@@ -128,7 +139,7 @@ module.exports = async function installNative(plugin) {
       child.onunload = () => {
         observer?.disconnect();
         disposeDrag?.();
-        root._thingsCard?.dispose();
+        root._thingsmdCard?.dispose();
       };
       context.addChild(child);
     }
@@ -140,6 +151,7 @@ module.exports = async function installNative(plugin) {
     if (!state.field(editorLivePreviewField, false)) return Decoration.none;
     const ranges = [];
     for (const reference of taskReferences(state.doc.toString())) {
+      if (!isTaskPath(reference.path)) continue;
       ranges.push(
         Decoration.replace({
           widget: new TaskWidget(reference.path),
@@ -348,12 +360,12 @@ module.exports = async function installNative(plugin) {
         const file = view.state.field(editorInfoField, false)?.file;
         if (!file) return false;
         const id = crypto.randomUUID();
-        const path = `.thingsmd-storage/${id}.md`;
+        const path = `${plugin.settings.tasksFolder}/${id}.md`;
         const fields = { title: '', project: file.path, order: Date.now() };
         // Render immediately; disk creation must not swallow the next typed character.
         const provisional = {
           file: { path },
-          meta: { type: 'things-task', id, status: 'todo', ...fields },
+          meta: { type: 'thingsmd-task', id, status: 'todo', ...fields },
           body: '',
         };
         records.push(provisional);

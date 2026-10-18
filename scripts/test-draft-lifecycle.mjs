@@ -59,6 +59,11 @@ try {
     );
     const row = active.locator(`.ot-task[data-task-id="${copyId}"]:visible`).first();
     await row.dblclick();
+    await row.evaluate((element) => {
+      window.draftLifecycleEditor =
+        element.closest('.ot-native')?._thingsmdCard ||
+        app.workspace.activeLeaf.view.taskEditorController;
+    });
     await row.getByRole('button', { name: 'When', exact: true }).click();
     await page
       .locator('.ot-date-picker')
@@ -72,16 +77,16 @@ try {
       .click();
     // Moving focus to the choice dialog may finish the card on blur. Wait for
     // that host behavior before reopening it for a subsequent ordinary edit.
-    await row.evaluate(async (element) => {
-      const editor =
-        element.closest('.ot-native')?._thingsCard ||
-        app.workspace.activeLeaf.view.taskEditorController;
-      await editor.taskSave;
-      await editor.taskFinish;
+    await page.evaluate(async () => {
+      // The dialog can replace the row before the next locator evaluation.
+      // Await the controller that owned the operation, not the recycled DOM.
+      await window.draftLifecycleEditor.taskSave;
+      await window.draftLifecycleEditor.taskFinish;
+      delete window.draftLifecycleEditor;
     });
-    if (!(await row.getByLabel('Task notes', { exact: true }).count())) await row.dblclick();
-    const notes = row.getByLabel('Task notes', { exact: true });
-    await notes.fill(`Keep notes after cancellation in ${mode}`);
+    if (!(await row.getByLabel('Task title', { exact: true }).count())) await row.dblclick();
+    const notes = row.getByLabel('Task title', { exact: true });
+    await notes.fill(`${prefix} keep title after cancellation in ${mode}`);
     await row.getByLabel('Task title', { exact: true }).press('Enter');
     await row.locator('.ot-title-input').waitFor({ state: 'detached' });
     const saved = await page.evaluate(
@@ -92,9 +97,9 @@ try {
     assert.equal(saved.meta.when, 'today');
     assert.ok(saved.meta.evening);
     assert.equal(saved.meta.deadlineDeferredOn ?? null, null);
-    assert.equal(saved.body, `Keep notes after cancellation in ${mode}`);
+    assert.equal(saved.meta.title, `${prefix} keep title after cancellation in ${mode}`);
     console.log(
-      `PASS repeat-date cancellation preserves Today, Evening and subsequent notes in ${mode}`,
+      `PASS repeat-date cancellation preserves Today, Evening and subsequent title edits in ${mode}`,
     );
   }
   await page.evaluate(async () => {
@@ -111,8 +116,8 @@ try {
   const row = active.locator(`.ot-task[data-task-id="${copyId}"]`);
   await row.dblclick();
   await row
-    .getByLabel('Task notes', { exact: true })
-    .fill('Keep the draft while another action finishes');
+    .getByLabel('Task title', { exact: true })
+    .fill(`${prefix} keep the draft while another action finishes`);
   await page.evaluate(async () => {
     window.releaseDraftLifecycleAction();
     await window.draftLifecycleAction;
@@ -120,17 +125,17 @@ try {
     delete window.draftLifecycleAction;
   });
   assert.equal(
-    await row.getByLabel('Task notes', { exact: true }).inputValue(),
-    'Keep the draft while another action finishes',
+    await row.getByLabel('Task title', { exact: true }).inputValue(),
+    `${prefix} keep the draft while another action finishes`,
   );
   assert.equal(await page.evaluate(() => app.workspace.activeLeaf.view.editing), true);
   await row.getByLabel('Task title', { exact: true }).press('Enter');
   await waitForAsync(
     page,
-    async (id) =>
+    async ({ id, prefix }) =>
       (await app.plugins.getPlugin('thingsmd').taskRecords()).find((task) => task.meta.id === id)
-        ?.body === 'Keep the draft while another action finishes',
-    copyId,
+        ?.meta.title === `${prefix} keep the draft while another action finishes`,
+    { id: copyId, prefix },
   );
   console.log(
     'PASS a finishing list action preserves the newly opened editor and its durable draft',
@@ -140,6 +145,7 @@ try {
     async ({ prefix, note }) => {
       window.releaseDraftLifecycleAction?.();
       await window.draftLifecycleAction;
+      delete window.draftLifecycleEditor;
       delete window.releaseDraftLifecycleAction;
       delete window.draftLifecycleAction;
       const plugin = app.plugins.getPlugin('thingsmd');

@@ -5,7 +5,7 @@ module.exports = function install(plugin) {
   // A checkmark inside the lens distinguishes task search from vault search.
   // currentColor keeps the icon aligned with the active Obsidian theme.
   addIcon(
-    'things-task-search',
+    'thingsmd-task-search',
     '<g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"><circle cx="40" cy="40" r="29"/><path d="m62 62 26 26M30 40l7 7 14-15"/></g>',
   );
   class QuickFind extends Modal {
@@ -16,7 +16,7 @@ module.exports = function install(plugin) {
       this.index = 0;
       this.version = 0;
       const bar = this.contentEl.createDiv('ot-search-bar');
-      setIcon(bar.createSpan(), 'things-task-search');
+      setIcon(bar.createSpan(), 'thingsmd-task-search');
       this.input = bar.createEl('input', {
         attr: {
           type: 'search',
@@ -67,7 +67,7 @@ module.exports = function install(plugin) {
         this.input.focus();
       };
       this.status = this.contentEl.createDiv({ cls: 'ot-search-status', attr: { role: 'status' } });
-      this.events = ['things-tasks-changed'].map((e) =>
+      this.events = ['thingsmd-tasks-changed'].map((e) =>
         plugin.app.workspace.on(e, () => this.refresh()),
       );
       this.vaultEvents = ['modify', 'create', 'delete', 'rename'].map((e) =>
@@ -229,6 +229,6 @@ module.exports = function install(plugin) {
     row?.focus();
   };
   plugin.addCommand({ id: 'quick-find', name: 'Quick Find', callback: () => plugin.openSearch() });
-  plugin.addRibbonIcon('things-task-search', 'Quick Find tasks', () => plugin.openSearch());
+  plugin.addRibbonIcon('thingsmd-task-search', 'Quick Find tasks', () => plugin.openSearch());
   plugin.register(() => plugin.searchModal?.close());
 };

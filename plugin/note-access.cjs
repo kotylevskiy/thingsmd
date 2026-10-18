@@ -1,3 +1,14 @@
+// Native CodeMirror views register through Obsidian's public editor extension API.
+// This avoids native input filters and automatic caret scrolling for checked,
+// programmatic writes, without reaching into private Editor implementation fields.
+const editorWriters = new WeakMap();
+function registerEditorWriter(editor, write) {
+  editorWriters.set(editor, write);
+  return () => {
+    if (editorWriters.get(editor) === write) editorWriters.delete(editor);
+  };
+}
+
 // Read the visible editor buffer when present; the on-disk note may lag behind.
 // All callers compare the snapshot before replacing text, including rollback.
 function noteAccess(app) {
@@ -18,7 +29,13 @@ function noteAccess(app) {
   const ready = async (file) => {
     await Promise.all(viewsFor(file).map(settled));
     // A view may have changed notes or modes while its save was finishing.
-    return viewsFor(file).find((view) => view.getMode() === 'source');
+    const editors = viewsFor(file).filter((view) => view.getMode() === 'source');
+    const text = editors[0]?.editor.getValue();
+    if (editors.some((view) => view.editor.getValue() !== text))
+      throw new Error(
+        'This note has different drafts in open tabs. Resolve them before editing task controls.',
+      );
+    return editors[0];
   };
   return {
     read: async (file) => {
@@ -32,11 +49,28 @@ function noteAccess(app) {
       if (view) {
         if (view.editor.getValue() !== expected)
           throw new Error('This note changed. Please try again.');
-        view.editor.replaceRange(
-          next,
-          { line: 0, ch: 0 },
-          view.editor.offsetToPos(expected.length),
-        );
+        // Replace only the changed range. Replacing the whole document maps
+        // the description cursor into the edit and can move the viewport when
+        // a task control changes a single hidden frontmatter value.
+        let from = 0;
+        while (from < expected.length && from < next.length && expected[from] === next[from])
+          from++;
+        let to = expected.length,
+          nextTo = next.length;
+        while (to > from && nextTo > from && expected[to - 1] === next[nextTo - 1]) {
+          to--;
+          nextTo--;
+        }
+        const nativeWrite = editorWriters.get(view.editor);
+        if (nativeWrite) nativeWrite({ from, to, insert: next.slice(from, nextTo) });
+        else
+          view.editor.replaceRange(
+            next.slice(from, nextTo),
+            view.editor.offsetToPos(from),
+            view.editor.offsetToPos(to),
+          );
+        if (view.editor.getValue() !== next)
+          throw new Error('The editor did not accept this update. Your draft has been kept.');
         if (save) {
           await view.save();
           await settled(view);
@@ -49,4 +83,4 @@ function noteAccess(app) {
     },
   };
 }
-module.exports = { noteAccess };
+module.exports = { noteAccess, registerEditorWriter };

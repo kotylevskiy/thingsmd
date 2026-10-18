@@ -41,19 +41,18 @@ module.exports = function installTaskMenu(plugin) {
     delete plugin.beginTaskMenu;
     delete plugin.presentTaskMenu;
   });
-  const context = (row) => ({
-    id: row.dataset.taskId,
-    anchor: row.getBoundingClientRect(),
-    sourcePath: app.workspace
-      .getLeavesOfType('markdown')
-      .find((l) => l.view.containerEl?.contains(row))?.view.file?.path,
-    card:
-      row.closest('.ot-native')?._thingsCard ||
-      app.workspace
-        .getLeavesOfType('things-project-view')
-        // Deferred views have the host container but no ItemView content yet.
-        .find((l) => l.view.containerEl?.contains(row))?.view,
-  });
+  const context = (row) => {
+    const view = [
+      ...app.workspace.getLeavesOfType('markdown'),
+      ...app.workspace.getLeavesOfType('thingsmd-project-view'),
+    ].find((leaf) => leaf.view.containerEl?.contains(row))?.view;
+    return {
+      id: row.dataset.taskId,
+      anchor: row.getBoundingClientRect(),
+      sourcePath: row.closest('.ot-task-note-controls') ? undefined : view?.file?.path,
+      card: require('./task-controller.cjs')(row, view),
+    };
+  };
   const prepare = async (ctx) => {
     if (ctx.card?.taskDraft && !(await ctx.card.finishTask())) return null;
     return (await plugin.taskRecords()).find((t) => t.meta.id === ctx.id);

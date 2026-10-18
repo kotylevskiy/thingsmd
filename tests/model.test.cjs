@@ -21,7 +21,7 @@ test('Today is a persistent When choice; arriving dates and deadlines also quali
   assert.equal(inToday({ when: 'today', deadline: '2026-11-01' }, '2026-10-16'), true);
 });
 
-test('Things list membership separates Inbox from planned or filed tasks', () => {
+test('ThingsMD list membership separates Inbox from planned or filed tasks', () => {
   const { inList, upcomingDates } = require('../plugin/model.cjs');
   const day = '2026-10-16';
   const lists = (task) =>

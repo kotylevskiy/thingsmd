@@ -35,6 +35,7 @@ module.exports = function checklistEditor(parent, items, { disabled, onChange, f
         onChange();
       };
       text.onkeydown = (e) => {
+        if (e.isComposing) return;
         if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) {
           e.preventDefault();
           items.splice(index + 1, 0, { text: '', done: false });

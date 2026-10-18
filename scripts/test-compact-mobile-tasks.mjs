@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 
-const { browser, page } = await connectTestVault();
+const { browser, page } = await connectTestVault({ settings: { enableWaiting: true } });
 const wasMobile = await page.evaluate(() => !!localStorage.getItem('EmulateMobile'));
 const ready = () =>
   page.waitForFunction(

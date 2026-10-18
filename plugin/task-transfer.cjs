@@ -66,7 +66,7 @@ function install(plugin) {
       return { destination: view.file.path, offset };
     }
     const list = app.workspace
-      .getLeavesOfType('things-project-view')
+      .getLeavesOfType('thingsmd-project-view')
       .find((l) => l.view.containerEl.contains(target))?.view;
     if (list) return { list: list.page };
     return null;

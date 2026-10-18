@@ -41,7 +41,7 @@ function fixture(meta = {}, body = 'Template notes') {
     createTask: async (fields, id, body = '') => {
       const path = '.thingsmd-storage/' + id + '.md';
       if (store.has(path)) throw new Error('Task already exists');
-      const task = { file: { path }, meta: { id, type: 'things-task', ...fields }, body };
+      const task = { file: { path }, meta: { id, type: 'thingsmd-task', ...fields }, body };
       store.set(path, clone(task));
       return task;
     },
@@ -163,8 +163,8 @@ test('repeat placement waits for an existing host save and durably preserves the
     editor: {
       getValue: () => text,
       offsetToPos: (ch) => ({ line: 0, ch }),
-      replaceRange: (next) => {
-        text = next;
+      replaceRange: (next, from, to) => {
+        text = text.slice(0, from.ch) + next + text.slice(to.ch);
       },
     },
     save: async () => {
@@ -311,4 +311,10 @@ test('repeat templates and generated copies obey single-placement list rules acr
     await f.api.pause('template', true);
     assert.equal(inList(f.get(), 'upcoming', '2026-10-18'), false);
   }
+});
+
+test('completion-based repeats honor the end date, including the last allowed occurrence', () => {
+  const config = rule({ mode: 'completion', end: '2026-10-05' });
+  assert.equal(nextDate(config, '2026-10-04'), '2026-10-05');
+  assert.equal(nextDate(config, '2026-10-05'), null);
 });

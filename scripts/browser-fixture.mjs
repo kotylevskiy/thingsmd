@@ -112,6 +112,15 @@ export async function browserFixture({ browserType = chromium, pageOptions = {} 
         el.dataset.icon = icon;
       },
     };
+    // Layout-only stand-in; native Markdown rendering/navigation is covered in Obsidian.
+    window.renderTaskNotesFixture = (editor, fields) => {
+      const preview = fields.createDiv({
+        cls: 'ot-task-notes-preview markdown-rendered',
+        attr: { tabindex: '0' },
+      });
+      preview.createSpan({ cls: 'ot-task-notes-placeholder', text: 'Notes' });
+      return preview;
+    };
     window.notices = [];
     const cache = {};
     window.loadPluginModule = (name) => {

@@ -3,10 +3,10 @@ import { mkdir } from 'node:fs/promises';
 import { connectTestVault } from './obsidian-connection.mjs';
 import { waitForAsync } from './wait-for-async.mjs';
 
-await mkdir('artifacts/things-parity', { recursive: true });
-const { browser, page } = await connectTestVault();
+await mkdir('artifacts/thingsmd-parity', { recursive: true });
+const { browser, page } = await connectTestVault({ settings: { enableWaiting: true } });
 page.setDefaultTimeout(10000);
-const prefix = `Things parity ${Date.now()}`;
+const prefix = `ThingsMD parity ${Date.now()}`;
 const active = page.locator('.workspace-leaf.mod-active');
 let settings;
 try {
@@ -62,57 +62,74 @@ try {
     return { tasks, settings, dates: [date(-2), date(0), date(2), date(4)] };
   }, prefix);
   settings = fixtures.settings;
-  for (const width of [1100, 390]) {
-    await page.setViewportSize({ width, height: 900 });
-    await page.evaluate(() => app.workspace.leftSplit.collapse());
-    for (const list of [
-      'inbox',
-      'today',
-      'upcoming',
-      'anytime',
-      'someday',
-      'waiting',
-      'logbook',
-      'trash',
-    ]) {
-      await page.evaluate((list) => app.plugins.getPlugin('thingsmd').openList(list), list);
-      for (const task of fixtures.tasks) {
-        const rows = active.locator(`.ot-task[data-task-id="${task.id}"]`);
-        assert.equal(
-          await rows.count(),
-          task.lists.includes(list) ? 1 : 0,
-          `${width}px ${list}: ${task.name}`,
-        );
-        if (list !== 'upcoming' || !task.lists.includes(list)) continue;
-        const placement = task.fields.when?.match(/^\d{4}-/)
-          ? task.fields.when
-          : task.fields.deadline;
-        assert.equal(await rows.getAttribute('data-occurrence'), placement);
-        assert.equal(await rows.locator('.ot-row-when,.ot-occurrence-label').count(), 0);
-        if (task.fields.deadline) {
-          assert.equal(
-            await rows.locator('.ot-row-deadline time').getAttribute('datetime'),
-            task.fields.deadline,
-          );
-          if (task.fields.deadline === fixtures.dates[0])
-            assert.equal(
-              await rows.locator('.ot-row-deadline').getAttribute('class'),
-              'ot-row-date ot-row-deadline is-overdue',
-            );
-        }
-      }
-      if (list === 'today')
-        assert.equal(
-          await active
-            .locator('.ot-evening-section .ot-task')
-            .filter({ hasText: `${prefix} Evening` })
-            .count(),
-          1,
-        );
-      if (list === 'upcoming')
-        await page.screenshot({ path: `artifacts/things-parity/upcoming-${width}.png` });
+  // Membership does not depend on viewport width; responsive row suites own phone geometry.
+  const width = 1100;
+  await page.setViewportSize({ width, height: 900 });
+  await page.evaluate(() => app.workspace.leftSplit.collapse());
+  for (const list of [
+    'inbox',
+    'today',
+    'upcoming',
+    'anytime',
+    'someday',
+    'waiting',
+    'logbook',
+    'trash',
+  ]) {
+    await page.evaluate((list) => app.plugins.getPlugin('thingsmd').openList(list), list);
+    // Structural assertions formerly lived in a second list-membership suite.
+    if (list === 'upcoming') {
+      const sections = active.locator('section[data-date]');
+      assert.ok((await sections.count()) >= 7);
+      assert.equal(await active.locator('button.ot-capture').count(), await sections.count());
+      assert.ok(
+        await sections.evaluateAll((sections) =>
+          sections.some((section) => !section.querySelector('.ot-task')),
+        ),
+      );
     }
+    if (list === 'anytime') assert.equal(await active.locator('button.ot-capture').count(), 0);
+    if (['inbox', 'today', 'upcoming', 'anytime', 'someday'].includes(list)) {
+      const name = list[0].toUpperCase() + list.slice(1);
+      assert.equal(await active.locator('.view-header-title').textContent(), name);
+    }
+    for (const task of fixtures.tasks) {
+      const rows = active.locator(`.ot-task[data-task-id="${task.id}"]`);
+      assert.equal(
+        await rows.count(),
+        task.lists.includes(list) ? 1 : 0,
+        `${width}px ${list}: ${task.name}`,
+      );
+      if (list !== 'upcoming' || !task.lists.includes(list)) continue;
+      const placement = task.fields.when?.match(/^\d{4}-/)
+        ? task.fields.when
+        : task.fields.deadline;
+      assert.equal(await rows.getAttribute('data-occurrence'), placement);
+      assert.equal(await rows.locator('.ot-row-when,.ot-occurrence-label').count(), 0);
+      if (task.fields.deadline) {
+        assert.equal(
+          await rows.locator('.ot-row-deadline time').getAttribute('datetime'),
+          task.fields.deadline,
+        );
+        if (task.fields.deadline === fixtures.dates[0])
+          assert.equal(
+            await rows.locator('.ot-row-deadline').getAttribute('class'),
+            'ot-row-date ot-row-deadline is-overdue',
+          );
+      }
+    }
+    if (list === 'today')
+      assert.equal(
+        await active
+          .locator('.ot-evening-section .ot-task')
+          .filter({ hasText: `${prefix} Evening` })
+          .count(),
+        1,
+      );
+    if (list === 'upcoming')
+      await page.screenshot({ path: `artifacts/thingsmd-parity/upcoming-${width}.png` });
   }
+
   // Capture applies deadline changes immediately, before persisting the draft.
   for (const defer of [false, true]) {
     await page.evaluate(() => app.plugins.getPlugin('thingsmd').capture({ when: 'anytime' }));
@@ -257,7 +274,7 @@ try {
     repeatIDs[1],
   );
   console.log(
-    'PASS: 21 observed date/deadline scenarios across all eight lists at desktop/phone widths, Inbox deadline editor promotion and temporary section, preserved moves/reload, Waiting extension, repeat deadline placement, pause and completion-based advancement.',
+    'PASS: 21 observed date/deadline scenarios across all eight lists, Inbox deadline editor promotion and temporary section, preserved moves/reload, Waiting extension, repeat deadline placement, pause and completion-based advancement.',
   );
 } finally {
   try {

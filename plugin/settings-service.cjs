@@ -1,4 +1,4 @@
-const { settings } = require('./archive-policy.cjs');
+const { settings } = require('./settings-model.cjs');
 const { WriteQueue } = require('./write-queue.cjs');
 const { resolveList } = require('./lists.cjs');
 
@@ -34,10 +34,11 @@ module.exports = async function installSettingsService(plugin) {
       prepare: () => plugin.maintainArchives(),
       committed: async () => {
         plugin.mountListLinks();
+        plugin.paintTaskFolder?.();
         plugin.refreshMobileNavigation?.();
         plugin.tasksChanged();
         plugin.captureModal?.card?.refreshSettings();
-        for (const leaf of plugin.app.workspace.getLeavesOfType('things-project-view')) {
+        for (const leaf of plugin.app.workspace.getLeavesOfType('thingsmd-project-view')) {
           // setState resolves unavailable lists when a deferred tab is loaded.
           if (leaf.isDeferred) continue;
           leaf.view.taskEditorController?.refreshSettings();

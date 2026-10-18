@@ -1,4 +1,6 @@
+const { rollbackNotes, recoveryError } = require('./note-rollback.cjs');
 const { normalizeSchedule } = require('./task-schedule.cjs');
+const { DEFAULT_FOLDER } = require('./task-folder-policy.cjs');
 const { removeReferences, insertReference } = require('./task-references.cjs');
 
 // Coordinates task metadata and note placement, with compensating rollback.
@@ -48,7 +50,7 @@ module.exports = function installTransferService(plugin, { onTransferred, onCopy
     let created;
     try {
       let task = (await plugin.records()).find(
-        (t) => t.meta.type === 'things-task' && (t.meta.id === id || t.file.path === path),
+        (t) => t.meta.type === 'thingsmd-task' && (t.meta.id === id || t.file.path === path),
       );
       if (!task || task.meta.deleted) throw new Error('This task is unavailable.');
       const original = task;
@@ -56,7 +58,9 @@ module.exports = function installTransferService(plugin, { onTransferred, onCopy
       const file = destination ? app.vault.getAbstractFileByPath(destination) : null;
       if (
         destination &&
-        (!file || file.extension !== 'md' || destination.startsWith('.thingsmd-storage/'))
+        (!file ||
+          file.extension !== 'md' ||
+          destination.startsWith((plugin.settings?.tasksFolder || DEFAULT_FOLDER) + '/'))
       )
         throw new Error('Drop onto a Markdown note.');
       if (!file && !['inbox', 'today', 'upcoming', 'anytime', 'someday', 'waiting'].includes(list))
@@ -145,13 +149,10 @@ module.exports = function installTransferService(plugin, { onTransferred, onCopy
       return copy ? task : saved;
     } catch (error) {
       // Roll back only our own unchanged edits; never overwrite concurrent edits.
-      for (const edit of edits.reverse())
-        try {
-          await write(edit.file, edit.after, edit.before);
-        } catch {}
+      const failures = await rollbackNotes(edits, write);
       // A failed copy is retained as a recoverable task rather than deleted.
       if (created) onCopyPlacementFailed();
-      throw error;
+      throw recoveryError(error, failures);
     } finally {
       transferring = false;
     }

@@ -1,13 +1,14 @@
 const { Text } = require('@codemirror/state');
 const { Notice } = require('obsidian');
 const { mountDrag } = require('./task-drag.cjs');
+const { noteAccess } = require('./note-access.cjs');
 
 // Adapt rendered Markdown sections to the same pointer drag interaction used by
 // Live Preview. Source boundaries come from Obsidian's rendering context.
 module.exports = function readingDrag(plugin) {
   const sections = new WeakMap();
   const previews = new Map();
-  const sources = new Map();
+  const notes = noteAccess(plugin.app);
   plugin.registerEvent(
     plugin.app.vault.on('modify', (file) => {
       for (const state of previews.values()) if (state.path === file.path) state.valid = false;
@@ -18,27 +19,28 @@ module.exports = function readingDrag(plugin) {
     previews.clear();
   });
   return {
-    section(element, info, path) {
+    section(element, info) {
       if (!info) return;
       sections.set(element, info);
-      sources.set(path, info.text);
     },
     mount(root, path, lineNumber) {
       const preview = root.closest('.markdown-preview-view');
       if (!preview) return () => {};
+      const sectionAt = (element) => {
+        while (element && element !== preview) {
+          const info = sections.get(element);
+          if (info) return { element, info };
+          element = element.parentElement;
+        }
+        return null;
+      };
+      const source = sectionAt(root)?.info.text;
+      if (source === undefined) return () => {};
       root.dataset.sourceLine = String(lineNumber);
       let state = previews.get(preview);
       if (!state) {
-        state = { path, count: 0, text: sources.get(path), valid: true };
+        state = { path, count: 0, text: source, valid: true };
         state.doc = Text.of(state.text.split('\n'));
-        const sectionAt = (element) => {
-          while (element && element !== preview) {
-            const info = sections.get(element);
-            if (info) return { element, info };
-            element = element.parentElement;
-          }
-          return null;
-        };
         let lastBlock;
         const adapter = {
           dom: preview,
@@ -76,12 +78,8 @@ module.exports = function readingDrag(plugin) {
             const file = plugin.app.vault.getAbstractFileByPath(path);
             if (!file) return;
             state.valid = false;
-            plugin.app.vault
-              .process(file, (current) => {
-                if (current !== state.text)
-                  throw new Error('This note changed during the drag. Please try again.');
-                return next;
-              })
+            notes
+              .write(file, state.text, next, { save: true })
               .catch((error) => new Notice(error.message));
           },
         };
@@ -95,8 +93,8 @@ module.exports = function readingDrag(plugin) {
             ).catch((error) => new Notice(error.message)),
         );
         previews.set(preview, state);
-      } else if (sources.get(path) !== state.text) {
-        state.text = sources.get(path);
+      } else if (source !== state.text) {
+        state.text = source;
         state.doc = Text.of(state.text.split('\n'));
         state.valid = true;
       }
