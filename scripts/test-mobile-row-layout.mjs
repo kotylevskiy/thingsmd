@@ -116,6 +116,53 @@ try {
     }
     await page.screenshot({ path: `artifacts/mobile-row-${browserType.name()}-${width}.png` });
   }
+  for (const width of [1100, 800, 520, 390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.setContent(fixture);
+    await page.locator('.ot-paper').evaluate((paper) => {
+      paper.innerHTML = [
+        'Short',
+        'A long archived task title with substantial context. '.repeat(8),
+        'No date',
+      ]
+        .map(
+          (title, i) =>
+            `<div class="ot-task ot-archive-task"><div class="ot-task-line"><input type="checkbox"><span class="ot-task-title">${title}</span>${i === 1 ? '<span class="ot-waiting-marker">➜</span>' : ''}<div class="ot-archive-actions"><span class="ot-archive-date">${i === 2 ? '' : 'Oct 18, 2026'}</span><button class="ot-restore">Restore</button></div></div></div>`,
+        )
+        .join('');
+    });
+    const rows = await page.locator('.ot-task-line').evaluateAll((lines) =>
+      lines.map((line) => {
+        const box = (selector) => line.querySelector(selector).getBoundingClientRect().toJSON();
+        return {
+          title: box('.ot-task-title'),
+          date: box('.ot-archive-date'),
+          restore: box('.ot-restore'),
+          line: line.getBoundingClientRect().toJSON(),
+        };
+      }),
+    );
+    for (const row of rows) {
+      assert.ok(
+        Math.abs(row.date.x - rows[0].date.x) < 1,
+        `Archive dates share a column at ${width}px: ${JSON.stringify(rows)}`,
+      );
+      assert.ok(Math.abs(row.restore.x - rows[0].restore.x) < 1, 'Restore actions share a column');
+      assert.ok(row.date.width >= 90, 'Dates retain enough space without wrapping');
+      assert.ok(row.restore.right <= width, 'Archive controls fit the viewport');
+      assert.ok(row.restore.right <= row.line.right + 1, 'Archive controls stay inside their row');
+      if (width > 520)
+        assert.ok(
+          Math.abs(row.restore.y + row.restore.height / 2 - row.title.y - 12) < 1,
+          'Archive actions align with the first title line',
+        );
+      else
+        assert.ok(row.date.y >= row.title.bottom, 'Phone archive metadata stays below the title');
+    }
+  }
+  console.log(
+    'PASS: archive date/Restore columns, wrapped desktop titles, missing dates and phone action rows.',
+  );
   console.log(
     'PASS: trailing airplane/deadline cluster at 800/1100px; compact single-line phone rows at 320/390/430/520px; ellipsis, inline details, marker-aware date alignment and deadline metadata.',
   );

@@ -1005,6 +1005,28 @@ input.ot-task-marker[type='checkbox'] {
 .ot-archive-date {
   color: var(--text-faint);
   font-size: 12px;
+  flex: 0 0 8em;
+  width: 8em;
+  white-space: nowrap;
+}
+.ot-task.ot-archive-task:not(.is-expanded) .ot-task-title {
+  flex: 1;
+}
+.ot-archive-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: var(--size-4-3);
+  margin-left: auto;
+  min-height: 24px;
+}
+@media (max-width: 520px) {
+  .ot-task-line > .ot-archive-actions {
+    order: 2;
+    flex: 0 0 calc(100% - var(--ot-title-indent));
+    margin-left: var(--ot-title-indent);
+    justify-content: space-between;
+  }
 }
 .ot-root button.ot-restore {
   background: transparent;
@@ -1012,6 +1034,12 @@ input.ot-task-marker[type='checkbox'] {
   border: none;
   color: var(--text-accent);
   font-size: 12px;
+  height: 24px;
+}
+@media (max-width: 520px) {
+  .ot-root button.ot-restore {
+    height: 44px;
+  }
 }
 .ot-paper button.ot-project-link {
   display: inline-flex;
@@ -1958,6 +1986,10 @@ input.ot-task-marker[type='checkbox']::after,
 }
 .ot-waiting-marker.is-completed {
   color: var(--text-muted);
+}
+.ot-task.ot-archive-task > .ot-task-line > .ot-waiting-marker {
+  order: 0;
+  margin-left: 0;
 }
 .ot-waiting-marker svg {
   width: var(--icon-size, 16px);

@@ -343,24 +343,28 @@ class ThingsMDView extends ItemView {
     };
     taskState(row, task.meta);
     if (['trash', 'logbook'].includes(this.page)) {
+      row.addClass('ot-archive-task');
       line.createSpan({
         text: task.meta.title || 'New task',
         cls: 'ot-task-title',
         attr: { id: labelId },
       });
       waitingIndicator(line, task.meta, this.page, this.plugin.settings.enableWaiting);
+      const actions = line.createDiv('ot-archive-actions');
       const stamp = this.page === 'trash' ? task.meta.deletedAt : task.meta.completed;
-      if (stamp && !Number.isNaN(new Date(stamp).getTime()))
-        line.createSpan({
-          cls: 'ot-archive-date',
-          text: new Date(stamp).toLocaleDateString('en', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-          }),
-        });
+      actions.createSpan({
+        cls: 'ot-archive-date',
+        text:
+          stamp && !Number.isNaN(new Date(stamp).getTime())
+            ? new Date(stamp).toLocaleDateString('en', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              })
+            : '',
+      });
       button(
-        line,
+        actions,
         'Restore',
         () => this.run(() => this.plugin.restoreTask(task, this.page === 'logbook')),
         'ot-restore',
