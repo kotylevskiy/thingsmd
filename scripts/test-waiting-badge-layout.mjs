@@ -10,7 +10,9 @@ try {
     await p.updateSettings({ logbook: 'manually' });
     const task = await p.createTask(
       {
-        title: 'Waiting badge alignment',
+        title: 'Waiting badge alignment with a long title and surrounding project context. '.repeat(
+          5,
+        ),
         when: '2099-05-01',
         deadline: '2099-05-03',
         is_waiting: true,
@@ -73,6 +75,18 @@ try {
             dateRight: dates.right,
             dateTop: dates.top,
             titleBottom: title.bottom,
+            firstLineCenter:
+              title.top +
+              parseFloat(getComputedStyle(line.querySelector('.ot-task-title')).lineHeight) / 2,
+            markerCenters: [
+              'input[type=checkbox]',
+              '.ot-task-details',
+              '.ot-row-indicators',
+              '.ot-waiting-marker',
+            ].map((selector) => {
+              const bounds = line.querySelector(selector).getBoundingClientRect();
+              return bounds.top + bounds.height / 2;
+            }),
             completed: plane.classList.contains('is-completed'),
             fill: getComputedStyle(path).fill,
             stroke: getComputedStyle(path).stroke,
@@ -94,9 +108,14 @@ try {
         assert.equal(geometry.fill, geometry.color, 'Solid plane inherits the themed state color');
         assert.equal(geometry.stroke, 'none');
         assert.equal(geometry.glyphFits, true, 'Bundled plane is visible and fits the icon canvas');
-        if (width > 520)
+        if (width > 520) {
+          for (const center of geometry.markerCenters)
+            assert.ok(
+              Math.abs(center - geometry.firstLineCenter) < 1,
+              `${mode}: marker aligns with first title line`,
+            );
           assert.ok(geometry.dateRight <= geometry.left, 'Deadline precedes airplane');
-        else
+        } else
           assert.ok(geometry.dateTop >= geometry.titleBottom, 'Phone deadline remains below title');
       }
     }

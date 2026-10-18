@@ -375,6 +375,10 @@ module.exports = async function installNative(plugin) {
           if (writing) return writing;
           writing = plugin.createTask(fields, id).then(
             (task) => {
+              // The open card still references this provisional snapshot.
+              // Adopt creation defaults once, before its first draft save;
+              // later reloads must keep their normal conflict protection.
+              Object.assign(provisional, task);
               records = records.map((r) => (r.file.path === path ? task : r));
               pendingCreations.delete(path);
               return task;

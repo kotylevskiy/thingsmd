@@ -1,5 +1,6 @@
 const { Menu, Notice } = require('obsidian');
 const MoveDialog = require('./move-dialog.cjs');
+const TaskDateDialog = require('./task-date-dialog.cjs');
 
 module.exports = function installTaskMenu(plugin) {
   const app = plugin.app;
@@ -116,6 +117,9 @@ module.exports = function installTaskMenu(plugin) {
           plugin.transferTask({ id: ctx.id, sourcePath: ctx.sourcePath, list: 'today' }),
         );
         item('This Evening', 'moon', (t) => plugin.patchTask(t, { when: 'evening' }));
+        item('When…', 'calendar-days', (t) => plugin.openDialog(TaskDateDialog, t, 'when'));
+        if (!task.meta.repeat)
+          item('Deadline…', 'flag', (t) => plugin.openDialog(TaskDateDialog, t, 'deadline'));
         for (const [label, list, icon] of [
           ['Anytime', 'anytime', 'layers'],
           ['Someday', 'someday', 'archive'],

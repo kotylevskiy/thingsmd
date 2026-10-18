@@ -66,7 +66,8 @@
   padding: calc(var(--size-4-1) * 0.75) calc(var(--size-4-1) * 2.5);
   cursor: default;
 }
-.ot-task-line input[type='checkbox'] {
+.ot-task-line input[type='checkbox'],
+input.ot-task-marker[type='checkbox'] {
   flex-shrink: 0;
   width: 15px;
   height: 15px;
@@ -318,6 +319,23 @@
   background: transparent;
 }
 /* Shared When, Deadline and repeat calendars. */
+.modal.ot-task-date-modal {
+  width: 320px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  padding: var(--size-4-3);
+}
+.ot-task-date-modal .modal-header {
+  display: none;
+}
+.ot-task-date-modal .modal-content {
+  margin: 0;
+  overflow: auto;
+}
+.ot-task-date-modal [role='alert']:not(:empty) {
+  margin-top: var(--size-4-2);
+  color: var(--text-error);
+}
 .ot-date-picker {
   color: var(--text-normal);
   font-size: 14px;
@@ -361,6 +379,14 @@
 }
 .ot-date-header {
   display: none;
+}
+.ot-task-date-modal .ot-date-header {
+  display: flex;
+  position: relative;
+  align-items: center;
+  min-height: 40px;
+  margin-bottom: 8px;
+  font-weight: 600;
 }
 .ot-date-search {
   display: flex;
@@ -1548,6 +1574,26 @@
   display: inline-flex;
   align-items: center;
 }
+/* Center collapsed desktop markers within the title's first 24px line. */
+@media (min-width: 521px) {
+  .ot-task:not(.is-expanded) > .ot-task-line {
+    align-items: flex-start;
+  }
+  .ot-task:not(.is-expanded) > .ot-task-line > input[type='checkbox'] {
+    margin-top: 4.5px;
+  }
+  .ot-task:not(.is-expanded)
+    > .ot-task-line
+    > :is(
+      .ot-task-details,
+      .ot-row-indicators,
+      .ot-repeat-indicator,
+      .ot-waiting-marker,
+      .ot-today-marker
+    ) {
+    min-height: 24px;
+  }
+}
 
 @media (max-width: 600px) {
   .ot-card-footer {
@@ -1567,6 +1613,7 @@
 
 /* Size host-theme checkmarks to our actual checkbox, instead of its default 16px glyph. */
 .ot-task-line > input[type='checkbox']::after,
+input.ot-task-marker[type='checkbox']::after,
 .ot-checklist-row > input[type='checkbox']::after {
   inset: 0;
   width: 100%;
@@ -2027,7 +2074,7 @@
 .ot-task-note-heading {
   display: flex;
   align-items: baseline;
-  gap: 0.35em;
+  gap: calc(var(--size-4-1) * 2.5);
   min-width: 0;
 }
 .ot-task-note-heading[hidden] {
@@ -2047,13 +2094,8 @@
   cursor: default;
   opacity: 0.5;
 }
-.ot-task-note-heading-icon svg {
-  width: calc(var(--inline-title-size, 2em) * 0.7);
-  height: calc(var(--inline-title-size, 2em) * 0.7);
-}
-.ot-task-note-heading:not(.is-inline) .ot-task-note-heading-icon svg {
-  width: var(--icon-size, 16px);
-  height: var(--icon-size, 16px);
+input.ot-task-marker[type='checkbox'] {
+  pointer-events: none;
 }
 
 .workspace

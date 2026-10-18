@@ -37,7 +37,13 @@ try {
     0,
     'Reading task has no task-title tooltip',
   );
-  await first.locator('.ot-task').dblclick();
+  await first.locator('.ot-task-title').click();
+  await first.locator('.ot-title-input').waitFor();
+  assert.equal(
+    await first.locator('.ot-title-input').evaluate((e) => e === document.activeElement),
+    true,
+    'A single Reading-view title click opens editing directly',
+  );
   assert.equal(await page.evaluate(() => app.workspace.activeLeaf.view.getMode()), 'preview');
   await first.locator('.ot-title-input').fill('Reading updated');
   await first.locator('.ot-title-input').press('Tab');
@@ -58,7 +64,7 @@ try {
     await app.workspace.revealLeaf(leaf);
     app.workspace.setActiveLeaf(leaf, { focus: true });
   }, fixture);
-  await first.locator('.ot-task').dblclick();
+  await first.locator('.ot-task').click();
   await first.locator('.ot-title-input').focus();
   await first.locator('.ot-title-input').press('Enter');
   await first.locator('.is-expanded').waitFor({ state: 'hidden' });
@@ -68,14 +74,31 @@ try {
   await first.getByRole('button', { name: /^Today/ }).click();
   await first.locator('.ot-title-input').press('Enter');
   await first.locator('.ot-today-marker').waitFor();
-  await first.locator('.ot-task').press('ArrowDown');
+  for (const key of ['ArrowDown', 'ArrowUp']) {
+    assert.equal(
+      await first
+        .locator('.ot-task')
+        .evaluate(
+          (row, key) =>
+            row.dispatchEvent(
+              new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
+            ),
+          key,
+        ),
+      true,
+      'Reading-view arrows must retain native scrolling',
+    );
+    await first.locator('.ot-task').press(key);
+    assert.equal(
+      await first.locator('.ot-task').evaluate((e) => e === document.activeElement),
+      true,
+      'Arrows must not move focus across intervening prose',
+    );
+  }
   const second = active.locator(`.ot-native[data-task-path="${tasks[1]}"]:visible`);
-  assert.equal(
-    await second.locator('.ot-task').evaluate((e) => e === document.activeElement),
-    true,
-  );
   await second.locator('input[type=checkbox]').check();
   await second.locator('.is-done').waitFor();
+  assert.equal(await second.locator('.is-expanded').count(), 0, 'Completion does not open editing');
   await second.locator('input[type=checkbox]').uncheck();
   await second.locator('.is-done').waitFor({ state: 'hidden' });
   const from = await second.boundingBox(),
@@ -111,7 +134,7 @@ try {
   assert.equal(await first.locator('.ot-task-title').innerText(), 'Reading updated');
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: Reading view shares task editing, Tab/Enter, Today picker, completion, arrow selection, pointer drag, persisted notes, and Live Preview state.',
+    'PASS: Reading view shares task editing, Tab/Enter, Today picker, completion, native arrows, pointer drag, persisted notes, and Live Preview state.',
   );
 } catch (error) {
   await page.screenshot({ path: 'artifacts/reading-failure.png' });

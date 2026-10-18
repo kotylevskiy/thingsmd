@@ -66,9 +66,6 @@ function inList(
   if (task.meta.deleted) return false;
   if (list === 'logbook') return isLogged(task.meta, today, mode);
   if (isLogged(task.meta, today, mode)) return false;
-  if (list === 'waiting') return enableWaiting && task.meta.is_waiting === true;
-  if (enableWaiting && task.meta.is_waiting === true && ['inbox', 'anytime'].includes(list))
-    return false;
   if (list === 'repeating') return !!(task.meta.repeat || task.meta.repeatSource);
   if (task.meta.repeat)
     return (
@@ -77,6 +74,9 @@ function inList(
       !!task.meta.repeat.next &&
       upcomingDates(task.meta, today).length > 0
     );
+  if (list === 'waiting') return enableWaiting && task.meta.is_waiting === true;
+  if (enableWaiting && task.meta.is_waiting === true && ['inbox', 'anytime'].includes(list))
+    return false;
   if (list === 'inbox') return inInbox(task, today);
   if (list === 'today') return inToday(task.meta, today);
   if (list === 'someday') return task.meta.when === 'someday' && !inToday(task.meta, today);

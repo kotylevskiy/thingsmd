@@ -49,6 +49,9 @@ export async function taskNoteContext(label) {
     // trial mouse click alone can return before that second layout has settled.
     await control.scrollIntoViewIfNeeded();
     return control.evaluate(async (el) => {
+      // Minimal scrolling can leave the target under a mobile bar that is
+      // still animating back after a modal closes. Aim in the viewport center.
+      el.scrollIntoView({ block: 'center', behavior: 'instant' });
       const start = performance.now();
       let stable = start,
         previous = '',
@@ -83,6 +86,12 @@ export async function taskNoteContext(label) {
         (event) => {
           window.noteTouch.target = event.target.outerHTML.slice(0, 350);
           window.noteTouch.matched = el.contains(event.target);
+          window.noteTouch.bounds = el.getBoundingClientRect().toJSON();
+          window.noteTouch.viewport = {
+            offsetTop: visualViewport?.offsetTop,
+            height: visualViewport?.height,
+            scale: visualViewport?.scale,
+          };
         },
         { capture: true, once: true },
       );

@@ -52,7 +52,48 @@ try {
   );
   await active.locator('.ot-waiting-section').waitFor({ state: 'detached' });
   await row(0).waitFor();
+  const recurring = await page.evaluate(async (path) => {
+    const p = app.plugins.getPlugin('thingsmd');
+    const template = await p.createTask({
+      title: 'Recurring waiting fixture',
+      project: path,
+      is_waiting: true,
+    });
+    await app.vault.append(app.vault.getAbstractFileByPath(path), `\n![[${template.file.path}]]\n`);
+    const now = new Date();
+    const day = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-');
+    await p.repeating.configure(template, {
+      mode: 'completion',
+      unit: 'day',
+      interval: 1,
+      anchor: day,
+      next: day,
+      on: [],
+      end: null,
+      deadline: false,
+      leadDays: 0,
+    });
+    const copy = (await p.taskRecords()).find(
+      (task) => task.meta.repeatSource === template.meta.id,
+    );
+    if (!copy) throw Error('Recurring waiting fixture did not generate its copy');
+    return [template, copy];
+  }, state.path);
+  state.tasks.push(...recurring);
+  await page.evaluate(() => app.plugins.getPlugin('thingsmd').openList('repeating'));
+  await row(4).waitFor();
+  await row(5).waitFor();
   await page.evaluate(() => app.plugins.getPlugin('thingsmd').openList('waiting'));
+  await row(5).waitFor();
+  assert.equal(
+    await row(4).count(),
+    0,
+    'Waiting For excludes the template while retaining its copy',
+  );
   await row(1).waitFor();
   assert.equal(await row(1).locator('.ot-waiting-marker').count(), 0);
   await page.screenshot({ path: 'artifacts/waiting-list-mobile.png' });
@@ -91,6 +132,8 @@ try {
       { path: state.path, mode },
     );
     await row(0).filter({ visible: true }).locator('.ot-task-title ~ .ot-waiting-marker').waitFor();
+    await row(4).filter({ visible: true }).waitFor();
+    await row(5).filter({ visible: true }).waitFor();
     await page.screenshot({ path: `artifacts/waiting-${mode}.png` });
   }
   await page.evaluate(() => app.plugins.getPlugin('thingsmd').openList('waiting'));

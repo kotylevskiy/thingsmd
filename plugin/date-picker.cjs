@@ -7,6 +7,7 @@ function datePicker(
     kind,
     value,
     onSelect,
+    onClose,
     setIcon,
     inline = false,
     allowClear = true,
@@ -47,7 +48,10 @@ function datePicker(
   pop.toggleClass('is-mobile-picker', mobile);
   pop.setAttribute('aria-label', title);
   const events = new win.AbortController();
-  let observer, resizeObserver, layer;
+  let observer,
+    resizeObserver,
+    layer,
+    closed = false;
   const dispose = () => {
     events.abort();
     observer?.disconnect();
@@ -55,6 +59,8 @@ function datePicker(
     win.cancelAnimationFrame(frame);
   };
   const close = (restoreFocus = true) => {
+    if (closed) return;
+    closed = true;
     dispose();
     pop.remove();
     layer?.close();
@@ -63,6 +69,7 @@ function datePicker(
       const target = mobile ? anchor : row?.querySelector('.ot-title-input') || anchor;
       if (target?.isConnected) target.focus({ preventScroll: true });
     }
+    onClose?.();
   };
   pop.close = close;
   const choose = (key) => {

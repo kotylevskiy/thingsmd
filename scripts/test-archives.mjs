@@ -58,7 +58,9 @@ try {
     await openNote(mode);
     const row = active.locator('.ot-native:not(.ot-hidden-task) .ot-task:visible');
     await row.waitFor();
-    await row.click();
+    // Reading-view clicks now open editing. Focus the collapsed card directly
+    // to exercise its keyboard deletion shortcut rather than its text input.
+    await row.focus();
     await row.press(key);
     await row.waitFor({ state: 'hidden' });
     assert.equal((await record()).meta.deleted, true);

@@ -2,9 +2,20 @@ const { parseYaml, Notice } = require('obsidian');
 
 async function taskMeta(view, plugin) {
   try {
+    const file = view.file;
     const text =
-      view.getMode?.() === 'source' ? view.editor.getValue() : await plugin.readTask(view.file);
-    return require('./markdown-document.cjs').decode(text, parseYaml).meta;
+      view.getMode?.() === 'source' ? view.editor.getValue() : await plugin.readTask(file);
+    const decode = (text) => require('./markdown-document.cjs').decode(text, parseYaml).meta;
+    const meta = decode(text);
+    if (view.getMode?.() === 'source' && meta?.type === 'thingsmd-task') {
+      // A recycled Markdown view can expose its new file before loading that
+      // file's editor buffer. Never attach the old task's controls to it.
+      let expected = plugin.app.metadataCache.getFileCache(file)?.frontmatter;
+      if (!expected?.id && plugin.app.vault.read)
+        expected = decode(await plugin.app.vault.read(file));
+      if (expected && (expected.type !== 'thingsmd-task' || expected.id !== meta.id)) return null;
+    }
+    return meta;
   } catch {
     return null;
   }

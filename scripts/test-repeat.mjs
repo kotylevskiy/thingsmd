@@ -50,6 +50,10 @@ try {
   await page.locator('.ot-list-link[data-list="upcoming"]').click();
   await template().waitFor();
   assert.equal(await template().locator('.ot-repeat-indicator.is-template').count(), 1);
+  await template().click({ button: 'right' });
+  await page.locator('.menu').getByText('When…', { exact: true }).waitFor();
+  assert.equal(await page.locator('.menu').getByText('Deadline…', { exact: true }).count(), 0);
+  await page.keyboard.press('Escape');
   assert.equal(
     await template().evaluate((row) => {
       const repeat = row.querySelector('.ot-repeat-indicator');

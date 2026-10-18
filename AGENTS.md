@@ -1,3 +1,9 @@
+# Write boundaries
+
+- NEVER change anything outside this repository or a marked disposable test vault without the user's explicit permission for that specific action.
+- This includes personal vaults (especially Projects), installed plugins, settings, backups, temporary files, and Obsidian profiles outside those boundaries. Put development artifacts and temporary profiles inside this repository or the disposable vault.
+- Permission for an earlier migration, installation, or release does not authorize later external changes. Do not install fixes into personal vaults unless explicitly requested.
+
 # Development
 
 - Do not change `README.md` without the user's explicit request or approval.

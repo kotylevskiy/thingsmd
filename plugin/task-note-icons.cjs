@@ -1,5 +1,13 @@
-const { setIcon } = require('obsidian');
 const iconName = (meta) => (meta.status === 'done' ? 'square-check' : 'square');
+// Use the host-theme checkbox, just like project-note task rows.
+function marker(el, meta) {
+  el.empty();
+  const input = el.createEl('input', {
+    cls: 'ot-task-marker',
+    attr: { type: 'checkbox', tabindex: '-1', 'aria-hidden': 'true' },
+  });
+  input.checked = meta.status === 'done';
+}
 
 // Match tabs within their own split by DOM order, without changing the native view.
 function tabIcon(view) {
@@ -34,7 +42,7 @@ module.exports = () => {
     title(el, meta) {
       const icon = iconName(meta);
       if (el.dataset.taskIcon !== icon) {
-        setIcon(el, icon);
+        marker(el, meta);
         el.dataset.taskIcon = icon;
       }
       el.setAttribute('aria-checked', String(meta.status === 'done'));
@@ -66,7 +74,7 @@ module.exports = () => {
       } else if (state.ours !== el.innerHTML) state.original = el.innerHTML;
       const icon = iconName(meta);
       if (state.icon !== icon || state.ours !== el.innerHTML) {
-        setIcon(el, icon);
+        marker(el, meta);
         state.icon = icon;
         state.ours = el.innerHTML;
       }

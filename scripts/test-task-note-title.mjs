@@ -84,12 +84,13 @@ try {
           { id, status },
         );
         assert.equal(await checkbox.getAttribute('aria-checked'), String(status === 'done'));
-        const icon = status === 'done' ? 'square-check' : 'square';
+        const marker =
+          status === 'done' ? '.ot-task-marker:checked' : '.ot-task-marker:not(:checked)';
         await page
-          .locator(`.workspace-leaf.mod-active .ot-task-note-heading.is-inline .lucide-${icon}`)
+          .locator(`.workspace-leaf.mod-active .ot-task-note-heading.is-inline ${marker}`)
           .waitFor();
         await page
-          .locator(`.workspace-tab-header.is-active .ot-task-note-tab-icon .lucide-${icon}`)
+          .locator(`.workspace-tab-header.is-active .ot-task-note-tab-icon ${marker}`)
           .waitFor({ state: emulate ? 'attached' : 'visible' });
         assert.equal(
           await heading().locator('svg').count(),

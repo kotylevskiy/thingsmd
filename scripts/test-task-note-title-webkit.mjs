@@ -18,13 +18,13 @@ try {
     const containerEl = split.querySelector('.workspace-leaf').createDiv();
     containerEl.innerHTML =
       '<div class="inline-title" contenteditable="true">task-id</div><button>Body</button>';
-    window.titleMeta = { type: 'thingsmd-task', title: 'Original' };
-    const view = {
+    window.titleMeta = { type: 'thingsmd-task', id: 'task-id', title: 'Original' };
+    const view = (window.titleView = {
       file: { path: 'ThingsMD/task-id.md' },
       containerEl,
       getMode: () => 'source',
       editor: { getValue: () => `---\n${JSON.stringify(window.titleMeta)}\n---\nBody` },
-    };
+    });
     const plugin = {
       app: {
         workspace: {
@@ -34,7 +34,13 @@ try {
           },
           onLayoutReady: (fn) => fn(),
         },
-        metadataCache: { getFileCache: () => ({ frontmatter: window.titleMeta }), on() {} },
+        metadataCache: {
+          getFileCache: () => {
+            window.titleChecks = (window.titleChecks || 0) + 1;
+            return { frontmatter: window.titleDiskMeta || window.titleMeta };
+          },
+          on() {},
+        },
         vault: { on() {} },
       },
       patchTask: async (task, patch) => {
@@ -53,6 +59,37 @@ try {
   });
   const heading = page.locator('.inline-title.ot-task-note-title');
   await heading.waitFor();
+  const checks = await page.evaluate(() => {
+    window.titleView.file = { path: 'ThingsMD/next-task.md' };
+    window.titleDiskMeta = { type: 'thingsmd-task', id: 'next-task', title: 'Next task' };
+    const checks = window.titleChecks;
+    window.refreshTitle();
+    return checks;
+  });
+  await page.waitForFunction((checks) => window.titleChecks > checks, checks);
+  assert.equal(await heading.count(), 0, 'Do not render stale editor metadata for a new file');
+  const projectChecks = await page.evaluate(() => {
+    window.titleView.file = { path: 'Project.md' };
+    window.titleDiskMeta = { type: 'thingsmd-project' };
+    const checks = window.titleChecks;
+    window.refreshTitle();
+    return checks;
+  });
+  await page.waitForFunction((checks) => window.titleChecks > checks, projectChecks);
+  assert.equal(await heading.count(), 0, 'Do not attach stale task controls to a project note');
+  await page.evaluate(() => {
+    window.titleView.file = { path: 'ThingsMD/next-task.md' };
+    window.titleMeta = { type: 'thingsmd-task', id: 'next-task', title: 'Next task' };
+    delete window.titleDiskMeta;
+    window.refreshTitle();
+  });
+  await heading.getByText('Next task', { exact: true }).waitFor();
+  await page.evaluate(() => {
+    window.titleView.file = { path: 'ThingsMD/task-id.md' };
+    window.titleMeta = { type: 'thingsmd-task', id: 'task-id', title: 'Original' };
+    window.refreshTitle();
+  });
+  await heading.getByText('Original', { exact: true }).waitFor();
   const tab = page.locator('.workspace-tab-header');
   assert.equal(await tab.getAttribute('aria-label'), null);
   assert.equal(
@@ -67,7 +104,8 @@ try {
     await page.waitForFunction(
       (icon) =>
         document.querySelector('.ot-task-note-heading-icon')?.dataset.taskIcon === icon &&
-        document.querySelector('.ot-task-note-tab-icon')?.dataset.icon === icon,
+        document.querySelector('.ot-task-note-tab-icon .ot-task-marker')?.checked ===
+          (icon === 'square-check'),
       icon,
     );
     assert.equal(await heading.locator('*').count(), 0);

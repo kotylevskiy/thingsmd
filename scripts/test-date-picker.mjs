@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { browserFixture } from './browser-fixture.mjs';
 import { connectTestVault } from './obsidian-connection.mjs';
+import { waitForAsync } from './wait-for-async.mjs';
 
 const fixture = process.argv.includes('--fixture');
 const browserType =
@@ -251,6 +252,67 @@ try {
     console.log(
       `PASS date picker: ${mobile ? 'mobile' : 'desktop'} shortcuts, scrolling calendar, search, selection, clear, cancel, keyboard and outside dismissal`,
     );
+    if (fixture) {
+      await page.evaluate(() => {
+        const Dialog = window.loadPluginModule('./task-date-dialog.cjs');
+        window.taskDateRecord = {
+          meta: { id: 'calendar', when: 'anytime', deadline: '2099-06-01' },
+          body: 'Native notes',
+        };
+        const plugin = {
+          app: {},
+          patchTask: async (task, patch) => {
+            if (window.failTaskDate) throw Error('Calendar save failed');
+            for (const key of Object.keys(patch))
+              if (task.meta[key] !== window.taskDateRecord.meta[key])
+                throw Error('Changed elsewhere');
+            window.taskDateRecord.meta = { ...window.taskDateRecord.meta, ...patch };
+          },
+        };
+        window.openTaskDate = (kind) => {
+          window.taskDateDialog = new Dialog(plugin, structuredClone(window.taskDateRecord), kind);
+          window.taskDateDialog.open();
+        };
+      });
+      if (mobile) await page.setViewportSize({ width: 320, height: 440 });
+      const dialog = page.locator('.ot-task-date-modal');
+      await page.evaluate(() => window.openTaskDate('when'));
+      await dialog.getByLabel('Cancel date selection').click();
+      await dialog.waitFor({ state: 'detached' });
+      assert.equal(await page.evaluate(() => window.taskDateRecord.meta.when), 'anytime');
+      await page.evaluate(() => {
+        window.failTaskDate = true;
+        window.openTaskDate('deadline');
+      });
+      const bounds = await dialog.boundingBox();
+      const viewport = page.viewportSize();
+      assert.ok(
+        bounds.x >= 0 &&
+          bounds.y >= 0 &&
+          bounds.x + bounds.width <= viewport.width + 1 &&
+          bounds.y + bounds.height <= viewport.height + 1,
+      );
+      const date = await input('Deadline');
+      await date.fill('2099-06-02');
+      await date.press('Enter');
+      await dialog.getByRole('alert').getByText('Calendar save failed').waitFor();
+      assert.equal(await date.inputValue(), '2099-06-02');
+      await page.evaluate(() => {
+        window.failTaskDate = false;
+      });
+      await date.press('Enter');
+      await dialog.waitFor({ state: 'detached' });
+      await waitForAsync(page, () => window.taskDateRecord.meta.deadline === '2099-06-02');
+      assert.equal(await page.evaluate(() => window.taskDateRecord.body), 'Native notes');
+      await page.evaluate(() => window.openTaskDate('deadline'));
+      await dialog.getByLabel('Remove deadline').click();
+      await dialog.waitFor({ state: 'detached' });
+      await waitForAsync(page, () => window.taskDateRecord.meta.deadline === null);
+      assert.deepEqual(errors, [], 'Context-menu calendar has no lifecycle errors');
+      console.log(
+        `PASS context-menu calendar fixture: ${mobile ? 'mobile' : 'desktop'} fit, Cancel, save failure/retry, deadline clear and preserved native notes`,
+      );
+    }
   }
 } finally {
   await page.evaluate(
@@ -259,6 +321,7 @@ try {
         Object.defineProperty(window, 'visualViewport', window.pickerViewport);
         delete window.pickerViewport;
       }
+      window.taskDateDialog?.close();
       (fixture
         ? window.pickerPlugin
         : window.app?.plugins.getPlugin('thingsmd')

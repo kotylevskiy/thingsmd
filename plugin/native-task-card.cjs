@@ -113,13 +113,19 @@ module.exports = function nativeTaskCard(
       line.querySelector('.ot-title-input').focus();
       view?.requestMeasure();
     };
+    const interactive = (target) => {
+      const control = target.closest(
+        'input,button,textarea,select,a,label,[contenteditable="true"]',
+      );
+      return control && row.contains(control);
+    };
     row.ondblclick = (e) => {
-      if (!e.target.closest('input,button')) open();
+      if (!interactive(e.target)) open();
     };
     row.onclick = (e) => {
-      if (!e.target.closest('input,button,textarea')) {
-        row.focus();
-        if (Platform.isMobile || e.pointerType === 'touch') open();
+      if (!card.taskDraft && !interactive(e.target)) {
+        if (!view || Platform.isMobile || e.pointerType === 'touch') open();
+        else row.focus();
       }
     };
     row.onkeydown = (e) => {
@@ -128,23 +134,6 @@ module.exports = function nativeTaskCard(
         e.preventDefault();
         e.stopPropagation();
         open();
-      } else if (
-        !view &&
-        !e.altKey &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.shiftKey &&
-        ['ArrowDown', 'ArrowUp'].includes(e.key)
-      ) {
-        const rows = [
-          ...root
-            .closest('.markdown-preview-view')
-            .querySelectorAll('.ot-native:not(.ot-hidden-task) .ot-task'),
-        ];
-        const next = rows[rows.indexOf(row) + (e.key === 'ArrowDown' ? 1 : -1)];
-        e.preventDefault();
-        e.stopPropagation();
-        next?.focus();
       }
     };
     if (openOnCreate.delete(path))

@@ -146,7 +146,12 @@ try {
       },
       { mode, project, id },
     );
-    const card = page.locator(`.workspace-leaf.mod-active .ot-task[data-task-id="${id}"]:visible`);
+    // Split panes can each have an active tab, including the task's own note.
+    // Target the project/list card rather than its native note controls.
+    const host = mode === 'list' ? '.ot-main' : '.ot-native';
+    const card = page.locator(
+      `.workspace-leaf.mod-active ${host} .ot-task[data-task-id="${id}"]:visible`,
+    );
     if (mode !== 'list') await card.dblclick();
     await card
       .locator('.ot-task-notes-preview strong')

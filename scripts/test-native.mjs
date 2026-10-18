@@ -1,7 +1,7 @@
 import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
-const { browser, page } = await connectTestVault();
+const { browser, page } = await connectTestVault({ settings: { enableWaiting: true } });
 const note = 'Native test fixture.md';
 let taskPath;
 let createdPath;
@@ -257,6 +257,25 @@ try {
   assert.equal(await newTitle.evaluate((el) => el === document.activeElement), true);
   assert.equal(await newTitle.inputValue(), '');
   await page.keyboard.type('Created from the note');
+  await waitForAsync(page, async () =>
+    (await app.plugins.getPlugin('thingsmd').records()).some(
+      (task) => task.meta.title === 'Created from the note',
+    ),
+  );
+  const newCard = page.locator('.workspace-leaf.mod-active .ot-task.is-expanded');
+  await newCard.getByRole('button', { name: 'Waiting For', exact: true }).click();
+  await waitForAsync(page, async () =>
+    (await app.plugins.getPlugin('thingsmd').records()).some(
+      (task) => task.meta.title === 'Created from the note' && task.meta.is_waiting === true,
+    ),
+  );
+  assert.equal(await newCard.locator('.ot-save-error').count(), 0);
+  await newCard.getByRole('button', { name: 'Waiting For', exact: true }).click();
+  await waitForAsync(page, async () =>
+    (await app.plugins.getPlugin('thingsmd').records()).some(
+      (task) => task.meta.title === 'Created from the note' && task.meta.is_waiting === false,
+    ),
+  );
   await newTitle.press('Enter');
   await newTitle.waitFor({ state: 'hidden' });
   await page.waitForFunction(

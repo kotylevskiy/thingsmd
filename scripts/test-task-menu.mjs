@@ -12,6 +12,21 @@ const active = page.locator('.workspace-leaf.mod-active');
 const row = () => active.locator(`.ot-task[data-task-id="${id}"]:visible`);
 const modal = () => page.locator('.ot-move-modal');
 const menuItem = (name) => page.locator('.menu').getByText(name, { exact: true });
+const dateDialog = () => page.locator('.ot-task-date-modal');
+async function openDate(kind) {
+  await row().click({ button: 'right' });
+  await menuItem(`${kind}…`).click();
+  await dateDialog().waitFor();
+  return dateDialog().getByLabel(`${kind} date`, { exact: true });
+}
+async function chooseDate(kind, value) {
+  const input = await openDate(kind);
+  if (!(await input.isVisible())) await dateDialog().getByLabel('Search dates').click();
+  await input.fill(value);
+  await input.press('Enter');
+  await dateDialog().waitFor({ state: 'detached' });
+}
+
 const waitMeta = (patch) =>
   waitForAsync(
     page,
@@ -39,6 +54,16 @@ try {
     },
     { title, a, b },
   );
+  await openDate('When');
+  await dateDialog().getByRole('button', { name: 'Cancel date selection', exact: true }).click();
+  await dateDialog().waitFor({ state: 'detached' });
+  await waitMeta({ title });
+  await chooseDate('Deadline', '2099-06-02');
+  await waitMeta({ deadline: '2099-06-02' });
+  await openDate('Deadline');
+  await dateDialog().getByRole('button', { name: 'Remove deadline', exact: true }).click();
+  await dateDialog().waitFor({ state: 'detached' });
+  await waitMeta({ deadline: null });
   await row().click({ button: 'right' });
   await menuItem('Move…').click();
   await modal().getByRole('button', { name: 'Inbox', exact: true }).waitFor();
@@ -58,6 +83,20 @@ try {
     app.workspace.leftSplit.collapse();
   }, a);
   await page.setViewportSize({ width: 390, height: 844 });
+  const when = await openDate('When');
+  await when.fill('2026-02-31');
+  await when.press('Enter');
+  assert.equal(await when.getAttribute('aria-invalid'), 'true');
+  const bounds = await dateDialog().boundingBox();
+  assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 390, 'Date dialog fits phone width');
+  await when.fill('2099-05-15');
+  await when.press('Enter');
+  await dateDialog().waitFor({ state: 'detached' });
+  await waitMeta({ when: '2099-05-15' });
+  await openDate('When');
+  await dateDialog().getByRole('button', { name: 'Clear schedule', exact: true }).click();
+  await dateDialog().waitFor({ state: 'detached' });
+  await waitMeta({ when: 'anytime', project: a });
   await row().dblclick();
   await editTaskNotes(page, 'Keep this draft when moving.');
   await row().getByRole('button', { name: 'Move', exact: true }).click();
@@ -96,6 +135,42 @@ try {
       active: true,
     });
   }, b);
+  await page.evaluate(() => {
+    const plugin = app.plugins.getPlugin('thingsmd');
+    const original = plugin.patchTask;
+    window.menuDateRetry = { plugin, original, fail: true };
+    plugin.patchTask = async function (...args) {
+      if (window.menuDateRetry.fail && Object.hasOwn(args[1], 'deadline')) {
+        window.menuDateRetry.fail = false;
+        throw Error('Simulated scheduling save failure');
+      }
+      return original.apply(this, args);
+    };
+  });
+  const deadline = await openDate('Deadline');
+  await deadline.fill('2099-06-02');
+  await deadline.press('Enter');
+  await dateDialog().getByRole('alert').getByText('Simulated scheduling save failure').waitFor();
+  await deadline.press('Enter');
+  await dateDialog().waitFor({ state: 'detached' });
+  await waitMeta({ deadline: '2099-06-02' });
+  await page.evaluate(() => {
+    const retry = window.menuDateRetry;
+    retry.plugin.patchTask = retry.original;
+    delete window.menuDateRetry;
+  });
+  const conflict = await openDate('Deadline');
+  await page.evaluate(async (id) => {
+    const plugin = app.plugins.getPlugin('thingsmd');
+    const task = (await plugin.taskRecords()).find((task) => task.meta.id === id);
+    await plugin.patchTask(task, { deadline: '2099-06-03' });
+  }, id);
+  await conflict.fill('2099-06-04');
+  await conflict.press('Enter');
+  await dateDialog().getByRole('alert').filter({ hasText: 'changed elsewhere' }).waitFor();
+  await waitMeta({ deadline: '2099-06-03' });
+  await dateDialog().getByRole('button', { name: 'Cancel date selection', exact: true }).click();
+  await dateDialog().waitFor({ state: 'detached' });
   await row().click({ button: 'right' });
   await menuItem('Move…').click();
   await modal().getByRole('button', { name: 'Someday', exact: true }).click();
@@ -125,6 +200,11 @@ try {
   await page.evaluate(
     async ({ id, a, b, sidebarCollapsed }) => {
       const p = app.plugins.getPlugin('thingsmd');
+      if (window.menuDateRetry) {
+        const retry = window.menuDateRetry;
+        retry.plugin.patchTask = retry.original;
+        delete window.menuDateRetry;
+      }
       await p.open();
       for (const leaf of app.workspace.getLeavesOfType('markdown'))
         if ([a, b].includes(leaf.view.file?.path)) leaf.detach();
