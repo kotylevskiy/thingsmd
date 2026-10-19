@@ -1,5 +1,6 @@
 const { dayKey: localDay, addDays, validDate } = require('./local-date.cjs');
 const { shouldLog } = require('./archive-policy.cjs');
+const { dayKey: vaultDay } = require('./vault-time.cjs');
 
 function compareTasks(a, b) {
   return (
@@ -50,10 +51,10 @@ const upcomingDates = (meta, today) => {
   const date = futureDate(meta.when, today) ? meta.when : meta.deadline;
   return futureDate(date, today) ? [date] : [];
 };
-const isLogged = (meta, today = localDay(new Date()), mode = 'daily') =>
-  shouldLog(meta, today, mode);
-const isHidden = (meta, today = localDay(new Date()), mode = 'daily') =>
-  !!meta.deleted || isLogged(meta, today, mode);
+const isLogged = (meta, today, mode = 'daily', timeZone) =>
+  shouldLog(meta, today ?? vaultDay(new Date(), timeZone), mode, timeZone);
+const isHidden = (meta, today, mode = 'daily', timeZone) =>
+  !!meta.deleted || isLogged(meta, today, mode, timeZone);
 function inList(
   task,
   list,
@@ -61,11 +62,13 @@ function inList(
   mode = 'daily',
   captureDestination = 'inbox',
   enableWaiting = true,
+  timeZone,
 ) {
   if (list === 'trash') return !!task.meta.deleted;
   if (task.meta.deleted) return false;
-  if (list === 'logbook') return isLogged(task.meta, today, mode);
-  if (isLogged(task.meta, today, mode)) return false;
+  const logged = isLogged(task.meta, timeZone ? undefined : today, mode, timeZone);
+  if (list === 'logbook') return logged;
+  if (logged) return false;
   if (list === 'repeating') return !!(task.meta.repeat || task.meta.repeatSource);
   if (task.meta.repeat)
     return (

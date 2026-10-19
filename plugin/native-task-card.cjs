@@ -4,6 +4,7 @@ const TaskEditor = require('./task-editor.cjs');
 const { taskIndicators } = require('./task-indicators.cjs');
 const { taskState } = require('./task-presentation.cjs');
 const { Notice, Scope, Platform } = require('obsidian');
+const { deferTouchRender } = require('./touch-tasks.cjs');
 
 // Host-neutral card UI shared by Reading view and Live Preview. The host owns
 // lookup/refresh and pending creation; the card owns draft focus and key scopes.
@@ -32,7 +33,7 @@ module.exports = function nativeTaskCard(
   card.measure = () => view?.requestMeasure();
   card.render = async () => {
     card.refreshSettings();
-    if (card.taskDraft) return;
+    if (card.taskDraft || deferTouchRender(root)) return;
     const task = lookup(path);
     card.currentTask = task;
     const signature = task

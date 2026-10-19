@@ -7,10 +7,15 @@ module.exports = function install(plugin) {
     suppressUntil = 0;
   const clear = () => {
     if (!state) return;
+    const row = state.row;
     clearTimeout(state.timer);
-    state.row.classList.remove('ot-touch-held');
+    row.classList.remove('ot-touch-held', 'ot-touch-pending');
     state.driver?.cancel?.();
     state = null;
+    if (row._otTouchRefresh) {
+      delete row._otTouchRefresh;
+      plugin.tasksChanged();
+    }
   };
   const cancel = () => {
     if (state?.held) suppressUntil = Date.now() + 500;
@@ -61,6 +66,7 @@ module.exports = function install(plugin) {
               ? native._otTouchDrag
               : row._otTouchDrag,
       };
+      row.classList.add('ot-touch-pending');
       state.driver?.hold?.();
       state.timer = setTimeout(() => {
         if (!state?.row.isConnected) {
@@ -149,4 +155,13 @@ module.exports = function install(plugin) {
     true,
   );
   plugin.register(clear);
+};
+
+// A metadata refresh must not replace a checkbox between touchstart and touchend.
+// Replay a skipped refresh once the gesture releases its row.
+module.exports.deferTouchRender = (container) => {
+  const row = container.querySelector('.ot-touch-pending');
+  if (!row) return false;
+  row._otTouchRefresh = true;
+  return true;
 };

@@ -28,6 +28,8 @@
     "test:repeat": "node scripts/test-repeat.mjs",
     "test:menu": "node scripts/test-task-menu.mjs",
     "test:settings": "node scripts/test-settings.mjs",
+    "test:vault-time": "node scripts/test-vault-time.mjs",
+    "test:vault-time-webkit": "node scripts/test-vault-time.mjs --webkit",
     "test:daily-capture": "node scripts/test-daily-capture.mjs",
     "test:progress": "node scripts/test-project-progress.mjs",
     "test:note-to-inbox": "node scripts/test-note-to-inbox.mjs",

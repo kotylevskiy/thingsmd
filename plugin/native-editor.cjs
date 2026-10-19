@@ -11,7 +11,8 @@ const { EditorView, Decoration, WidgetType } = require('@codemirror/view');
 
 module.exports = async function installNative(plugin) {
   const { isHidden: hiddenByPolicy } = require('./model.cjs');
-  const isHidden = (meta) => hiddenByPolicy(meta, undefined, plugin.settings.logbook);
+  const isHidden = (meta) =>
+    hiddenByPolicy(meta, undefined, plugin.settings.logbook, plugin.settings.timeZone);
   const refresh = StateEffect.define();
   const editors = new Set();
   const cards = new Set();

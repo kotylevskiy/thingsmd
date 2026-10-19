@@ -133,7 +133,7 @@ module.exports = function installSettingsUI(plugin) {
       new Setting(this.containerEl)
         .setName('Move completed tasks to Logbook')
         .setDesc(
-          'Daily logs on the next local day. Weekly and monthly keep completed tasks in place for that long. Manually waits for Log Completed.',
+          'Daily logs on the next day in the vault time zone. Weekly and monthly keep completed tasks in place for that long. Manually waits for Log Completed.',
         )
         .addDropdown((d) => {
           for (const [key, label] of [
@@ -191,6 +191,28 @@ module.exports = function installSettingsUI(plugin) {
         cls: 'flair ot-setting-badge',
         text: 'Experimental',
       });
+      new Setting(this.containerEl)
+        .setName('Vault time zone')
+        .setDesc(
+          'All devices using this vault share the same moment of midnight, so automatically created and logged tasks get matching timestamps and avoid sync conflicts. Set from the system time zone on first setup, then saved with the vault.',
+        )
+        .addDropdown((dropdown) => {
+          const zones = new Set([
+            'UTC',
+            plugin.settings.timeZone,
+            ...(Intl.supportedValuesOf?.('timeZone') || []),
+          ]);
+          for (const zone of [...zones].sort()) dropdown.addOption(zone, zone.replaceAll('_', ' '));
+          dropdown.selectEl.setAttribute('aria-label', 'Vault time zone');
+          dropdown.setValue(plugin.settings.timeZone).onChange(async (timeZone) => {
+            try {
+              await plugin.updateSettings({ timeZone });
+            } catch (error) {
+              dropdown.setValue(plugin.settings.timeZone);
+              new Notice(error.message);
+            }
+          });
+        });
     }
   }
   plugin.addSettingTab(new SettingsTab(plugin.app, plugin));

@@ -15,6 +15,7 @@ function moveMessage(before, after, settings = {}, day = today(), preferred) {
         settings.logbook,
         settings.captureDestination,
         settings.enableWaiting,
+        settings.timeZone,
       ),
     );
   const oldLists = membership(before),

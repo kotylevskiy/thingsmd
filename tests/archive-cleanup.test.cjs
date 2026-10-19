@@ -92,6 +92,27 @@ test('Log Completed logs only completed non-trashed tasks and persists across po
   await plugin.updateSettings({ logbook: 'weekly' });
   assert.equal(JSON.parse(files.get(task.file.path)).meta.loggedAt, logged);
 });
+test('automatic logging waits for vault midnight and stamps the planned time on delayed devices', async () => {
+  const first = await fixture(),
+    second = await fixture();
+  for (const f of [first, second]) {
+    f.plugin.settings.timeZone = 'Europe/Berlin';
+    f.task.meta = { id: 'a', status: 'done', completed: '2026-10-19T20:00:00Z' };
+    f.files.set(f.task.file.path, JSON.stringify(f.task));
+  }
+  await first.plugin.maintainArchives(new Date('2026-10-19T21:59:59Z'));
+  assert.equal(JSON.parse(first.files.get(first.task.file.path)).meta.loggedAt, undefined);
+  await first.plugin.maintainArchives(new Date('2026-10-19T22:00:46Z'));
+  await second.plugin.maintainArchives(new Date('2026-10-21T09:30:00Z'));
+  assert.equal(first.files.get(first.task.file.path), second.files.get(second.task.file.path));
+  assert.equal(
+    JSON.parse(first.files.get(first.task.file.path)).meta.loggedAt,
+    '2026-10-19T22:00:00.000Z',
+  );
+  const saved = first.files.get(first.task.file.path);
+  await first.plugin.maintainArchives(new Date('2026-10-24T12:00:00Z'));
+  assert.equal(first.files.get(first.task.file.path), saved);
+});
 
 test('a failing editor save restores the note buffer and retains the trashed task', async () => {
   const { plugin, task, files, text } = await fixture();

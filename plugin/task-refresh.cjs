@@ -1,5 +1,6 @@
 const { Notice } = require('obsidian');
 const { today } = require('./local-date.cjs');
+const { dayKey: vaultDay } = require('./vault-time.cjs');
 
 // Poll as a fallback for external file changes and date-based maintenance.
 module.exports = async function installTaskRefresh(plugin) {
@@ -23,7 +24,8 @@ module.exports = async function installTaskRefresh(plugin) {
   );
   let fingerprint;
   let scanning = false;
-  let currentDay = today();
+  const days = () => `${today()}/${vaultDay(new Date(), plugin.settings?.timeZone)}`;
+  let currentDay = days();
   plugin.registerInterval(
     window.setInterval(async () => {
       if (disposed || scanning || plugin.movingTasks) return;
@@ -33,8 +35,8 @@ module.exports = async function installTaskRefresh(plugin) {
         if (disposed) return;
         await plugin.maintainArchives();
         if (disposed) return;
-        if (currentDay !== today()) {
-          currentDay = today();
+        if (currentDay !== days()) {
+          currentDay = days();
           plugin.tasksChanged();
         }
         if (disposed) return;

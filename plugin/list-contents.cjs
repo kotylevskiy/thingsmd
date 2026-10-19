@@ -118,6 +118,7 @@ module.exports = function renderListContents(view, paper, active, progress) {
       active,
       today(),
       view.plugin.settings.logbook,
+      view.plugin.settings.timeZone,
     );
     if (moved.length) {
       const section = paper.createEl('section', { cls: 'ot-section ot-inbox-moved' });

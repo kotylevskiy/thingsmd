@@ -17,6 +17,19 @@ try {
   }, title));
   const settingsPage = await findSettingsPage(page);
   assert.equal(
+    await settingsPage.locator('.vertical-tab-content .setting-item-name').last().textContent(),
+    'Vault time zone',
+  );
+  assert.equal(
+    await settingsPage.getByLabel('Vault time zone', { exact: true }).inputValue(),
+    original.timeZone,
+  );
+  await settingsPage.getByLabel('Vault time zone', { exact: true }).selectOption('UTC');
+  await waitForAsync(
+    page,
+    async () => (await app.plugins.getPlugin('thingsmd').loadData())?.timeZone === 'UTC',
+  );
+  assert.equal(
     await settingsPage.getByLabel('Trash retention', { exact: true }).inputValue(),
     'never',
   );
@@ -52,6 +65,10 @@ try {
   assert.equal(
     await page.evaluate(() => app.plugins.getPlugin('thingsmd').settings.logbook),
     'manually',
+  );
+  assert.equal(
+    await page.evaluate(() => app.plugins.getPlugin('thingsmd').settings.timeZone),
+    'UTC',
   );
   const row = page.locator('.workspace-leaf.mod-active .ot-task').filter({ hasText: title });
   await row.waitFor();

@@ -4,6 +4,7 @@ const { nextDate, availableDate, validate, patternOnDate } = require('./repeat-m
 const { WriteQueue } = require('./write-queue.cjs');
 const { referenceRanges } = require('./task-references.cjs');
 const { noteAccess } = require('./note-access.cjs');
+const { dayKey: vaultDay, startOfDay } = require('./vault-time.cjs');
 
 // One local writer; deterministic copy IDs make interrupted generation retryable.
 module.exports = function installRepeating(plugin) {
@@ -18,6 +19,7 @@ module.exports = function installRepeating(plugin) {
       if (!disposed) return fn();
     });
   const find = async (id) => (await plugin.taskRecords()).find((t) => t.meta.id === id);
+  const calendarDay = (now = new Date()) => vaultDay(now, plugin.settings?.timeZone);
   const writeRule = async (task, rule) => {
     await plugin.update(task.file, (current) => {
       if (JSON.stringify(current.meta.repeat) !== JSON.stringify(task.meta.repeat))
@@ -58,7 +60,13 @@ module.exports = function installRepeating(plugin) {
   };
   const generate = async (
     task,
-    { complete = false, status = 'done', exception = null, now = new Date() } = {},
+    {
+      complete = false,
+      status = 'done',
+      exception = null,
+      now = new Date(),
+      automatic = false,
+    } = {},
   ) => {
     const rule = task.meta.repeat;
     if (!rule?.next) throw new Error('This rule is waiting for its current copy or has ended.');
@@ -78,6 +86,9 @@ module.exports = function installRepeating(plugin) {
       ])
         delete fields[key];
       Object.assign(fields, {
+        ...(automatic
+          ? { created: startOfDay(availableDate(rule), plugin.settings?.timeZone) }
+          : {}),
         status: complete ? status : 'todo',
         when: exception || availableDate(rule),
         deadline: rule.deadline ? nominal : null,
@@ -108,7 +119,7 @@ module.exports = function installRepeating(plugin) {
     return copy;
   };
   const reconcile = async (now = new Date()) => {
-    const today = dayKey(now);
+    const today = calendarDay(now);
     const templates = (await plugin.taskRecords()).filter((t) => t.meta.repeat && !t.meta.deleted);
     const errors = [];
     for (let task of templates) {
@@ -129,7 +140,7 @@ module.exports = function installRepeating(plugin) {
           if (isFinished(previous?.meta) && !previous.meta.deleted && previous.meta.completed) {
             const completed = new Date(previous.meta.completed);
             if (!Number.isNaN(completed.getTime())) {
-              rule = { ...rule, waitingFor: null, next: nextDate(rule, dayKey(completed)) };
+              rule = { ...rule, waitingFor: null, next: nextDate(rule, calendarDay(completed)) };
               task = await writeRule(task, rule);
             }
           }
@@ -141,7 +152,7 @@ module.exports = function installRepeating(plugin) {
           i++
         ) {
           if (disposed) return;
-          await generate(task, { now });
+          await generate(task, { now, automatic: true });
           task = await find(task.meta.id);
           if (task.meta.repeat.mode === 'completion') break;
         }
@@ -192,11 +203,11 @@ module.exports = function installRepeating(plugin) {
       serial(async () => {
         const task = await find(id),
           rule = { ...task.meta.repeat, paused };
-        if (!paused && rule.next && availableDate(rule) < dayKey(new Date()))
+        if (!paused && rule.next && availableDate(rule) < calendarDay())
           rule.next =
             rule.mode === 'regular'
-              ? nextDate(rule, addDays(dayKey(new Date()), rule.deadline ? rule.leadDays : 0), true)
-              : dayKey(new Date());
+              ? nextDate(rule, addDays(calendarDay(), rule.deadline ? rule.leadDays : 0), true)
+              : calendarDay();
         await writeRule(task, rule);
         await reconcile();
       }),

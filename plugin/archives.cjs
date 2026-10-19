@@ -1,9 +1,9 @@
 const { isFinished } = require('./task-status.cjs');
 const { rollbackNotes, recoveryError } = require('./note-rollback.cjs');
-const { trashExpired } = require('./archive-policy.cjs');
+const { trashExpired, plannedLogAt } = require('./archive-policy.cjs');
 const { isLogged } = require('./model.cjs');
 const { removeReferences } = require('./task-references.cjs');
-const { dayKey: localDay } = require('./local-date.cjs');
+const { dayKey: vaultDay } = require('./vault-time.cjs');
 
 module.exports = function installArchives(plugin, hasOpenDraft) {
   const notes = require('./note-access.cjs').noteAccess(plugin.app);
@@ -62,9 +62,16 @@ module.exports = function installArchives(plugin, hasOpenDraft) {
         if (
           !t.meta.deleted &&
           !t.meta.loggedAt &&
-          isLogged(t.meta, localDay(now), plugin.settings.logbook)
-        )
-          await plugin.patchTask(t, { loggedAt: now.toISOString() });
+          isLogged(
+            t.meta,
+            vaultDay(now, plugin.settings.timeZone),
+            plugin.settings.logbook,
+            plugin.settings.timeZone,
+          )
+        ) {
+          const loggedAt = plannedLogAt(t.meta, plugin.settings.logbook, plugin.settings.timeZone);
+          if (loggedAt) await plugin.patchTask(t, { loggedAt });
+        }
         if (trashExpired(t.meta, plugin.settings.trashRetention, now))
           await plugin.purgeTask(t, now);
       }

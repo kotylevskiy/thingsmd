@@ -9,14 +9,14 @@ class InboxSession {
   reset() {
     this.seen = new Set();
   }
-  update(tasks, active, today, logbook) {
+  update(tasks, active, today, logbook, timeZone) {
     for (const task of active) this.seen.add(task.meta.id);
     const current = new Set(active.map((task) => task.meta.id));
     return tasks.filter(
       (task) =>
         this.seen.has(task.meta.id) &&
         !current.has(task.meta.id) &&
-        !isHidden(task.meta, today, logbook) &&
+        !isHidden(task.meta, timeZone ? undefined : today, logbook, timeZone) &&
         !isFinished(task.meta),
     );
   }

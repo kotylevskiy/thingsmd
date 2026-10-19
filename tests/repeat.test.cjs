@@ -134,6 +134,47 @@ test('completion interval starts at actual completion and never creates a second
   await f.api.tick(new Date('2026-10-17T12:00:00'));
   assert.equal(f.copies().length, 2);
 });
+test('automatic copies generated at different times have identical contents and planned creation stamps', async () => {
+  for (const mode of ['regular', 'completion']) {
+    const first = fixture({
+      mode,
+      deadline: true,
+      leadDays: 2,
+      next: '2026-10-20',
+      anchor: '2026-10-20',
+      end: '2026-10-20',
+    });
+    const second = fixture({
+      mode,
+      deadline: true,
+      leadDays: 2,
+      next: '2026-10-20',
+      anchor: '2026-10-20',
+      end: '2026-10-20',
+    });
+    for (const f of [first, second]) f.plugin.settings = { timeZone: 'Europe/Berlin' };
+    await first.api.tick(new Date('2026-10-17T21:59:59Z'));
+    assert.equal(first.copies().length, 0);
+    await first.api.tick(new Date('2026-10-17T22:00:45Z'));
+    await second.api.tick(new Date('2026-10-19T12:00:00Z'));
+    assert.deepEqual(first.copies(), second.copies());
+    assert.equal(first.copies()[0].meta.created, '2026-10-17T22:00:00.000Z');
+    assert.equal(first.copies()[0].meta.when, '2026-10-18');
+    assert.deepEqual(first.get(), second.get());
+    assert.equal(first.notes.get('Project.md'), second.notes.get('Project.md'));
+  }
+});
+test('completion-based recurrence uses the vault completion day around midnight', async () => {
+  const f = fixture({ mode: 'completion', next: '2026-10-20', anchor: '2026-10-20' });
+  f.plugin.settings = { timeZone: 'Europe/Berlin' };
+  await f.api.tick(new Date('2026-10-19T22:00:00Z'));
+  assert.equal(f.copies().length, 1);
+  const copy = f.copies()[0];
+  copy.meta.status = 'done';
+  copy.meta.completed = '2026-10-20T22:30:00Z';
+  await f.api.tick(new Date('2026-10-20T22:30:00Z'));
+  assert.equal(f.get().meta.repeat.next, '2026-10-22');
+});
 test('interruption after creating a copy retries placement and cursor advancement idempotently', async () => {
   const f = fixture({ end: '2026-10-01' });
   const original = f.plugin.update;

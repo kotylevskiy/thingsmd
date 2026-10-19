@@ -1,5 +1,6 @@
 // Persisted preferences are normalized here; UI and policies consume this shape.
 const LOG_MODES = ['immediately', 'daily', 'weekly', 'monthly', 'manually'];
+const { validTimeZone, systemTimeZone } = require('./vault-time.cjs');
 function settings(data = {}) {
   return {
     tasksFolder: require('./task-folder-policy.cjs').taskFolder(data?.tasksFolder ?? 'ThingsMD'),
@@ -27,6 +28,7 @@ function settings(data = {}) {
     ].includes(data?.trashRetention)
       ? data.trashRetention
       : 'never',
+    timeZone: validTimeZone(data?.timeZone) ? data.timeZone : systemTimeZone(),
   };
 }
 module.exports = { settings };

@@ -1,17 +1,44 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const install = require('../plugin/settings-service.cjs');
-async function fixture() {
+async function fixture(data = null) {
   const writes = [],
     cleanup = [];
   const plugin = {
-    loadData: async () => null,
+    loadData: async () => data,
     saveData: async (value) => writes.push(value),
     register: (cb) => cleanup.push(cb),
   };
   await install(plugin);
   return { plugin, writes, cleanup };
 }
+test('first setup saves the system time zone once, preserving other saved data', async () => {
+  const { plugin, writes } = await fixture({ logbook: 'weekly', extra: 'keep' });
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  assert.equal(plugin.settings.timeZone, timeZone);
+  assert.deepEqual(writes, [{ logbook: 'weekly', extra: 'keep', timeZone }]);
+  const reloaded = await fixture(writes[0]);
+  assert.equal(reloaded.plugin.settings.timeZone, timeZone);
+  assert.equal(reloaded.writes.length, 0);
+});
+test('an existing vault time zone is retained instead of following this device', async () => {
+  const { plugin, writes } = await fixture({ timeZone: 'Pacific/Honolulu' });
+  assert.equal(plugin.settings.timeZone, 'Pacific/Honolulu');
+  assert.equal(writes.length, 0);
+  await plugin.persistSettings({ showProjectProgress: false });
+  assert.equal(writes.at(-1).timeZone, 'Pacific/Honolulu');
+});
+test('failure to save the initial time zone prevents starting with an unsaved device zone', async () => {
+  await assert.rejects(
+    install({
+      loadData: async () => null,
+      saveData: async () => {
+        throw new Error('Disk full');
+      },
+    }),
+    /Disk full/,
+  );
+});
 test('a failed settings save never activates a destructive retention policy', async () => {
   const { plugin } = await fixture();
   let maintenance = 0;

@@ -55,6 +55,16 @@ contains pure week-start policy and the compatibility fallback. Project navigati
 resolves actual note references again before opening, so stale menu destinations
 cannot silently open the wrong task location.
 
+## Vault calendar
+
+`vault-time` resolves calendar days and midnight in the vault's saved time zone,
+including daylight-saving changes. First setup saves the system time zone;
+subsequent loads retain the vault preference. Automatic archive stamps and repeat
+creation stamps use the planned boundary, not the processing device's clock.
+Logbook visibility and completion-based recurrence use that same calendar.
+Manual actions keep their actual timestamps; ordinary Today/date-picker choices
+continue to use the device's local calendar.
+
 ## Host lifetimes
 
 Cards own their drafts and interaction listeners. Hosts own mounting, refresh and

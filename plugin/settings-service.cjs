@@ -3,7 +3,11 @@ const { WriteQueue } = require('./write-queue.cjs');
 const { resolveList } = require('./lists.cjs');
 
 module.exports = async function installSettingsService(plugin) {
-  plugin.settings = settings(await plugin.loadData());
+  const data = await plugin.loadData();
+  plugin.settings = settings(data);
+  // Capture the first device's zone once; other devices must retain the saved zone.
+  if (data?.timeZone !== plugin.settings.timeZone)
+    await plugin.saveData({ ...data, timeZone: plugin.settings.timeZone });
   const writes = new WriteQueue();
   let disposed = false;
   plugin.register?.(() => {

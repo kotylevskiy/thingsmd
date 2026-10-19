@@ -186,7 +186,12 @@ module.exports = function install(plugin) {
     if (
       r.path &&
       !task.meta.deleted &&
-      !require('./model.cjs').isLogged(task.meta, day(), plugin.settings.logbook)
+      !require('./model.cjs').isLogged(
+        task.meta,
+        undefined,
+        plugin.settings.logbook,
+        plugin.settings.timeZone,
+      )
     ) {
       const file = plugin.app.vault.getAbstractFileByPath(r.path);
       if (file) {

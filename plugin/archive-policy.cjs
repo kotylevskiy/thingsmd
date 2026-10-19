@@ -1,4 +1,6 @@
 const { isFinished } = require('./task-status.cjs');
+const { dayKey: localDay } = require('./local-date.cjs');
+const { dayKey: vaultDay, startOfDay } = require('./vault-time.cjs');
 const RETENTION_MONTHS = {
   '5-years': 60,
   '3-years': 36,
@@ -6,23 +8,37 @@ const RETENTION_MONTHS = {
   '3-months': 3,
   '1-month': 1,
 };
-function shouldLog(meta, today, mode = 'daily') {
+function loggingDay(meta, mode, timeZone) {
+  const completed = new Date(meta.completed);
+  if (!meta.completed || Number.isNaN(completed.getTime())) return null;
+  const key = timeZone ? vaultDay(completed, timeZone) : localDay(completed);
+  const end = new Date(`${key}T12:00:00Z`),
+    day = end.getUTCDate();
+  if (mode !== 'monthly') {
+    end.setUTCDate(day + (mode === 'weekly' ? 7 : 1));
+    return end.toISOString().slice(0, 10);
+  }
+  end.setUTCDate(1);
+  end.setUTCMonth(end.getUTCMonth() + 1);
+  end.setUTCDate(
+    Math.min(day, new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate()),
+  );
+  return end.toISOString().slice(0, 10);
+}
+function plannedLogAt(meta, mode = 'daily', timeZone) {
+  if (mode === 'manually' || !meta.completed) return null;
+  const completed = new Date(meta.completed);
+  if (Number.isNaN(completed.getTime())) return null;
+  if (mode === 'immediately') return completed.toISOString();
+  return startOfDay(loggingDay(meta, mode, timeZone), timeZone);
+}
+function shouldLog(meta, today, mode = 'daily', timeZone) {
   if (!isFinished(meta)) return false;
   if (meta.loggedAt) return true;
   if (mode === 'manually') return false;
   if (mode === 'immediately') return true;
-  const completed = new Date(meta.completed);
-  if (!meta.completed || Number.isNaN(completed.getTime())) return true;
-  const day = new Date(today + 'T12:00:00');
-  const end = new Date(completed.getFullYear(), completed.getMonth(), completed.getDate(), 12);
-  if (mode === 'weekly') end.setDate(end.getDate() + 7);
-  else if (mode === 'monthly') {
-    const date = end.getDate();
-    end.setDate(1);
-    end.setMonth(end.getMonth() + 1);
-    end.setDate(Math.min(date, new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate()));
-  } else end.setDate(end.getDate() + 1);
-  return end <= day;
+  const end = loggingDay(meta, mode, timeZone);
+  return !end || end <= today;
 }
 function trashExpired(meta, retention, now = new Date()) {
   if (!meta.deleted || retention === 'never') return false;
@@ -41,4 +57,4 @@ function trashExpired(meta, retention, now = new Date()) {
   } else return false;
   return expires <= now;
 }
-module.exports = { shouldLog, trashExpired };
+module.exports = { shouldLog, plannedLogAt, trashExpired };

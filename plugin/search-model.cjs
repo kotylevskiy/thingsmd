@@ -14,7 +14,13 @@ function search(records, query, { broad = false, today, settings = {} } = {}) {
     (r) =>
       r.meta.type === 'thingsmd-task' &&
       !r.meta.deleted &&
-      (broad || !isLogged(r.meta, today, settings.logbook)),
+      (broad ||
+        !isLogged(
+          r.meta,
+          settings.timeZone ? undefined : today,
+          settings.logbook,
+          settings.timeZone,
+        )),
   );
   for (const p of projects.filter((p) =>
     tasks.some(
@@ -48,6 +54,7 @@ function search(records, query, { broad = false, today, settings = {} } = {}) {
             settings.logbook,
             settings.captureDestination,
             settings.enableWaiting,
+            settings.timeZone,
           ),
       ) || 'anytime';
     const refs = [

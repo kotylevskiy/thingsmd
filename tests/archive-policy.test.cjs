@@ -15,6 +15,7 @@ test('archive settings default safely and validate saved values', () => {
     showWaitingInToday: true,
     enableWaiting: false,
     mobileTaskNavigation: false,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
   assert.deepEqual(settings({ logbook: 'bad', trashRetention: 'bad' }), settings());
 });

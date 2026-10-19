@@ -14,7 +14,7 @@ function install(plugin) {
     await plugin.openList(
       task.meta.deleted
         ? 'trash'
-        : isLogged(task.meta, undefined, plugin.settings.logbook)
+        : isLogged(task.meta, undefined, plugin.settings.logbook, plugin.settings.timeZone)
           ? 'logbook'
           : 'repeating',
     );

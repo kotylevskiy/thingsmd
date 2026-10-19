@@ -16,6 +16,7 @@ function listCounts(records, day, settings) {
           settings.logbook,
           settings.captureDestination,
           settings.enableWaiting,
+          settings.timeZone,
         )
       )
         counts[key]++;

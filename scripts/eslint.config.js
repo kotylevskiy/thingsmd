@@ -45,6 +45,7 @@ export default [
       'plugin/markdown-document.cjs',
       'plugin/lists.cjs',
       'plugin/local-date.cjs',
+      'plugin/vault-time.cjs',
       'plugin/date-picker-model.cjs',
       'plugin/task-schedule.cjs',
       'plugin/archive-policy.cjs',

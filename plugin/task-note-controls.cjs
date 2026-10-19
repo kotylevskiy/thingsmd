@@ -1,5 +1,6 @@
 const TaskEditor = require('./task-editor.cjs');
 const { Notice } = require('obsidian');
+const { deferTouchRender } = require('./touch-tasks.cjs');
 
 // Share the task form's controls with native Markdown views. Keep failed drafts
 // across mode switches/navigation, so reopening the note offers a safe retry.
@@ -26,6 +27,7 @@ module.exports = (plugin) => {
   };
   const render = (entry, meta) => {
     const { root, card, path } = entry;
+    if (deferTouchRender(root)) return;
     const focused = root.contains(root.ownerDocument.activeElement)
       ? root.ownerDocument.activeElement.getAttribute('aria-label')
       : null;

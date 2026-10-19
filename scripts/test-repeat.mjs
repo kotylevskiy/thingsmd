@@ -160,9 +160,18 @@ try {
   // Completion-based rules also work through the native Markdown cards.
   const completion = await page.evaluate(
     async ({ title, note }) => {
-      const p = app.plugins.getPlugin('thingsmd'),
-        day = new Date(),
-        key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+      const p = app.plugins.getPlugin('thingsmd');
+      const parts = Object.fromEntries(
+        new Intl.DateTimeFormat('en', {
+          timeZone: p.settings.timeZone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        })
+          .formatToParts(new Date())
+          .map(({ type, value }) => [type, value]),
+      );
+      const key = `${parts.year}-${parts.month}-${parts.day}`;
       const task = await p.createTask(
         { title: title + ' completion', project: note },
         undefined,

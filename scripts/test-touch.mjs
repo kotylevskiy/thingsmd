@@ -25,9 +25,17 @@ const point = async (el) => {
     return { x: b.x + Math.min(b.width / 2, 130), y: b.y + b.height / 2 };
   });
 };
-async function tap(el, hold = 0) {
+async function tap(el, hold = 0, refresh = false) {
   const p = await point(el);
   await touch('touchStart', p.x, p.y);
+  if (refresh)
+    await page.evaluate(async () => {
+      const p = app.plugins.getPlugin('thingsmd');
+      const row = document.querySelector('.ot-touch-pending');
+      const task = (await p.taskRecords()).find((t) => t.meta.id === row?.dataset.taskId);
+      if (!task) throw new Error('The held task must remain mounted during a refresh');
+      await p.patchTask(task, { title: task.meta.title + ' refreshed' });
+    });
   if (hold) await page.waitForTimeout(hold);
   await touch('touchEnd');
 }
@@ -76,7 +84,7 @@ try {
     await page.screenshot({ path: `artifacts/touch-editor-${mode}.png` });
     await row(tasks[0].meta.id).locator('.ot-title-input').press('Enter');
     await row(tasks[0].meta.id).locator('.ot-title-input').waitFor({ state: 'hidden' });
-    await tap(row(tasks[0].meta.id).locator('.ot-task-line > input[type=checkbox]'), 600);
+    await tap(row(tasks[0].meta.id).locator('.ot-task-line > input[type=checkbox]'), 600, true);
     await page.locator('.menu').getByText('Mark as Canceled', { exact: true }).waitFor();
     assert.equal(
       await row(tasks[0].meta.id).locator('.ot-task-line > input[type=checkbox]').isChecked(),
@@ -99,6 +107,7 @@ try {
           ?.classList.contains('is-canceled'),
       tasks[0].meta.id,
     );
+    assert.match(await row(tasks[0].meta.id).locator('.ot-task-title').innerText(), / refreshed$/);
     await tap(row(tasks[0].meta.id), 600);
     await page.locator('.menu').getByText('Mark as Incomplete', { exact: true }).click();
     await waitForAsync(

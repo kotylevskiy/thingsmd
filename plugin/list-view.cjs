@@ -10,6 +10,7 @@ const { VIEW, PAGES, resolveList } = require('./lists.cjs');
 const { today } = require('./local-date.cjs');
 const { button, closePopover } = require('./dom.cjs');
 const { WriteQueue } = require('./write-queue.cjs');
+const { deferTouchRender } = require('./touch-tasks.cjs');
 let taskLabelId = 0;
 class ThingsMDView extends ItemView {
   constructor(leaf, plugin) {
@@ -57,6 +58,7 @@ class ThingsMDView extends ItemView {
       clearTimeout(this.refreshTimer);
       this.refreshTimer = setTimeout(() => {
         this.taskEditorController.refreshSettings();
+        if (deferTouchRender(this.contentEl)) return;
         if (!this.editing && !this.busy && !this.dragging) this.render();
       }, 180);
     };
@@ -144,12 +146,19 @@ class ThingsMDView extends ItemView {
   }
   async render() {
     clearTimeout(this.refreshTimer);
-    if (this.closed || this.editing || this.dragging) return;
+    if (this.closed || this.editing || deferTouchRender(this.contentEl) || this.dragging) return;
     // Obsidian's tab header and the ItemView title are separate surfaces.
     this.titleEl?.setText(this.getDisplayText());
     const generation = (this.generation = (this.generation || 0) + 1);
     const records = await this.plugin.records();
-    if (this.closed || generation !== this.generation || this.editing || this.dragging) return;
+    if (
+      this.closed ||
+      generation !== this.generation ||
+      this.editing ||
+      deferTouchRender(this.contentEl) ||
+      this.dragging
+    )
+      return;
     this.projects = records.filter((r) => r.meta.type === 'thingsmd-project');
     this.tasks = records.filter((r) => r.meta.type === 'thingsmd-task').sort(compareTasks);
     const progress = this.plugin.settings.showProjectProgress
@@ -169,6 +178,7 @@ class ThingsMDView extends ItemView {
         this.plugin.settings.logbook,
         this.plugin.settings.captureDestination,
         this.plugin.settings.enableWaiting,
+        this.plugin.settings.timeZone,
       ),
     );
     const archived = ['trash', 'logbook'].includes(this.page);
