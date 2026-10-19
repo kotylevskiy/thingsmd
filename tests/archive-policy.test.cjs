@@ -72,3 +72,13 @@ test('task notes default to new tabs and preserve the current-tab preference', (
     assert.equal(settings({ taskNotesTab: value }).taskNotesTab, 'new');
   assert.equal(settings({ taskNotesTab: 'current' }).taskNotesTab, 'current');
 });
+
+test('canceled tasks follow every completed-task Logbook policy', () => {
+  const completed = new Date(2026, 0, 31, 23, 59).toISOString();
+  for (const mode of ['manually', 'immediately', 'daily', 'weekly', 'monthly'])
+    for (const day of ['2026-01-31', '2026-02-01', '2026-02-07', '2026-02-28'])
+      assert.equal(
+        shouldLog({ status: 'canceled', completed }, day, mode),
+        shouldLog({ status: 'done', completed }, day, mode),
+      );
+});

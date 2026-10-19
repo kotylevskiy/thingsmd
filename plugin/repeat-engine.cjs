@@ -1,3 +1,4 @@
+const { isFinished } = require('./task-status.cjs');
 const { dayKey, addDays, validDate } = require('./local-date.cjs');
 const { nextDate, availableDate, validate, patternOnDate } = require('./repeat-model.cjs');
 const { WriteQueue } = require('./write-queue.cjs');
@@ -55,7 +56,10 @@ module.exports = function installRepeating(plugin) {
       await notes.write(file, before, apply(before), { save: true });
     }
   };
-  const generate = async (task, { complete = false, exception = null, now = new Date() } = {}) => {
+  const generate = async (
+    task,
+    { complete = false, status = 'done', exception = null, now = new Date() } = {},
+  ) => {
     const rule = task.meta.repeat;
     if (!rule?.next) throw new Error('This rule is waiting for its current copy or has ended.');
     const nominal = rule.next,
@@ -74,7 +78,7 @@ module.exports = function installRepeating(plugin) {
       ])
         delete fields[key];
       Object.assign(fields, {
-        status: complete ? 'done' : 'todo',
+        status: complete ? status : 'todo',
         when: exception || availableDate(rule),
         deadline: rule.deadline ? nominal : null,
         repeatSource: task.meta.id,
@@ -86,10 +90,10 @@ module.exports = function installRepeating(plugin) {
       if (complete) fields.completed = now.toISOString();
       copy = await plugin.createTask(fields, id, task.body);
     }
-    if (complete && copy.meta.status !== 'done') {
+    if (complete && !isFinished(copy.meta)) {
       await plugin.update(copy.file, (current) => ({
         ...current,
-        meta: { ...current.meta, status: 'done', completed: now.toISOString() },
+        meta: { ...current.meta, status, completed: now.toISOString() },
       }));
       copy = await find(copy.meta.id);
     }
@@ -115,18 +119,14 @@ module.exports = function installRepeating(plugin) {
         if (rule.paused) continue;
         if (rule.mode === 'completion' && !rule.waitingFor && rule.lastCopy && rule.next) {
           const previous = await find(rule.lastCopy);
-          if (previous && !previous.meta.deleted && previous.meta.status !== 'done') {
+          if (previous && !previous.meta.deleted && !isFinished(previous.meta)) {
             rule = { ...rule, waitingFor: previous.meta.id, next: null };
             task = await writeRule(task, rule);
           }
         }
         if (rule.waitingFor) {
           const previous = await find(rule.waitingFor);
-          if (
-            previous?.meta.status === 'done' &&
-            !previous.meta.deleted &&
-            previous.meta.completed
-          ) {
+          if (isFinished(previous?.meta) && !previous.meta.deleted && previous.meta.completed) {
             const completed = new Date(previous.meta.completed);
             if (!Number.isNaN(completed.getTime())) {
               rule = { ...rule, waitingFor: null, next: nextDate(rule, dayKey(completed)) };
@@ -171,7 +171,7 @@ module.exports = function installRepeating(plugin) {
         rule.next = rule.mode === 'regular' ? nextDate(rule, rule.anchor, true) : rule.anchor;
         if (rule.mode === 'completion' && rule.lastCopy) {
           const previous = await find(rule.lastCopy);
-          if (previous && !previous.meta.deleted && previous.meta.status !== 'done') {
+          if (previous && !previous.meta.deleted && !isFinished(previous.meta)) {
             rule.waitingFor = previous.meta.id;
             rule.next = null;
           }
@@ -179,12 +179,12 @@ module.exports = function installRepeating(plugin) {
         await writeRule(current, rule);
         await reconcile();
       }),
-    createNext: (id, complete = false, expectedNext) =>
+    createNext: (id, complete = false, expectedNext, status = 'done') =>
       serial(async () => {
         const task = await find(id);
         if (expectedNext !== undefined && task?.meta.repeat?.next !== expectedNext)
           throw new Error('This occurrence has already advanced.');
-        const copy = await generate(task, { complete });
+        const copy = await generate(task, { complete, status });
         await reconcile();
         return copy;
       }),

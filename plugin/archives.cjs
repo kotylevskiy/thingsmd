@@ -1,3 +1,4 @@
+const { isFinished } = require('./task-status.cjs');
 const { rollbackNotes, recoveryError } = require('./note-rollback.cjs');
 const { trashExpired } = require('./archive-policy.cjs');
 const { isLogged } = require('./model.cjs');
@@ -8,7 +9,7 @@ module.exports = function installArchives(plugin, hasOpenDraft) {
   const notes = require('./note-access.cjs').noteAccess(plugin.app);
   plugin.logCompleted = async (task = null) => {
     for (const t of task ? [task] : await plugin.taskRecords())
-      if (t.meta.status === 'done' && !t.meta.deleted && !t.meta.loggedAt)
+      if (isFinished(t.meta) && !t.meta.deleted && !t.meta.loggedAt)
         await plugin.patchTask(t, { loggedAt: new Date().toISOString() });
   };
   plugin.purgeTask = async (task, now = new Date()) => {

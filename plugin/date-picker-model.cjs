@@ -1,9 +1,33 @@
 const { dayKey, date, addDays, parseDate, validDate } = require('./local-date.cjs');
 
-function firstWeekday(locale = new Intl.DateTimeFormat().resolvedOptions().locale) {
-  const info = new Intl.Locale(locale);
-  // Safari 18 exposes weekInfo; newer engines expose getWeekInfo().
-  return (info.getWeekInfo?.() || info.weekInfo)?.firstDay % 7 || 0;
+// CLDR territory exceptions; all remaining regions start their week on Monday.
+const SUNDAY_REGIONS = new Set(
+  'AG AS BD BR BS BT BW BZ CA CO DM DO ET GT GU HK HN ID IL IN IS JM JP KE KH KR LA MH MM MO MT MX MZ NI NP PA PE PH PK PR PT PY SA SG SV TH TT TW UM US VE VI WS YE ZA ZW'.split(
+    ' ',
+  ),
+);
+const SATURDAY_REGIONS = new Set('AF BH DJ DZ EG IQ IR JO KW LY OM QA SD SY'.split(' '));
+function firstWeekday(
+  locale = new Intl.DateTimeFormat().resolvedOptions().locale,
+  Locale = Intl.Locale,
+) {
+  try {
+    const info = new Locale(locale);
+    const day = (info.getWeekInfo?.() || info.weekInfo)?.firstDay;
+    if (Number.isInteger(day) && day >= 1 && day <= 7) return day % 7;
+    const region = info.region || info.maximize?.().region;
+    if (region === 'MV') return 5;
+    return SATURDAY_REGIONS.has(region) ? 6 : SUNDAY_REGIONS.has(region) ? 0 : 1;
+  } catch {
+    const region = String(locale).match(/[-_]([A-Z]{2})(?:$|-)/)?.[1];
+    return region === 'MV'
+      ? 5
+      : SATURDAY_REGIONS.has(region)
+        ? 6
+        : SUNDAY_REGIONS.has(region)
+          ? 0
+          : 1;
+  }
 }
 function calendarDays(start, count, weekStart) {
   const offset = (date(start).getDay() - weekStart + 7) % 7;

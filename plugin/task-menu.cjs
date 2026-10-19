@@ -1,3 +1,4 @@
+const { isFinished } = require('./task-status.cjs');
 const { Menu, Notice } = require('obsidian');
 const MoveDialog = require('./move-dialog.cjs');
 const TaskDateDialog = require('./task-date-dialog.cjs');
@@ -98,18 +99,30 @@ module.exports = function installTaskMenu(plugin) {
       if (task.meta.deleted) item('Restore', 'undo-2', (t) => plugin.restoreTask(t));
       else {
         item(
-          task.meta.status === 'done' ? 'Mark Incomplete' : 'Complete',
-          task.meta.status === 'done' ? 'square' : 'check-square',
-          (t) => plugin.patchTask(t, { status: t.meta.status === 'done' ? 'todo' : 'done' }),
+          isFinished(task.meta) ? 'Mark as Incomplete' : 'Complete',
+          isFinished(task.meta) ? 'square' : 'check-square',
+          (t) => plugin.patchTask(t, { status: isFinished(t.meta) ? 'todo' : 'done' }),
           !!task.meta.repeat && !task.meta.repeat.next,
         );
+        if (task.meta.status !== 'canceled')
+          item(
+            'Mark as Canceled',
+            'square-x',
+            (t) => plugin.patchTask(t, { status: 'canceled' }),
+            !!task.meta.repeat && !task.meta.repeat.next,
+          );
         if (plugin.settings.enableWaiting !== false)
           item(
             task.meta.is_waiting ? 'Stop Waiting' : 'Mark as Waiting',
             'thingsmd-paper-plane',
             (t) => plugin.patchTask(t, { is_waiting: !t.meta.is_waiting }),
           );
-        if (task.meta.status === 'done')
+        const projects = await require('./project-navigation.cjs').destinations(plugin, task);
+        if (projects.length)
+          item('Show in Project', 'file-search', (t) =>
+            require('./project-navigation.cjs').show(plugin, t),
+          );
+        if (isFinished(task.meta))
           item('Move to Logbook', 'book-check', (t) => plugin.logCompleted(t));
         menu.addSeparator();
         item('Move…', 'arrow-right', () => plugin.openDialog(MoveDialog, ctx));

@@ -75,6 +75,11 @@ try {
       { fixture },
     );
     await capture.getByLabel('Task title', { exact: true }).fill(prefix);
+    assert.equal(
+      await capture.locator('.ot-capture-hint').isVisible(),
+      !mobile,
+      'Tab hint is desktop only',
+    );
     await open('When');
     assert.ok(await picker.evaluate((el) => el.classList.contains('is-compact-calendar')));
     for (const label of ['Tomorrow', 'Next week', 'Anytime'])

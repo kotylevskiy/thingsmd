@@ -13,46 +13,50 @@ function fixture(native = false, meta = {}) {
     module,
     document: { defaultView: {} },
     require: (name) =>
-      name === './task-controller.cjs'
-        ? require('../plugin/task-controller.cjs')
-        : {
-            Menu: class {
-              constructor() {
-                this.items = [];
-              }
-              setUseNativeMenu() {}
-              addSeparator() {}
-              hide() {}
-              showAtMouseEvent() {
-                menus.push(this);
-              }
-              addItem(build) {
-                const entry = {
-                  setTitle(title) {
-                    this.title = title;
-                    return this;
-                  },
-                  setIcon() {
-                    return this;
-                  },
-                  setDisabled() {
-                    return this;
-                  },
-                  onClick(action) {
-                    this.action = action;
-                    return this;
-                  },
-                };
-                build(entry);
-                this.items.push(entry);
-              }
-            },
-            Notice: class {
-              constructor(message) {
-                notices.push(message);
-              }
-            },
-          },
+      name === './task-status.cjs'
+        ? require('../plugin/task-status.cjs')
+        : name === './project-navigation.cjs'
+          ? { destinations: async () => [] }
+          : name === './task-controller.cjs'
+            ? require('../plugin/task-controller.cjs')
+            : {
+                Menu: class {
+                  constructor() {
+                    this.items = [];
+                  }
+                  setUseNativeMenu() {}
+                  addSeparator() {}
+                  hide() {}
+                  showAtMouseEvent() {
+                    menus.push(this);
+                  }
+                  addItem(build) {
+                    const entry = {
+                      setTitle(title) {
+                        this.title = title;
+                        return this;
+                      },
+                      setIcon() {
+                        return this;
+                      },
+                      setDisabled() {
+                        return this;
+                      },
+                      onClick(action) {
+                        this.action = action;
+                        return this;
+                      },
+                    };
+                    build(entry);
+                    this.items.push(entry);
+                  }
+                },
+                Notice: class {
+                  constructor(message) {
+                    notices.push(message);
+                  }
+                },
+              },
   });
   let saves = 0;
   const card = {

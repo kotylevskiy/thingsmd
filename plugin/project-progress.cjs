@@ -1,3 +1,4 @@
+const { isFinished } = require('./task-status.cjs');
 const { taskReferences } = require('./task-references.cjs');
 function projectProgress(records) {
   const result = new Map();
@@ -16,7 +17,7 @@ function projectProgress(records) {
       const task = tasks.get(path);
       if (!task) continue;
       total++;
-      if (task.meta.status === 'done') done++;
+      if (isFinished(task.meta)) done++;
     }
     if (total) result.set(note.file.path, { total, done });
   }
@@ -26,7 +27,7 @@ function renderProgress(parent, progress) {
   const el = parent.ownerDocument.createElement('span');
   el.className = 'ot-project-progress';
   el.setAttribute('role', 'img');
-  el.setAttribute('aria-label', `${progress.done} of ${progress.total} tasks completed`);
+  el.setAttribute('aria-label', `${progress.done} of ${progress.total} tasks finished`);
   el.title = el.getAttribute('aria-label');
   const svg = parent.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 16 16');

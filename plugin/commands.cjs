@@ -1,3 +1,4 @@
+const { isFinished } = require('./task-status.cjs');
 const { dayAfter } = require('./local-date.cjs');
 const { LISTS, isListAvailable } = require('./lists.cjs');
 const { Notice } = require('obsidian');
@@ -197,8 +198,33 @@ module.exports = function (plugin) {
     (c) => editable(c) && plugin.settings.enableWaiting !== false,
   );
   patch('complete-task', 'Toggle task completion', (t) => ({
-    status: t.meta.status === 'done' ? 'todo' : 'done',
+    status: isFinished(t.meta) ? 'todo' : 'done',
   }));
+  patch('cancel-task', 'Mark as Canceled', { status: 'canceled' });
+  plugin.registerDomEvent(
+    document.defaultView,
+    'keydown',
+    (event) => {
+      if (
+        event.key.toLowerCase() !== 'k' ||
+        !event.altKey ||
+        !(event.metaKey || event.ctrlKey) ||
+        event.shiftKey ||
+        event.repeat
+      )
+        return;
+      if (event.target.closest('input,textarea,[contenteditable="true"]')) return;
+      const c = context();
+      if (!c || !editable(c)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      safe(async () => {
+        const task = await fresh(c);
+        if (task) await plugin.patchTask(task, { status: 'canceled' });
+      });
+    },
+    true,
+  );
   for (const [id, name, value] of [
     ['task-today', 'Schedule task: Today', 'today'],
     ['task-evening', 'Schedule task: This Evening', 'evening'],
@@ -275,9 +301,9 @@ module.exports = function (plugin) {
     'Move completed task to Logbook',
     async (c) => {
       const t = await fresh(c);
-      if (t?.meta.status === 'done') await plugin.logCompleted(t);
+      if (isFinished(t?.meta)) await plugin.logCompleted(t);
     },
-    (c) => c.task?.meta.status === 'done' && editable(c),
+    (c) => isFinished(c.task?.meta) && editable(c),
   );
   register(
     'repeat-task',

@@ -40,3 +40,54 @@ test('date search rejects impossible dates, unsupported time expressions and emp
   for (const text of ['', '31.04.2026', '2027-02-29', 'February 30', 'tomorrow 2pm', 'nonsense'])
     assert.deepEqual(keys(text), [], text);
 });
+
+test('week start supports legacy getter, modern method and regional fallback', () => {
+  assert.equal(
+    firstWeekday(
+      'en-US',
+      class {
+        getWeekInfo() {
+          return { firstDay: 7 };
+        }
+      },
+    ),
+    0,
+  );
+  assert.equal(
+    firstWeekday(
+      'ru-RU',
+      class {
+        get weekInfo() {
+          return { firstDay: 1 };
+        }
+      },
+    ),
+    1,
+  );
+  const LegacyLocale = class {
+    constructor(locale) {
+      this.region = locale.split('-')[1];
+    }
+  };
+  for (const [locale, day] of [
+    ['en-US', 0],
+    ['ru-RU', 1],
+    ['en-GB', 1],
+    ['ar-EG', 6],
+    ['is-IS', 0],
+  ])
+    assert.equal(firstWeekday(locale, LegacyLocale), day);
+});
+
+test('regional fallback handles language-only locales through maximization', () => {
+  class LegacyLocale {
+    constructor(locale) {
+      this.locale = locale;
+    }
+    maximize() {
+      return { region: this.locale === 'en' ? 'US' : 'RU' };
+    }
+  }
+  assert.equal(firstWeekday('en', LegacyLocale), 0);
+  assert.equal(firstWeekday('ru', LegacyLocale), 1);
+});

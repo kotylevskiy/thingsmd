@@ -12,10 +12,12 @@ vm.runInNewContext(fs.readFileSync('plugin/task-indicators.cjs', 'utf8'), {
             el.icon = icon;
           },
         }
-      : {},
+      : name === './task-status.cjs'
+        ? require('../plugin/task-status.cjs')
+        : {},
 });
 test('waiting badge follows details, survives completion and is omitted in Waiting For', () => {
-  for (const status of ['todo', 'done']) {
+  for (const status of ['todo', 'done', 'canceled']) {
     const children = ['checkbox', 'title', 'notes'];
     const line = {
       createSpan: (options) => {
@@ -26,7 +28,7 @@ test('waiting badge follows details, survives completion and is omitted in Waiti
     mod.exports.waitingIndicator(line, { is_waiting: true, status }, 'logbook');
     assert.equal(children.length, 4);
     assert.equal(children[3].icon, 'thingsmd-paper-plane');
-    assert.equal(children[3].cls.includes('is-completed'), status === 'done');
+    assert.equal(children[3].cls.includes('is-completed'), status !== 'todo');
     assert.equal(children[3].attr['aria-label'], 'Waiting For');
     mod.exports.waitingIndicator(line, { is_waiting: true, status }, 'waiting');
     mod.exports.waitingIndicator(line, { is_waiting: false, status }, 'anytime');

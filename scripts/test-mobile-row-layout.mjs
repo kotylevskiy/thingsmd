@@ -33,8 +33,8 @@ try {
       .map(
         (marker) => `
     <div class="ot-task is-selected"><div class="ot-task-line">
-    <input type="checkbox">${marker === 'today' ? '<span class="ot-today-marker">★</span>' : ''}<span class="ot-task-title">${title}</span>${marker === 'repeat' ? '<span class="ot-repeat-indicator">↻</span>' : ''}
-    <span class="ot-task-details"><span class="ot-note-icon">▤</span></span>
+    <input type="checkbox">${marker === 'today' ? '<span class="ot-today-marker">★</span>' : ''}<span class="ot-task-title">${title}</span>
+    <span class="ot-task-details"><span class="ot-note-icon">▤</span></span>${marker === 'repeat' ? '<span class="ot-repeat-indicator">↻</span>' : ''}
     <span class="ot-waiting-marker">➜</span><span class="ot-row-indicators"><span class="ot-row-date ot-row-deadline">⚑ Oct 20</span></span>
     </div></div>`,
       )
@@ -93,16 +93,17 @@ try {
         ? await box('.ot-repeat-indicator')
         : null;
       if (repeat) {
-        assert.ok(Math.abs(repeat.x - text.x - text.width - 6) < 1, 'Repeat follows the title');
+        const waiting = await box('.ot-waiting-marker');
+        assert.ok(
+          Math.abs(waiting.x - repeat.x - repeat.width - 6) < 1,
+          'Repeat immediately precedes Waiting',
+        );
         assert.ok(Math.abs(repeat.y + repeat.height / 2 - (text.y + text.height / 2)) < 2);
       }
       if (await row.locator('.ot-task-details').count()) {
         const details = await box('.ot-task-details');
         assert.ok(Math.abs(details.y + details.height / 2 - (text.y + text.height / 2)) < 2);
-        assert.ok(
-          Math.abs(details.x - (repeat || text).x - (repeat || text).width - 6) < 1,
-          'Details follow the title and its optional repeat marker',
-        );
+        assert.ok(Math.abs(details.x - text.x - text.width - 6) < 1, 'Details follow the title');
       }
       for (const selector of ['.ot-row-indicators']) {
         if (!(await row.locator(selector).count())) continue;

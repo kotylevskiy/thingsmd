@@ -1,3 +1,4 @@
+const { isFinished } = require('./task-status.cjs');
 const RETENTION_MONTHS = {
   '5-years': 60,
   '3-years': 36,
@@ -6,7 +7,7 @@ const RETENTION_MONTHS = {
   '1-month': 1,
 };
 function shouldLog(meta, today, mode = 'daily') {
-  if (meta.status !== 'done') return false;
+  if (!isFinished(meta)) return false;
   if (meta.loggedAt) return true;
   if (mode === 'manually') return false;
   if (mode === 'immediately') return true;

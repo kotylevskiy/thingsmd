@@ -318,3 +318,43 @@ test('completion-based repeats honor the end date, including the last allowed oc
   assert.equal(nextDate(config, '2026-10-04'), '2026-10-05');
   assert.equal(nextDate(config, '2026-10-05'), null);
 });
+
+test('canceling the next occurrence preserves the template and rejects duplicate generation', async () => {
+  const f = fixture({ anchor: '2099-01-01', next: '2099-01-01' });
+  try {
+    const copy = await f.api.createNext('template', true, '2099-01-01', 'canceled');
+    assert.equal(copy.meta.status, 'canceled');
+    assert.ok(copy.meta.completed);
+    assert.equal(f.get().meta.status, 'todo');
+    assert.equal(f.get().meta.repeat.next, '2099-01-02');
+    await assert.rejects(
+      f.api.createNext('template', true, '2099-01-01', 'canceled'),
+      /already advanced/,
+    );
+    assert.equal(f.copies().length, 1);
+  } finally {
+    f.plugin.unload();
+  }
+});
+
+test('completion-based repetition advances from cancellation and waits again on reopen', async () => {
+  const f = fixture({ mode: 'completion', anchor: '2099-01-01', next: '2099-01-01' });
+  try {
+    const copy = await f.api.createNext('template', false, '2099-01-01');
+    await f.plugin.update(copy.file, (current) => ({
+      ...current,
+      meta: { ...current.meta, status: 'canceled', completed: '2099-01-01T12:00:00Z' },
+    }));
+    await f.api.tick(new Date(2098, 11, 31));
+    assert.equal(f.get().meta.repeat.next, '2099-01-02');
+    await f.plugin.update(copy.file, (current) => ({
+      ...current,
+      meta: { ...current.meta, status: 'todo', completed: null },
+    }));
+    await f.api.tick(new Date(2098, 11, 31));
+    assert.equal(f.get().meta.repeat.next, null);
+    assert.equal(f.get().meta.repeat.waitingFor, copy.meta.id);
+  } finally {
+    f.plugin.unload();
+  }
+});

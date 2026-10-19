@@ -1,3 +1,4 @@
+const { isFinished } = require('./task-status.cjs');
 const { closePopover } = require('./dom.cjs');
 const TaskEditor = require('./task-editor.cjs');
 const { taskIndicators } = require('./task-indicators.cjs');
@@ -50,7 +51,7 @@ module.exports = function nativeTaskCard(
       return;
     }
     const row = root.createDiv({
-      cls: `ot-task ${task.meta.status === 'done' ? 'is-done' : ''}`,
+      cls: `ot-task ${isFinished(task.meta) ? 'is-done' : ''}`,
       attr: { tabindex: '0', 'data-task-id': task.meta.id },
     });
     const labelId = `ot-task-label-${crypto.randomUUID()}`;
@@ -59,12 +60,16 @@ module.exports = function nativeTaskCard(
     const check = line.createEl('input', {
       attr: { type: 'checkbox', 'aria-labelledby': labelId },
     });
-    check.checked = task.meta.status === 'done';
+    check.checked = isFinished(task.meta);
     check.disabled = !!task.meta.repeat && !task.meta.repeat.next;
     taskState(row, task.meta);
+    let cancelClick = false;
+    check.onclick = (event) => {
+      cancelClick = event.altKey;
+    };
     check.onchange = () =>
       plugin
-        .patchTask(task, { status: check.checked ? 'done' : 'todo' })
+        .patchTask(task, { status: cancelClick ? 'canceled' : check.checked ? 'done' : 'todo' })
         .catch((e) => new Notice(e.message));
     line.createSpan({
       cls: 'ot-task-title',

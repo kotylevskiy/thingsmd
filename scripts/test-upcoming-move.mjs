@@ -46,9 +46,16 @@ try {
     if (width === 390) {
       await modal.getByRole('button', { name: 'Show full calendar', exact: true }).click();
       await modal.getByRole('button', { name: 'Next month', exact: true }).click();
-      const day = modal.locator('.ot-calendar-day:not(.is-outside)').nth(14);
-      expected = await day.getAttribute('data-date');
-      await day.click();
+      // The scrolling calendar rebases offscreen weeks. Select a visible date by
+      // identity, rather than an index that can change during Playwright scrolling.
+      expected = await modal.locator('.ot-calendar-scroll').evaluate((scroll) => {
+        const bounds = scroll.getBoundingClientRect();
+        return [...scroll.querySelectorAll('[data-date]')].find((day) => {
+          const rect = day.getBoundingClientRect();
+          return rect.top > bounds.top + 5 && rect.bottom < bounds.bottom - 5;
+        }).dataset.date;
+      });
+      await modal.locator(`[data-date="${expected}"]`).click();
     } else {
       await modal.getByLabel('When date', { exact: true }).fill(expected);
       await modal.getByLabel('When date', { exact: true }).press('Enter');

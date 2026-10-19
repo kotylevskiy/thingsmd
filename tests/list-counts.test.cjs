@@ -17,6 +17,8 @@ test('sidebar counts unfinished Inbox and Today tasks once, including evening an
         task({ when: '2026-10-15' }),
         task({ deadline: '2026-10-15' }),
         task({ status: 'done', when: 'today' }),
+        task({ status: 'canceled', when: 'today' }),
+        task({ status: 'canceled' }),
         task({ deleted: true, when: 'today' }),
         task({ repeat: { next: '2026-10-16' }, when: 'today' }),
         task({ when: '2099-01-01' }),

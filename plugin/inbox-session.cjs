@@ -1,3 +1,4 @@
+const { isFinished } = require('./task-status.cjs');
 const { isHidden } = require('./model.cjs');
 
 // Placement history belongs to one visit, never to persisted task metadata.
@@ -16,7 +17,7 @@ class InboxSession {
         this.seen.has(task.meta.id) &&
         !current.has(task.meta.id) &&
         !isHidden(task.meta, today, logbook) &&
-        task.meta.status !== 'done',
+        !isFinished(task.meta),
     );
   }
 }

@@ -1,3 +1,4 @@
+const { isFinished } = require('./task-status.cjs');
 const { normalizeSchedule, applySchedulePolicy } = require('./task-schedule.cjs');
 
 // Application actions coordinate storage, repeat rules and user decisions.
@@ -5,8 +6,8 @@ const { normalizeSchedule, applySchedulePolicy } = require('./task-schedule.cjs'
 const actions = {
   async patchTask(task, patch, body, { notify = true } = {}) {
     patch = normalizeSchedule(patch);
-    if (task.meta.repeat && patch.status === 'done') {
-      await this.repeating.createNext(task.meta.id, true, task.meta.repeat.next);
+    if (task.meta.repeat && isFinished(patch)) {
+      await this.repeating.createNext(task.meta.id, true, task.meta.repeat.next, patch.status);
       return;
     }
     if (task.meta.repeat && Object.hasOwn(patch, 'when') && patch.when !== task.meta.when) {
@@ -41,7 +42,7 @@ const actions = {
     // Derive placement only after the user accepts or cancels rescheduling.
     patch = applySchedulePolicy(task.meta, patch);
     if (Object.hasOwn(patch, 'status') && !Object.hasOwn(patch, 'completed'))
-      patch = { ...patch, completed: patch.status === 'done' ? new Date().toISOString() : null };
+      patch = { ...patch, completed: isFinished(patch) ? new Date().toISOString() : null };
     if (Object.hasOwn(patch, 'status')) patch = { ...patch, loggedAt: null };
     let before;
     const saved = await this.update(task.file, (current) => {

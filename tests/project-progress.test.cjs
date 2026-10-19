@@ -25,3 +25,22 @@ test('progress counts unique task references including logged completions, exclu
   assert.equal(settings().showProjectProgress, true);
   assert.equal(settings({ showProjectProgress: false }).showProjectProgress, false);
 });
+
+test('Things screenshot parity: canceled tasks advance project progress', () => {
+  for (const [statuses, done] of [
+    [['canceled', 'todo'], 1],
+    [['canceled', 'done'], 2],
+    [['todo', 'done'], 1],
+  ]) {
+    const records = statuses.map((status, i) => ({
+      file: { path: `task${i}.md` },
+      meta: { type: 'thingsmd-task', status },
+    }));
+    records.push({
+      file: { path: 'Project.md' },
+      meta: { type: 'thingsmd-project' },
+      body: '![[task0]]\n![[task1]]',
+    });
+    assert.deepEqual(projectProgress(records).get('Project.md'), { total: 2, done });
+  }
+});

@@ -1,3 +1,4 @@
+const { isFinished } = require('./task-status.cjs');
 const { isLogged, inList } = require('./model.cjs');
 const { PAGES: LISTS, isListAvailable } = require('./lists.cjs');
 function search(records, query, { broad = false, today, settings = {} } = {}) {
@@ -62,7 +63,12 @@ function search(records, query, { broad = false, today, settings = {} } = {}) {
       results.push({
         kind: 'task',
         title: t.meta.title || 'New task',
-        icon: t.meta.status === 'done' ? 'circle-check' : 'square',
+        icon:
+          t.meta.status === 'canceled'
+            ? 'square-x'
+            : isFinished(t.meta)
+              ? 'circle-check'
+              : 'square',
         id: t.meta.id,
         path,
         page,

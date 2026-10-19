@@ -1,3 +1,4 @@
+const { isFinished } = require('./task-status.cjs');
 const { WriteQueue } = require('./write-queue.cjs');
 const { parseYaml, stringifyYaml } = require('obsidian');
 const { DEFAULT_FOLDER } = require('./task-folder-policy.cjs');
@@ -156,7 +157,7 @@ const methods = {
         },
         body,
       };
-      if (record.meta.status === 'done' && !record.meta.completed)
+      if (isFinished(record.meta) && !record.meta.completed)
         record.meta.completed = new Date().toISOString();
       const file = this.app.vault.create
         ? await this.app.vault.create(path, encode(record))

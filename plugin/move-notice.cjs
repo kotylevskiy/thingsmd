@@ -1,11 +1,11 @@
+const { isFinished } = require('./task-status.cjs');
 const { inList } = require('./model.cjs');
 const { PAGES } = require('./lists.cjs');
 const { today } = require('./local-date.cjs');
 const lists = ['inbox', 'today', 'upcoming', 'anytime', 'someday', 'waiting'];
 
 function moveMessage(before, after, settings = {}, day = today(), preferred) {
-  if (!after || before.meta.deleted || after.meta.deleted || after.meta.status === 'done')
-    return null;
+  if (!after || before.meta.deleted || after.meta.deleted || isFinished(after.meta)) return null;
   const membership = (task) =>
     lists.filter((list) =>
       inList(

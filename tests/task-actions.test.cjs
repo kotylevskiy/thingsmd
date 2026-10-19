@@ -106,3 +106,30 @@ test('cancelling a repeat-copy move keeps deadline-driven Today membership', asy
   assert.equal(get().meta.deadlineDeferredOn, null);
   assert.equal(inToday(get().meta, today()), true);
 });
+
+test('cancellation records finish time, preserves content and can be reopened', async () => {
+  const { plugin, task, get } = fixture({}, { status: 'todo', completed: null });
+  await plugin.patchTask(task, { status: 'canceled' });
+  assert.equal(get().meta.status, 'canceled');
+  assert.ok(Number.isFinite(Date.parse(get().meta.completed)));
+  assert.equal(get().body, task.body);
+  await plugin.restoreTask({ ...task, ...get() }, true);
+  assert.equal(get().meta.status, 'todo');
+  assert.equal(get().meta.completed, null);
+});
+test('cancellation rejects conflicting external status without overwriting it', async () => {
+  const { plugin, task, get } = fixture({ status: 'done' }, { status: 'todo' });
+  await assert.rejects(plugin.patchTask(task, { status: 'canceled' }), /changed elsewhere/);
+  assert.equal(get().meta.status, 'done');
+});
+
+test('Trash restoration retains cancellation instead of reopening it', async () => {
+  const { plugin, task, get } = fixture(
+    {},
+    { status: 'canceled', deleted: true, deletedAt: '2026-10-19' },
+  );
+  await plugin.restoreTask(task);
+  assert.equal(get().meta.status, 'canceled');
+  assert.equal(get().meta.completed, task.meta.completed);
+  assert.equal(get().meta.deleted, null);
+});

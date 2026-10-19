@@ -17,6 +17,7 @@ module.exports = async function installNative(plugin) {
   const cards = new Set();
   let records = [];
   const pendingCreations = new Map();
+  const pendingDeletions = new Set();
   const openOnCreate = new Set();
   let timer;
   let disposed = false,
@@ -240,6 +241,36 @@ module.exports = async function installNative(plugin) {
             }
           };
           this.key = (e) => {
+            if (
+              e.target === view.contentDOM &&
+              !e.altKey &&
+              !e.metaKey &&
+              !e.ctrlKey &&
+              !e.shiftKey &&
+              ['Backspace', 'Delete'].includes(e.key) &&
+              view.state.field(editorLivePreviewField, false) &&
+              view.state.selection.ranges.length === 1 &&
+              view.state.selection.main.empty
+            ) {
+              const reference = require('./task-reference-deletion.cjs').deletionTarget(
+                view.state.doc.toString(),
+                view.state.selection.main.head,
+                e.key,
+              );
+              const task = reference && lookup(reference.path);
+              if (task) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                if (!task.meta.deleted && !pendingDeletions.has(task.meta.id)) {
+                  pendingDeletions.add(task.meta.id);
+                  plugin
+                    .trashTask(task)
+                    .catch((error) => new Notice(error.message))
+                    .finally(() => pendingDeletions.delete(task.meta.id));
+                }
+                return;
+              }
+            }
             if (
               !view.contentDOM.contains(e.target) ||
               e.altKey ||

@@ -1,3 +1,4 @@
+const { isFinished } = require('./task-status.cjs');
 const { setIcon } = require('obsidian');
 const { today, dayAfter, daysBetween, validDate } = require('./local-date.cjs');
 const { inToday, inEvening, isTodayWhen } = require('./model.cjs');
@@ -5,19 +6,12 @@ const { inToday, inEvening, isTodayWhen } = require('./model.cjs');
 function waitingIndicator(line, meta, page, enableWaiting = true) {
   if (!enableWaiting || meta.is_waiting !== true || page === 'waiting') return;
   const marker = line.createSpan({
-    cls: 'ot-waiting-marker' + (meta.status === 'done' ? ' is-completed' : ''),
+    cls: 'ot-waiting-marker' + (isFinished(meta) ? ' is-completed' : ''),
     attr: { role: 'img', 'aria-label': 'Waiting For', title: 'Waiting For' },
   });
   setIcon(marker, 'thingsmd-paper-plane');
 }
 function taskIndicators(line, task, page, enableWaiting = true) {
-  if (task.meta.repeat || task.meta.repeatSource) {
-    const repeat = line.createSpan({
-      cls: 'ot-repeat-indicator' + (task.meta.repeat ? ' is-template' : ''),
-      attr: { 'aria-label': task.meta.repeat ? 'Repeating template' : 'Repeating copy' },
-    });
-    setIcon(repeat, 'repeat');
-  }
   const details =
     task.meta.checklist?.length || task.body.trim() ? line.createSpan('ot-task-details') : null;
   if (task.meta.checklist?.length) {
@@ -36,6 +30,13 @@ function taskIndicators(line, task, page, enableWaiting = true) {
     const icon = note.createSpan({ attr: { 'aria-hidden': 'true' } });
     setIcon(icon, 'file-text');
     note.createSpan({ cls: 'ot-sr-only', text: 'Has notes' });
+  }
+  if (task.meta.repeat || task.meta.repeatSource) {
+    const repeat = line.createSpan({
+      cls: 'ot-repeat-indicator' + (task.meta.repeat ? ' is-template' : ''),
+      attr: { 'aria-label': task.meta.repeat ? 'Repeating template' : 'Repeating copy' },
+    });
+    setIcon(repeat, 'repeat');
   }
   waitingIndicator(line, task.meta, page, enableWaiting);
   if (page !== 'today' && inToday(task.meta, today())) {
@@ -85,7 +86,7 @@ function taskIndicators(line, task, page, enableWaiting = true) {
     const item = dates.createSpan({ cls: `ot-row-date ot-row-${key}` });
     item.toggleClass(
       'is-overdue',
-      key === 'deadline' && validDate(value) && value <= current && task.meta.status !== 'done',
+      key === 'deadline' && validDate(value) && value <= current && !isFinished(task.meta),
     );
     const glyph = item.createSpan({ attr: { 'aria-hidden': 'true' } });
     setIcon(glyph, icon);

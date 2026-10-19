@@ -1,3 +1,4 @@
+const { isFinished } = require('./task-status.cjs');
 const { inList } = require('./model.cjs');
 const { today } = require('./local-date.cjs');
 
@@ -5,8 +6,7 @@ const { today } = require('./local-date.cjs');
 function listCounts(records, day, settings) {
   const counts = { inbox: 0, today: 0 };
   for (const task of records) {
-    if (task.meta.type !== 'thingsmd-task' || task.meta.status === 'done' || task.meta.repeat)
-      continue;
+    if (task.meta.type !== 'thingsmd-task' || isFinished(task.meta) || task.meta.repeat) continue;
     for (const key of Object.keys(counts)) {
       if (
         inList(

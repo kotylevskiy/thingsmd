@@ -1,3 +1,4 @@
+const { isFinished } = require('./task-status.cjs');
 const TaskEditor = require('./task-editor.cjs');
 const InboxSession = require('./inbox-session.cjs');
 const { taskIndicators, waitingIndicator } = require('./task-indicators.cjs');
@@ -289,7 +290,7 @@ class ThingsMDView extends ItemView {
     const expanded = this.expanded === task.meta.id && this.expandedOccurrence === occurrence;
     const labelId = `ot-list-task-label-${++taskLabelId}`;
     const row = parent.createDiv({
-      cls: `ot-task ${task.meta.status === 'done' ? 'is-done' : ''} ${expanded ? 'is-expanded' : ''} ${this.selected === task.meta.id && this.selectedOccurrence === occurrence ? 'is-selected' : ''}`,
+      cls: `ot-task ${isFinished(task.meta) ? 'is-done' : ''} ${expanded ? 'is-expanded' : ''} ${this.selected === task.meta.id && this.selectedOccurrence === occurrence ? 'is-selected' : ''}`,
       attr: {
         'data-task-id': task.meta.id,
         'data-occurrence': occurrence,
@@ -320,10 +321,15 @@ class ThingsMDView extends ItemView {
     const check = line.createEl('input', {
       attr: { type: 'checkbox', 'aria-labelledby': labelId },
     });
-    check.checked = task.meta.status === 'done';
+    check.checked = isFinished(task.meta);
     check.disabled = this.page === 'trash' || (!!task.meta.repeat && !task.meta.repeat.next);
+    let cancelClick = false;
+    check.onclick = (event) => {
+      cancelClick = event.altKey;
+    };
     check.onchange = async () => {
       const done = check.checked;
+      const status = cancelClick ? 'canceled' : done ? 'done' : 'todo';
       if (this.taskDraft && !(await this.finishTask(false))) {
         check.checked = !done;
         return;
@@ -336,8 +342,7 @@ class ThingsMDView extends ItemView {
       if (current)
         this.run(() =>
           this.plugin.patchTask(current, {
-            status: done ? 'done' : 'todo',
-            completed: done ? new Date().toISOString() : null,
+            status,
           }),
         );
     };

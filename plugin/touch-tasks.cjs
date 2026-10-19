@@ -41,7 +41,7 @@ module.exports = function install(plugin) {
       if (
         !row ||
         (row.classList.contains('is-expanded') && !taskNote) ||
-        e.target.closest('input,textarea,button,a')
+        e.target.closest('input:not([type=checkbox]),textarea,button,a')
       )
         return;
       clear();
@@ -54,7 +54,12 @@ module.exports = function install(plugin) {
         y: t.clientY,
         // Task notes keep their controls expanded. They still need a hold menu,
         // but dragging this header must never reorder the native Markdown note.
-        driver: taskNote ? undefined : native ? native._otTouchDrag : row._otTouchDrag,
+        driver:
+          taskNote || e.target.matches('input[type=checkbox]')
+            ? undefined
+            : native
+              ? native._otTouchDrag
+              : row._otTouchDrag,
       };
       state.driver?.hold?.();
       state.timer = setTimeout(() => {
@@ -124,7 +129,7 @@ module.exports = function install(plugin) {
       if (
         Date.now() < suppressUntil &&
         e.target.closest('.ot-task') &&
-        !e.target.closest('button,input,textarea')
+        !e.target.closest('button,input:not([type=checkbox]),textarea')
       ) {
         e.preventDefault();
         e.stopImmediatePropagation();

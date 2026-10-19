@@ -81,3 +81,19 @@ test('repeating templates show the nominal deadline while placement remains on t
   }).querySelector('.ot-row-indicators');
   assert.equal(completed.children[0].cls.includes('is-overdue'), false);
 });
+
+test('repeat marker follows details and immediately precedes Waiting', () => {
+  const line = new Element();
+  line.createSpan('ot-task-title');
+  mod.exports.taskIndicators(line, {
+    meta: { repeatSource: 'template', is_waiting: true },
+    body: 'Notes',
+  });
+  const classes = line.children.map((child) => child.cls);
+  assert.deepEqual(classes.slice(0, 4), [
+    'ot-task-title',
+    'ot-task-details',
+    'ot-repeat-indicator',
+    'ot-waiting-marker',
+  ]);
+});

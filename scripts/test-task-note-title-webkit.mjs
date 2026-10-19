@@ -6,6 +6,11 @@ const { browser, page } = await browserFixture({
   pageOptions: { viewport: { width: 390, height: 844 }, hasTouch: true },
 });
 try {
+  // Obsidian supplies the custom checkbox box/pseudo-element. This standalone
+  // WebKit fixture must provide that host styling before measuring our X.
+  await page.addStyleTag({
+    content: `input[type="checkbox"] { appearance: none; position: relative; } input[type="checkbox"]::after { content: ""; position: absolute; }`,
+  });
   await page.evaluate(() => {
     window.loadPluginModule('obsidian').parseYaml = JSON.parse;
     window.loadPluginModule('obsidian').setIcon = (el, name) => {
@@ -110,6 +115,30 @@ try {
     );
     assert.equal(await heading.locator('*').count(), 0);
   }
+
+  await page.getByRole('checkbox').click({ modifiers: ['Alt'] });
+  await page.waitForFunction(
+    () => document.querySelector('.ot-task-note-heading-icon')?.dataset.taskIcon === 'square-x',
+  );
+  assert.equal(
+    await heading.evaluate((el) => getComputedStyle(el).textDecorationLine),
+    'line-through',
+  );
+  const marker = page.locator('.ot-task-note-heading-icon .ot-task-marker');
+  assert.equal(await marker.isChecked(), true);
+  const glyph = await marker.evaluate((el) => ({
+    width: parseFloat(getComputedStyle(el, '::after').width),
+    box: el.getBoundingClientRect().width,
+  }));
+  assert.ok(
+    glyph.width / glyph.box <= 0.65,
+    `Canceled marker is inset in WebKit: ${JSON.stringify(glyph)}`,
+  );
+  await page.getByRole('checkbox').press('Space');
+  await page.waitForFunction(
+    () => document.querySelector('.ot-task-note-heading-icon')?.dataset.taskIcon === 'square',
+  );
+  assert.equal(await heading.evaluate((el) => getComputedStyle(el).textDecorationLine), 'none');
 
   await page.evaluate(() => {
     window.titleMeta.repeat = { next: null };

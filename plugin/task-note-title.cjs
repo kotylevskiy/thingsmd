@@ -1,4 +1,5 @@
-const { parseYaml, Notice } = require('obsidian');
+const { isFinished } = require('./task-status.cjs');
+const { parseYaml, Notice, Menu } = require('obsidian');
 
 async function taskMeta(view, plugin) {
   try {
@@ -37,6 +38,11 @@ module.exports = (plugin) => {
     entry.error.textContent = message;
   };
   const icons = require('./task-note-icons.cjs')();
+  const paintTitle = (entry, meta) => {
+    entry.wrapper.classList.toggle('is-canceled', meta.status === 'canceled');
+    entry.wrapper.classList.toggle('is-done', isFinished(meta));
+    icons.title(entry.icon, meta);
+  };
   const controls = require('./task-note-controls.cjs')(plugin);
   let timer,
     generation = 0,
@@ -57,6 +63,7 @@ module.exports = (plugin) => {
     // refresh. Unregister first so that refresh cannot remove it a second time.
     entries.delete(entry.native);
     entry.native.classList.remove('ot-task-note-original-title');
+    clearTimeout(entry.holdTimer);
     entry.wrapper.remove();
     entry.error?.remove();
   };
@@ -135,22 +142,59 @@ module.exports = (plugin) => {
             try {
               const saved = await plugin.patchTask(
                 { file: { path: entry.path }, meta: { ...entry.meta } },
-                { status: entry.meta.status === 'done' ? 'todo' : 'done' },
+                { status: event.altKey ? 'canceled' : isFinished(entry.meta) ? 'todo' : 'done' },
               );
               for (const other of entries.values())
                 if (saved && other.path === entry.path) {
                   other.meta = saved.meta;
-                  icons.title(other.icon, saved.meta);
+                  paintTitle(other, saved.meta);
                 }
             } catch (error) {
               new Notice(error.message);
             } finally {
               entry.toggling = false;
-              icons.title(icon, entry.meta);
+              paintTitle(entry, entry.meta);
               schedule();
             }
           };
-          icon.onclick = toggle;
+          icon.onclick = (event) => {
+            if (Date.now() < (entry.suppressClickUntil || 0)) {
+              event.preventDefault();
+              return;
+            }
+            void toggle(event);
+          };
+          icon.onpointerdown = (event) => {
+            if (event.pointerType !== 'touch') return;
+            entry.holdPoint = { x: event.clientX, y: event.clientY };
+            entry.holdTimer = setTimeout(() => {
+              entry.suppressClickUntil = Date.now() + 800;
+              const generation = plugin.beginTaskMenu();
+              const menu = new Menu();
+              menu.setUseNativeMenu(false);
+              menu.addItem((item) =>
+                item
+                  .setTitle('Mark as Canceled')
+                  .setIcon('square-x')
+                  .onClick(() =>
+                    toggle({ altKey: true, preventDefault() {}, stopPropagation() {} }),
+                  ),
+              );
+              plugin.presentTaskMenu(
+                menu,
+                { clientX: entry.holdPoint.x, clientY: entry.holdPoint.y },
+                generation,
+              );
+            }, 350);
+          };
+          icon.onpointermove = (event) => {
+            if (
+              entry.holdPoint &&
+              Math.hypot(event.clientX - entry.holdPoint.x, event.clientY - entry.holdPoint.y) > 8
+            )
+              clearTimeout(entry.holdTimer);
+          };
+          icon.onpointerup = icon.onpointercancel = () => clearTimeout(entry.holdTimer);
           icon.onkeydown = (event) => {
             if (event.key === ' ' || event.key === 'Enter') void toggle(event);
           };
@@ -248,7 +292,7 @@ module.exports = (plugin) => {
           entry.error = null;
           entry.title.removeAttribute('aria-invalid');
         }
-        icons.title(entry.icon, meta);
+        paintTitle(entry, meta);
         if (entry.toggling) entry.icon.setAttribute('aria-disabled', 'true');
         if (!entry.draft && !entry.saving) {
           const text = typeof meta.title === 'string' ? meta.title : '';

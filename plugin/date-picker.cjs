@@ -1,3 +1,4 @@
+const { systemLocale } = require('./system-locale.cjs');
 const { dayKey, date, addDays, parseDate } = require('./local-date.cjs');
 const { firstWeekday, calendarDays, dateSuggestions } = require('./date-picker-model.cjs');
 
@@ -23,11 +24,12 @@ function datePicker(
   const today = dayKey(now);
   const selected = value === 'today' || value === 'evening' ? today : parseDate(value || '');
   const initial = selected || today;
-  const weekStart = firstWeekday();
-  const weekdaysFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
-  const monthFormat = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
-  const shortMonthFormat = new Intl.DateTimeFormat(undefined, { month: 'short' });
-  const fullDateFormat = new Intl.DateTimeFormat(undefined, {
+  const locale = systemLocale();
+  const weekStart = firstWeekday(locale);
+  const weekdaysFormat = new Intl.DateTimeFormat(locale, { weekday: 'short' });
+  const monthFormat = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' });
+  const shortMonthFormat = new Intl.DateTimeFormat(locale, { month: 'short' });
+  const fullDateFormat = new Intl.DateTimeFormat(locale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -305,7 +307,7 @@ function datePicker(
     matchIndex = 0;
   function searchDates() {
     const querying = !!input.value.trim();
-    candidates = dateSuggestions(input.value, now);
+    candidates = dateSuggestions(input.value, now, locale);
     matchIndex = 0;
     result.empty();
     result.hidden = !querying;

@@ -100,6 +100,14 @@ try {
           (await app.plugins.getPlugin('thingsmd').taskRecords()).find((t) => t.meta.id === id)
             ?.meta.is_waiting === false,
       );
+      // Commands publish metadata before the native controls repaint. Do not
+      // click the previous snapshot while switching the next properties mode.
+      await page.waitForFunction(
+        () =>
+          document
+            .querySelector('.workspace-leaf.mod-active .ot-task-note-controls .ot-waiting-toggle')
+            ?.getAttribute('aria-pressed') === 'false',
+      );
     }
   }
   await page.evaluate(

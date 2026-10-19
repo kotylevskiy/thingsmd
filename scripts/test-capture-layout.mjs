@@ -37,7 +37,7 @@ try {
         settings: { enableWaiting: true },
         renderTaskNotes: window.renderTaskNotesFixture,
         captureDestination: async () => null,
-        createTask: async (fields, id, body) => {
+        createTask: async (fields, id, body = '') => {
           const task = { meta: fields, body };
           window.captureSaved.push(task);
           return task;
@@ -113,7 +113,11 @@ try {
       { fixture, title },
     );
     await capture.waitFor();
-    await capture.getByText('Tab to edit description', { exact: true }).waitFor();
+    assert.equal(
+      await capture.getByText('Tab to edit description', { exact: true }).isVisible(),
+      false,
+      'Mobile capture hides the desktop Tab hint',
+    );
     assert.equal(
       await capture.getByLabel('Task title', { exact: true }).getAttribute('enterkeyhint'),
       'done',
@@ -152,18 +156,7 @@ try {
         bottom: box.bottom,
         viewportTop: viewport.offsetTop,
         viewportBottom: viewport.offsetTop + viewport.height,
-        hint: (() => {
-          const hint = modal.querySelector('.ot-capture-hint');
-          const r = hint.getBoundingClientRect();
-          const cancel = modal.querySelector('.ot-capture-actions button').getBoundingClientRect();
-          return {
-            left: r.left,
-            right: r.right,
-            top: r.top,
-            bottom: r.bottom,
-            cancelLeft: cancel.left,
-          };
-        })(),
+        hintDisplay: getComputedStyle(modal.querySelector('.ot-capture-hint')).display,
         buttons: buttons.map((button) => {
           const r = button.getBoundingClientRect();
           const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
@@ -178,11 +171,7 @@ try {
       };
     });
     assert.ok(geometry.top >= size.top, JSON.stringify(geometry));
-    assert.ok(geometry.hint.right <= geometry.hint.cancelLeft, JSON.stringify(geometry));
-    assert.ok(
-      geometry.hint.top >= geometry.top && geometry.hint.bottom <= geometry.bottom,
-      JSON.stringify(geometry),
-    );
+    assert.equal(geometry.hintDisplay, 'none', 'Hidden mobile hint takes no layout space');
     const inset = Math.min(geometry.notesOffset, Math.max(0, size.visible - 400));
     assert.ok(
       Math.abs(geometry.top - (size.top + geometry.safeTop + inset)) < 2,

@@ -92,7 +92,7 @@ input.ot-task-marker[type='checkbox'] {
   font-size: 11px;
 }
 .ot-task.is-done .ot-task-title {
-  text-decoration: line-through;
+  text-decoration: none;
   color: var(--text-faint);
 }
 .ot-task.is-expanded {
@@ -1079,6 +1079,8 @@ input.ot-task-marker[type='checkbox'] {
 /* Repeating templates are blue; generated copies retain a quiet provenance mark. */
 .ot-repeat-indicator {
   display: inline-flex;
+  align-items: center;
+  order: 1;
   color: var(--text-faint);
   flex-shrink: 0;
 }
@@ -2201,4 +2203,56 @@ input.ot-task-marker[type='checkbox'] {
 }
 .setting-item.ot-dependent-setting.is-disabled {
   opacity: 0.5;
+}
+
+/* Cancellation is finished work with a distinct outcome, matching Things. */
+.ot-task.is-canceled .ot-task-title,
+.ot-task-note-heading.is-canceled .ot-task-note-title {
+  text-decoration: line-through;
+  color: var(--text-faint);
+}
+.ot-task.is-canceled > .ot-task-line > input[type='checkbox']:checked::after,
+.ot-task-marker.is-canceled:checked::after {
+  inset: 20%;
+  width: 60%;
+  height: 60%;
+  background-color: var(--checkbox-marker-color);
+  -webkit-mask-image: none;
+  mask-image: none;
+  clip-path: polygon(
+    15% 0,
+    50% 35%,
+    85% 0,
+    100% 15%,
+    65% 50%,
+    100% 85%,
+    85% 100%,
+    50% 65%,
+    15% 100%,
+    0 85%,
+    35% 50%,
+    0 15%
+  );
+}
+body.is-mobile .ot-capture-hint {
+  display: none;
+}
+@media (pointer: coarse) {
+  .ot-capture-hint {
+    display: none;
+  }
+}
+
+.ot-task-note-heading.is-done .ot-task-note-title {
+  color: var(--text-faint);
+}
+
+/* Repeat and Waiting share the trailing cluster, after desktop date metadata. */
+.ot-task:not(.is-expanded) > .ot-task-line:has(> .ot-repeat-indicator) > .ot-waiting-marker {
+  margin-left: 0;
+}
+@media (max-width: 520px) {
+  .ot-task:not(.is-expanded) > .ot-task-line > .ot-repeat-indicator {
+    margin-left: auto;
+  }
 }

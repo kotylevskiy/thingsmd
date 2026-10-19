@@ -1,12 +1,14 @@
-const iconName = (meta) => (meta.status === 'done' ? 'square-check' : 'square');
+const { isFinished } = require('./task-status.cjs');
+const iconName = (meta) =>
+  meta.status === 'canceled' ? 'square-x' : isFinished(meta) ? 'square-check' : 'square';
 // Use the host-theme checkbox, just like project-note task rows.
 function marker(el, meta) {
   el.empty();
   const input = el.createEl('input', {
-    cls: 'ot-task-marker',
+    cls: 'ot-task-marker' + (meta.status === 'canceled' ? ' is-canceled' : ''),
     attr: { type: 'checkbox', tabindex: '-1', 'aria-hidden': 'true' },
   });
-  input.checked = meta.status === 'done';
+  input.checked = isFinished(meta);
 }
 
 // Match tabs within their own split by DOM order, without changing the native view.
@@ -45,9 +47,9 @@ module.exports = () => {
         marker(el, meta);
         el.dataset.taskIcon = icon;
       }
-      el.setAttribute('aria-checked', String(meta.status === 'done'));
+      el.setAttribute('aria-checked', String(isFinished(meta)));
       el.setAttribute('aria-disabled', String(!!meta.repeat && !meta.repeat.next));
-      el.setAttribute('aria-label', meta.status === 'done' ? 'Reopen task' : 'Complete task');
+      el.setAttribute('aria-label', isFinished(meta) ? 'Reopen task' : 'Complete task');
     },
     tab(view, meta, live) {
       const el = tabIcon(view);

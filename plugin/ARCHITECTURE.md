@@ -9,7 +9,7 @@ separation for the policy layer.
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | Task persistence and optimistic conflict checks                | `task-store`, `note-access`, `write-queue`                                     |
 | Markdown structure and task placements                         | `markdown-document`, `markdown-fence`, `task-references`                       |
-| Scheduling, repetition, list membership and presentation rules | `task-schedule`, `repeat-model`, `model`, `task-presentation`                  |
+| Scheduling, repetition, list membership and presentation rules | `task-status`, `task-schedule`, `repeat-model`, `model`, `task-presentation`   |
 | Settings validation and persistence                            | `settings-model`, `settings-service`                                           |
 | Multi-file operations and recovery                             | `task-transfer-service`, `task-folder`, `archives`, `note-rollback`            |
 | Shared task form and checklist interaction                     | `task-editor`, `checklist-editor`, `task-capture`                              |
@@ -36,6 +36,24 @@ Multi-file operations record before/after snapshots before attempting a write.
 writer. Recovery never overwrites a newer external edit; failures identify the
 files that need attention. This is compensating recovery, not a filesystem-wide
 transaction.
+
+## Finished tasks and native references
+
+`task-status` defines the shared finished-state predicate. `done` and `canceled`
+share completion timestamps, archive timing, repetition advancement and progress,
+but presentation keeps checkmarks separate from canceled X markers. Reopening
+clears completion and logging metadata through `task-actions`; storage retains
+optimistic conflict checks for both status and timestamp.
+
+`task-reference-deletion` identifies standalone task boundaries without host
+imports. Live Preview intercepts deletion before CodeMirror edits the hidden
+reference and delegates to the same Trash action as list rows. It never replaces
+the note buffer. Source mode remains native Markdown editing.
+
+`system-locale` resolves the OS locale at the host boundary; the date-picker model
+contains pure week-start policy and the compatibility fallback. Project navigation
+resolves actual note references again before opening, so stale menu destinations
+cannot silently open the wrong task location.
 
 ## Host lifetimes
 

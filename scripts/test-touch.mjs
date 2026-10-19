@@ -1,3 +1,4 @@
+import { waitForAsync } from './wait-for-async.mjs';
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault();
@@ -19,8 +20,10 @@ const touch = (type, x, y) =>
   });
 const point = async (el) => {
   await el.scrollIntoViewIfNeeded();
-  const b = await el.boundingBox();
-  return { x: b.x + Math.min(b.width / 2, 130), y: b.y + b.height / 2 };
+  return el.evaluate((node) => {
+    const b = node.getBoundingClientRect();
+    return { x: b.x + Math.min(b.width / 2, 130), y: b.y + b.height / 2 };
+  });
 };
 async function tap(el, hold = 0) {
   const p = await point(el);
@@ -73,6 +76,48 @@ try {
     await page.screenshot({ path: `artifacts/touch-editor-${mode}.png` });
     await row(tasks[0].meta.id).locator('.ot-title-input').press('Enter');
     await row(tasks[0].meta.id).locator('.ot-title-input').waitFor({ state: 'hidden' });
+    await tap(row(tasks[0].meta.id).locator('.ot-task-line > input[type=checkbox]'), 600);
+    await page.locator('.menu').getByText('Mark as Canceled', { exact: true }).waitFor();
+    assert.equal(
+      await row(tasks[0].meta.id).locator('.ot-task-line > input[type=checkbox]').isChecked(),
+      false,
+      'Holding a checkbox opens actions without completing the task',
+    );
+    await page.locator('.menu').getByText('Mark as Canceled', { exact: true }).click();
+    await waitForAsync(
+      page,
+      async (id) =>
+        (await app.plugins.getPlugin('thingsmd').taskRecords()).find((t) => t.meta.id === id)?.meta
+          .status === 'canceled',
+      tasks[0].meta.id,
+    );
+    await waitForAsync(
+      page,
+      (id) =>
+        document
+          .querySelector(`.workspace-leaf.mod-active .ot-task[data-task-id="${id}"]`)
+          ?.classList.contains('is-canceled'),
+      tasks[0].meta.id,
+    );
+    await tap(row(tasks[0].meta.id), 600);
+    await page.locator('.menu').getByText('Mark as Incomplete', { exact: true }).click();
+    await waitForAsync(
+      page,
+      async (id) =>
+        (await app.plugins.getPlugin('thingsmd').taskRecords()).find((t) => t.meta.id === id)?.meta
+          .status === 'todo',
+      tasks[0].meta.id,
+    );
+    await waitForAsync(
+      page,
+      (id) => {
+        const row = document.querySelector(
+          `.workspace-leaf.mod-active .ot-task[data-task-id="${id}"]`,
+        );
+        return row && !row.classList.contains('is-done');
+      },
+      tasks[0].meta.id,
+    );
     await tap(row(tasks[0].meta.id), 600);
     await page.locator('.menu').waitFor();
     await page.screenshot({ path: `artifacts/touch-menu-${mode}.png` });

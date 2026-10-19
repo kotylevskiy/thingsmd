@@ -97,6 +97,29 @@ try {
         .progress === '2/2',
     path,
   );
+  for (const [statuses, expected] of [
+    [['canceled', 'todo'], '1/2'],
+    [['canceled', 'done'], '2/2'],
+    [['todo', 'done'], '1/2'],
+  ]) {
+    await page.evaluate(
+      async ({ paths, statuses }) => {
+        const p = app.plugins.getPlugin('thingsmd');
+        for (let i = 0; i < paths.length; i++) {
+          const task = (await p.taskRecords()).find((t) => t.file.path === paths[i]);
+          await p.patchTask(task, { status: statuses[i] });
+        }
+      },
+      { paths: state.paths, statuses },
+    );
+    await page.waitForFunction(
+      ({ path, expected }) =>
+        document.querySelector(`.nav-file-title[data-path="${path}"] .ot-project-progress`)?.dataset
+          .progress === expected,
+      { path, expected },
+    );
+    assert.match(await sidebar().getAttribute('aria-label'), /tasks finished/);
+  }
   console.log(
     'PASS: sidebar, grouped headings and Move progress, empty notes have no circle, settings toggle hides all three, live completion updates.',
   );

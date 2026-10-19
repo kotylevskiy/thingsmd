@@ -56,3 +56,11 @@ test('disabled Waiting For disappears from search and waiting tasks use ordinary
   assert.equal(search(rows, 'Unfiled', options)[0].page, 'inbox');
   assert.equal(search(rows, 'Actionable', options)[0].page, 'anytime');
 });
+
+test('canceled tasks retain a distinct icon in broad Logbook search', () => {
+  const rows = [
+    task('canceled', { status: 'canceled', completed: '2026-10-01', loggedAt: '2026-10-01' }),
+  ];
+  assert.equal(search(rows, 'canceled', opts).length, 0);
+  assert.equal(search(rows, 'canceled', { ...opts, broad: true })[0].icon, 'square-x');
+});

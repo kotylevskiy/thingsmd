@@ -58,14 +58,15 @@ try {
     await template().evaluate((row) => {
       const repeat = row.querySelector('.ot-repeat-indicator');
       return (
-        repeat.previousElementSibling.matches('.ot-task-title') &&
-        repeat.nextElementSibling.matches('.ot-task-details') &&
-        !!repeat.nextElementSibling.querySelector('.ot-note-icon') &&
-        !!repeat.nextElementSibling.querySelector('.ot-checklist-indicator')
+        repeat.previousElementSibling.matches('.ot-task-details') &&
+        !!repeat.previousElementSibling.querySelector('.ot-note-icon') &&
+        !!repeat.previousElementSibling.querySelector('.ot-checklist-indicator') &&
+        repeat.getBoundingClientRect().left >=
+          row.querySelector('.ot-row-indicators').getBoundingClientRect().right
       );
     }),
     true,
-    'Repeat is the first indicator after the title, before notes and checklist',
+    'Repeat follows notes/checklist in the DOM and appears after date metadata at the trailing edge',
   );
   await template().getByRole('checkbox').check();
   await waitForAsync(
@@ -199,9 +200,9 @@ try {
   assert.equal(
     await nativeCopy
       .locator('.ot-repeat-indicator')
-      .evaluate((marker) => marker.previousElementSibling.matches('.ot-task-title')),
+      .evaluate((marker) => marker.previousElementSibling.matches('.ot-task-details')),
     true,
-    'Generated copies also show recurrence after the title',
+    'Generated copies also show recurrence after task details',
   );
   await nativeCopy.getByRole('checkbox').check();
   await active

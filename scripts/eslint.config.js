@@ -39,6 +39,8 @@ export default [
   {
     files: [
       'plugin/model.cjs',
+      'plugin/task-status.cjs',
+      'plugin/task-reference-deletion.cjs',
       'plugin/settings-model.cjs',
       'plugin/markdown-document.cjs',
       'plugin/lists.cjs',
