@@ -79,6 +79,7 @@ module.exports = function installTransferService(plugin, { onTransferred, onCopy
         delete values.loggedAt;
         delete values.deleted;
         delete values.deletedAt;
+        delete values.deletedFrom;
         delete values.repeat;
         delete values.repeatSource;
         delete values.repeatDate;

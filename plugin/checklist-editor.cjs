@@ -1,4 +1,5 @@
 const { iconButton } = require('./dom.cjs');
+const { quietLabel } = require('./quiet-label.cjs');
 
 // Checklist rows own keyboard/pointer gestures; the host owns the task draft and saves.
 module.exports = function checklistEditor(parent, items, { disabled, onChange, fallbackFocus }) {
@@ -23,8 +24,9 @@ module.exports = function checklistEditor(parent, items, { disabled, onChange, f
       check.checked = !!item.done;
       check.disabled = disabled;
       const text = itemRow.createEl('input', {
-        attr: { 'aria-label': `Checklist text ${index + 1}`, placeholder: 'Checklist' },
+        attr: { placeholder: 'Checklist' },
       });
+      quietLabel(text, `Checklist text ${index + 1}`);
       text.value = item.text;
       check.onchange = () => {
         item.done = check.checked;

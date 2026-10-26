@@ -29,7 +29,8 @@ module.exports = (plugin) => {
     const { root, card, path } = entry;
     if (deferTouchRender(root)) return;
     const focused = root.contains(root.ownerDocument.activeElement)
-      ? root.ownerDocument.activeElement.getAttribute('aria-label')
+      ? root.ownerDocument.activeElement.dataset.quietLabel ||
+        root.ownerDocument.activeElement.getAttribute('aria-label')
       : null;
     clearTimeout(card.saveTimer);
     card.cancelChecklistDrag?.();
@@ -59,8 +60,8 @@ module.exports = (plugin) => {
     card.openNotes = async () => entry.view.editor?.focus();
     entry.structure = JSON.stringify([meta.repeat ?? null, meta.repeatSource ?? null]);
     if (focused)
-      [...root.querySelectorAll('[aria-label]')]
-        .find((el) => el.getAttribute('aria-label') === focused)
+      [...root.querySelectorAll('[aria-label], [data-quiet-label]')]
+        .find((el) => (el.dataset.quietLabel || el.getAttribute('aria-label')) === focused)
         ?.focus({ preventScroll: true });
   };
   return {

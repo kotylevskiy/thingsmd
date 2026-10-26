@@ -1,3 +1,4 @@
+const { captureLocations, restoreLocations } = require('./trash-locations.cjs');
 const { isFinished } = require('./task-status.cjs');
 const { normalizeSchedule, applySchedulePolicy } = require('./task-schedule.cjs');
 
@@ -71,16 +72,26 @@ const actions = {
   },
   async trashTask(task) {
     if (!task.meta.deleted)
-      task = await this.patchTask(task, { deleted: true, deletedAt: new Date().toISOString() });
+      task = {
+        ...task,
+        ...(await this.patchTask(task, {
+          deleted: true,
+          deletedAt: new Date().toISOString(),
+          deletedFrom: await captureLocations(this, task),
+        })),
+      };
     if (this.settings.trashRetention === 'immediately') await this.purgeTask(task);
+    return task;
   },
   async restoreTask(task, reopen = false) {
-    await this.patchTask(
-      task,
-      reopen
-        ? { status: 'todo', completed: null, loggedAt: null }
-        : { deleted: null, deletedAt: null },
-    );
+    const restore = () =>
+      this.patchTask(
+        task,
+        reopen
+          ? { status: 'todo', completed: null, loggedAt: null }
+          : { deleted: null, deletedAt: null, deletedFrom: null },
+      );
+    return reopen ? restore() : restoreLocations(this, task, restore);
   },
 };
 module.exports = (plugin) => Object.assign(plugin, actions);

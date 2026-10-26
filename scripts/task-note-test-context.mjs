@@ -47,37 +47,44 @@ export async function taskNoteContext(label) {
   async function touchPoint(control) {
     // Obsidian repositions its floating mobile bars after scrolling/focus. A
     // trial mouse click alone can return before that second layout has settled.
-    await control.scrollIntoViewIfNeeded();
-    return control.evaluate(async (el) => {
-      // Minimal scrolling can leave the target under a mobile bar that is
-      // still animating back after a modal closes. Aim in the viewport center.
-      el.scrollIntoView({ block: 'center', behavior: 'instant' });
-      const start = performance.now();
-      let stable = start,
-        previous = '',
-        scrolled = 0;
-      while (performance.now() - start < 10000) {
-        const r = el.getBoundingClientRect();
-        const point = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-        const hit = document.elementFromPoint(point.x, point.y);
-        const position = JSON.stringify(point);
-        const now = performance.now();
-        if (!el.contains(hit) || position !== previous) stable = now;
-        if (!el.contains(hit) && now - scrolled > 150) {
-          el.scrollIntoView({ block: 'center', behavior: 'instant' });
-          scrolled = now;
+    const deadline = Date.now() + 10000;
+    while (Date.now() < deadline) {
+      // Trial clicks re-resolve locators when a metadata refresh replaces the
+      // control. scrollIntoViewIfNeeded alone can fail on a detached element.
+      await control.click({ trial: true });
+      const point = await control.evaluate(async (el) => {
+        // Minimal scrolling can leave the target under a mobile bar that is
+        // still animating back after a modal closes. Aim in the viewport center.
+        el.scrollIntoView({ block: 'center', behavior: 'instant' });
+        const start = performance.now();
+        let stable = start,
+          previous = '',
+          scrolled = 0;
+        while (performance.now() - start < 10000) {
+          if (!el.isConnected) return null;
+          const r = el.getBoundingClientRect();
+          const point = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+          const hit = document.elementFromPoint(point.x, point.y);
+          const position = JSON.stringify(point);
+          const now = performance.now();
+          if (!el.contains(hit) || position !== previous) stable = now;
+          if (!el.contains(hit) && now - scrolled > 150) {
+            el.scrollIntoView({ block: 'center', behavior: 'instant' });
+            scrolled = now;
+          }
+          if (now - stable > 150) return point;
+          previous = position;
+          await new Promise(requestAnimationFrame);
         }
-        if (now - stable > 150) return point;
-        previous = position;
-        await new Promise(requestAnimationFrame);
-      }
-      throw Error(`Touch target did not settle: ${el.getAttribute('aria-label')}`);
-    });
+        throw Error(`Touch target did not settle: ${el.getAttribute('aria-label')}`);
+      });
+      if (point) return point;
+    }
+    throw Error('Touch target kept being replaced during layout');
   }
   async function action(control, hold = 0) {
-    // Trial click checks scrolling, occlusion and stability before a real touch.
+    // Resolve and stabilize before dispatching exactly one real touch gesture.
     if (!isMobile) return control.click();
-    await control.click({ trial: true });
     const point = await touchPoint(control);
     await control.evaluate((el, point) => {
       window.noteTouch = { label: el.getAttribute('aria-label') || el.textContent, point };

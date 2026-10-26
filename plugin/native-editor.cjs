@@ -18,7 +18,7 @@ module.exports = async function installNative(plugin) {
   const cards = new Set();
   let records = [];
   const pendingCreations = new Map();
-  const pendingDeletions = new Set();
+  const deleteFromNote = require('./task-deletion-history.cjs')(plugin);
   const openOnCreate = new Set();
   let timer;
   let disposed = false,
@@ -65,9 +65,10 @@ module.exports = async function installNative(plugin) {
       !plugin.app.vault.getAbstractFileByPath(path));
 
   class TaskWidget extends WidgetType {
-    constructor(path) {
+    constructor(path, sourcePath) {
       super();
       this.path = path;
+      this.sourcePath = sourcePath;
     }
     eq(other) {
       return this.path === other.path;
@@ -75,6 +76,7 @@ module.exports = async function installNative(plugin) {
     toDOM(view) {
       return require('./native-task-card.cjs')(plugin, this.path, view, {
         lookup,
+        deleteTask: (task) => deleteFromNote(task, view, this.sourcePath),
         isHidden,
         pendingCreations,
         openOnCreate,
@@ -122,7 +124,7 @@ module.exports = async function installNative(plugin) {
       usedLines.add(lineNumber);
       // Keep a placeholder when rendering outruns the async task index. The
       // shared card refresh fills it in without reopening the note.
-      const root = new TaskWidget(path).toDOM(null);
+      const root = new TaskWidget(path, context.sourcePath).toDOM(null);
       root.classList.add('ot-reading-task');
       embed.replaceWith(root);
       const child = new MarkdownRenderChild(root);
@@ -262,12 +264,10 @@ module.exports = async function installNative(plugin) {
               if (task) {
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                if (!task.meta.deleted && !pendingDeletions.has(task.meta.id)) {
-                  pendingDeletions.add(task.meta.id);
-                  plugin
-                    .trashTask(task)
-                    .catch((error) => new Notice(error.message))
-                    .finally(() => pendingDeletions.delete(task.meta.id));
+                if (!task.meta.deleted) {
+                  Promise.resolve(deleteFromNote(task, view)).catch(
+                    (error) => new Notice(error.message),
+                  );
                 }
                 return;
               }

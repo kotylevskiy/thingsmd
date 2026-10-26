@@ -152,6 +152,21 @@ try {
   console.log(
     'PASS: real Obsidian capture Save/Cancel/Escape/Cmd+Enter, waiting persistence, notices, editable temporary Inbox section, phone row geometry, and sidebar recovery.',
   );
+} catch (error) {
+  console.error(
+    'Live capture diagnostics:',
+    await page.evaluate(() => {
+      const modal = app.plugins.getPlugin('thingsmd').captureModal;
+      return {
+        width: innerWidth,
+        capture: !!modal,
+        connected: modal?.modalEl.isConnected,
+        content: modal?.contentEl.innerHTML,
+        dialogs: document.querySelectorAll('.modal').length,
+      };
+    }),
+  );
+  throw error;
 } finally {
   await page.evaluate(async (prefix) => {
     const p = app.plugins.getPlugin('thingsmd');

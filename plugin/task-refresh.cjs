@@ -1,6 +1,7 @@
 const { Notice } = require('obsidian');
 const { today } = require('./local-date.cjs');
 const { dayKey: vaultDay } = require('./vault-time.cjs');
+const { renamedLocations } = require('./trash-locations.cjs');
 
 // Poll as a fallback for external file changes and date-based maintenance.
 module.exports = async function installTaskRefresh(plugin) {
@@ -15,9 +16,9 @@ module.exports = async function installTaskRefresh(plugin) {
       (async () => {
         for (const task of await plugin.taskRecords()) {
           if (disposed) return;
-          const path = task.meta.project;
-          if (path === oldPath || (typeof path === 'string' && path.startsWith(oldPath + '/')))
-            await plugin.patchTask(task, { project: file.path + path.slice(oldPath.length) });
+          // Placement snapshots outlive their source note's original filename.
+          const patch = renamedLocations(task.meta, oldPath, file.path);
+          if (Object.keys(patch).length) await plugin.patchTask(task, patch);
         }
       })().catch((error) => new Notice(error.message));
     }),

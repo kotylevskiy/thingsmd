@@ -7,7 +7,21 @@ const { renderProgress } = require('./project-progress.cjs');
 // Render sections through the view's shared row/group commands. Selection,
 // draft lifetime, refresh and navigation stay in the view controller.
 module.exports = function renderListContents(view, paper, active, progress) {
-  if (view.page === 'upcoming') {
+  if (view.page === 'logbook') {
+    const { logbookGroups } = require('./logbook-groups.cjs');
+    const { systemLocale } = require('./system-locale.cjs');
+    for (const { key, title, tasks } of logbookGroups(active, {
+      timeZone: view.plugin.settings.timeZone,
+      locale: systemLocale(),
+    })) {
+      const section = paper.createEl('section', {
+        cls: 'ot-section ot-logbook-section',
+        attr: { 'data-period': key },
+      });
+      section.createEl('h2', { text: title });
+      view.group(section, tasks, key);
+    }
+  } else if (view.page === 'upcoming') {
     const dates = upcomingDays(active, today());
     for (const date of dates) {
       const section = paper.createEl('section', {

@@ -107,7 +107,7 @@ try {
   await row(ids[0]).getByLabel('Checklist text 3', { exact: true }).focus();
   await page.evaluate(() => app.commands.executeCommandById('thingsmd:move-checklist-up'));
   await page.waitForFunction(
-    () => document.querySelector('[aria-label="Checklist text 2"]')?.value === 'Three',
+    () => document.querySelector('[data-quiet-label="Checklist text 2"]')?.value === 'Three',
   );
   assert.equal(
     await row(ids[0]).getByLabel('Checklist text 2', { exact: true }).inputValue(),

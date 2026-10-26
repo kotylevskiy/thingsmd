@@ -1,3 +1,4 @@
+const { quietLabel } = require('./quiet-label.cjs');
 const { systemLocale } = require('./system-locale.cjs');
 const { dayKey, date, addDays, parseDate } = require('./local-date.cjs');
 const { firstWeekday, calendarDays, dateSuggestions } = require('./date-picker-model.cjs');
@@ -190,7 +191,8 @@ function datePicker(
         continue;
       }
       const day = date(key);
-      const control = button(grid, '', 'ot-calendar-day', () => choose(key), fullDate(key));
+      const control = button(grid, '', 'ot-calendar-day', () => choose(key));
+      quietLabel(control, fullDate(key));
       if (compact && key === today) setIcon(control, 'star');
       else {
         if (day.getDate() === 1)

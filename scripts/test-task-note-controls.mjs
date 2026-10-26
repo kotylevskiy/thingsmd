@@ -234,7 +234,7 @@ try {
     const p = app.plugins.getPlugin('thingsmd');
     const card = [...p.taskNoteControllers].find((c) => c.taskDraft?.task.meta.id === id);
     card.taskDraft.values.checklist[0].text = 'Local checklist draft';
-    const input = card.contentEl.querySelector('[aria-label="Checklist text 1"]');
+    const input = card.contentEl.querySelector('[data-quiet-label="Checklist text 1"]');
     input.value = 'Local checklist draft';
     card.taskDraft.dirty = true;
     const current = (await p.taskRecords()).find((t) => t.meta.id === id);
@@ -272,7 +272,7 @@ try {
     page,
     () =>
       document.querySelector(
-        '.workspace-leaf.mod-active .ot-task-note-controls [aria-label="Checklist text 1"]',
+        '.workspace-leaf.mod-active .ot-task-note-controls [data-quiet-label="Checklist text 1"]',
       )?.value === 'External checklist',
   );
   // Keep repeat fixtures in the future so maintenance creates no extra copies.

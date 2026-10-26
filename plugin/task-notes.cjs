@@ -1,3 +1,4 @@
+const { quietLabel } = require('./quiet-label.cjs');
 const { Component, MarkdownRenderer, Notice } = require('obsidian');
 const { WriteQueue } = require('./write-queue.cjs');
 module.exports = (plugin) => {
@@ -39,9 +40,9 @@ module.exports = (plugin) => {
       attr: {
         tabindex: '0',
         role: 'group',
-        'aria-label': 'Task notes. Press Enter to edit.',
       },
     });
+    quietLabel(preview, 'Task notes. Press Enter to edit.');
     const owner = plugin.addChild(new Component());
     const dispose = () => {
       observer.disconnect();

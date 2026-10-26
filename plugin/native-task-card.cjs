@@ -12,7 +12,7 @@ module.exports = function nativeTaskCard(
   plugin,
   path,
   view,
-  { lookup, isHidden, pendingCreations, openOnCreate, onSaved, onMount, onDispose },
+  { lookup, deleteTask, isHidden, pendingCreations, openOnCreate, onSaved, onMount, onDispose },
 ) {
   const root = document.createElement('div');
   root.className = 'ot-root ot-native';
@@ -177,7 +177,7 @@ module.exports = function nativeTaskCard(
       e.stopImmediatePropagation();
       const task = lookup(path);
       card.currentTask = task;
-      if (task) plugin.trashTask(task).catch((error) => new Notice(error.message));
+      if (task) deleteTask(task).catch((error) => new Notice(error.message));
       return;
     }
     if (!card.taskDraft) return;

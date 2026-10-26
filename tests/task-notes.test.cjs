@@ -26,7 +26,12 @@ test('Enter on a rendered link remains available to the link', async () => {
     setTimeout,
     MutationObserver: Observer,
     ResizeObserver: Observer,
-    require: (name) => (name === 'obsidian' ? { Component } : localRequire(name)),
+    require: (name) =>
+      name === 'obsidian'
+        ? { Component }
+        : name === './quiet-label.cjs'
+          ? { quietLabel() {} }
+          : localRequire(name),
   });
   let opened = 0;
   const preview = { isConnected: false };

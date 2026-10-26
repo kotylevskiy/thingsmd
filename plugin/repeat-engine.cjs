@@ -81,6 +81,7 @@ module.exports = function installRepeating(plugin) {
         'repeat',
         'deleted',
         'deletedAt',
+        'deletedFrom',
         'completed',
         'loggedAt',
       ])

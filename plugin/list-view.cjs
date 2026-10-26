@@ -1,3 +1,4 @@
+const { completionTime } = require('./logbook-groups.cjs');
 const { isFinished } = require('./task-status.cjs');
 const TaskEditor = require('./task-editor.cjs');
 const InboxSession = require('./inbox-session.cjs');
@@ -181,7 +182,6 @@ class ThingsMDView extends ItemView {
         this.plugin.settings.timeZone,
       ),
     );
-    const archived = ['trash', 'logbook'].includes(this.page);
     if (this.page === 'repeating')
       active.sort((a, b) =>
         String(
@@ -192,11 +192,10 @@ class ThingsMDView extends ItemView {
           ),
         ),
       );
-    if (archived)
+    // Logbook sections own completion ordering; Trash has no section adapter.
+    if (this.page === 'trash')
       active.sort((a, b) =>
-        String(b.meta[this.page === 'trash' ? 'deletedAt' : 'completed'] || '').localeCompare(
-          String(a.meta[this.page === 'trash' ? 'deletedAt' : 'completed'] || ''),
-        ),
+        String(b.meta.deletedAt || '').localeCompare(String(a.meta.deletedAt || '')),
       );
     const top = paper.createDiv('ot-list-heading');
     const headingIcon = top.createSpan({
@@ -366,15 +365,16 @@ class ThingsMDView extends ItemView {
       });
       waitingIndicator(line, task.meta, this.page, this.plugin.settings.enableWaiting);
       const actions = line.createDiv('ot-archive-actions');
-      const stamp = this.page === 'trash' ? task.meta.deletedAt : task.meta.completed;
+      const stamp = this.page === 'trash' ? task.meta.deletedAt : completionTime(task);
       actions.createSpan({
         cls: 'ot-archive-date',
         text:
-          stamp && !Number.isNaN(new Date(stamp).getTime())
+          stamp != null && !Number.isNaN(new Date(stamp).getTime())
             ? new Date(stamp).toLocaleDateString('en', {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric',
+                ...(this.page === 'logbook' ? { timeZone: this.plugin.settings.timeZone } : {}),
               })
             : '',
       });

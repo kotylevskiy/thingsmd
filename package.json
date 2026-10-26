@@ -84,7 +84,10 @@
     "test:task-note-matrix": "node scripts/test-task-note-matrix.mjs",
     "test:task-note-states": "node scripts/test-task-note-states.mjs",
     "test:canceled-tasks": "node scripts/test-canceled-tasks.mjs",
-    "test:calendar-locale-webkit": "node scripts/test-calendar-locale-webkit.mjs"
+    "test:calendar-locale-webkit": "node scripts/test-calendar-locale-webkit.mjs",
+    "test:quiet-tooltips": "node scripts/test-quiet-tooltips.mjs",
+    "test:task-deletion-undo": "node scripts/test-task-deletion-undo.mjs",
+    "test:logbook-groups": "node scripts/test-logbook-groups.mjs"
   },
   "devDependencies": {
     "eslint": "^10.13.0",
