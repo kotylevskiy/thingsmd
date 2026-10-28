@@ -53,11 +53,17 @@ try {
     async ({ prefix, note }) => {
       const p = app.plugins.getPlugin('thingsmd'),
         tasks = [];
+      // Keep the fixture rows adjacent even when the disposable vault contains
+      // demonstration tasks. Move-up acts on the actual adjacent row.
+      const records = await p.taskRecords();
+      const base =
+        Math.min(0, ...records.map((t) => Number(t.meta.listOrder?.today ?? t.meta.order) || 0)) -
+        4096;
       for (let i = 0; i < 3; i++)
         tasks.push(
           await p.createTask({
             title: prefix + ' ' + i,
-            order: i * 1024,
+            order: base + i * 1024,
             when: 'today',
             checklist: [
               { text: 'One', done: false },

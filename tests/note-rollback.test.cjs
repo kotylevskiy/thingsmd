@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { rollbackNotes, recoveryError } = require('../plugin/note-rollback.cjs');
+const { rollbackNotes, recoveryError } = require('../plugin/shared/note-rollback.cjs');
 
 test('rollback restores unchanged edits in reverse order and reports every conflict', async () => {
   const edits = ['A', 'B', 'C'].map((path) => ({ file: { path }, before: 'old', after: 'ours' }));

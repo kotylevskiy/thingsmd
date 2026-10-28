@@ -1,8 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
-const { dayKey, startOfDay, validTimeZone } = require('../plugin/vault-time.cjs');
-const { plannedLogAt, shouldLog } = require('../plugin/archive-policy.cjs');
+const { dayKey, startOfDay, validTimeZone } = require('../plugin/shared/vault-time.cjs');
+const { plannedLogAt, shouldLog } = require('../plugin/tasks/archive-policy.cjs');
 
 test('vault day and midnight honor fractional offsets and daylight-saving transitions', () => {
   assert.equal(validTimeZone('UTC'), true);
@@ -36,9 +36,9 @@ test('automatic archive stamps represent the planned boundary, including month e
 
 test('different device zones produce identical automatic timestamps and retain the saved vault zone', () => {
   const script = `
-    const { plannedLogAt } = require('./plugin/archive-policy.cjs');
-    const { startOfDay, dayKey } = require('./plugin/vault-time.cjs');
-    const { settings } = require('./plugin/settings-model.cjs');
+    const { plannedLogAt } = require('./plugin/tasks/archive-policy.cjs');
+    const { startOfDay, dayKey } = require('./plugin/shared/vault-time.cjs');
+    const { settings } = require('./plugin/settings/settings-model.cjs');
     const zone = settings({ timeZone: 'Europe/Berlin' }).timeZone;
     console.log(JSON.stringify({
       zone,

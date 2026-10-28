@@ -60,7 +60,7 @@ try {
         window.unloadTitle = fn;
       },
     };
-    window.loadPluginModule('./task-note-title.cjs')(plugin);
+    window.loadPluginModule('./notes/task-note-title.cjs')(plugin);
   });
   const heading = page.locator('.inline-title.ot-task-note-title');
   await heading.waitFor();

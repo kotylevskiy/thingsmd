@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { moveMessage } = require('../plugin/move-notice.cjs');
+const { moveMessage } = require('../plugin/tasks/move-notice.cjs');
 const day = '2026-10-17';
 const task = (meta = {}, references = []) => ({
   meta: { title: 'Write report', ...meta },
@@ -48,7 +48,7 @@ test('rapid move notices replace their predecessor and unload dismisses the fina
   const fs = require('node:fs'),
     vm = require('node:vm');
   const { createRequire } = require('node:module');
-  const filename = require.resolve('../plugin/move-notice.cjs');
+  const filename = require.resolve('../plugin/tasks/move-notice.cjs');
   const localRequire = createRequire(filename),
     module = { exports: {} },
     notices = [];

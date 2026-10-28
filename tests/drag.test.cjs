@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { lineMove } = require('../plugin/task-drag.cjs');
+const { lineMove } = require('../plugin/tasks/task-drag.cjs');
 function apply(text, from, to, target) {
   const move = lineMove(text, from, to, target);
   if (!move) return text;

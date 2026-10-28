@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { deletionTarget } = require('../plugin/task-reference-deletion.cjs');
+const { deletionTarget } = require('../plugin/notes/task-reference-deletion.cjs');
 test('deletion catches both widget boundaries without consuming surrounding Markdown', () => {
   const text = 'Before\n![[task]]\nAfter';
   for (const [key, pos] of [

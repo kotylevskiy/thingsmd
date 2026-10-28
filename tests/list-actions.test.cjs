@@ -2,9 +2,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const { WriteQueue } = require('../plugin/write-queue.cjs');
+const { WriteQueue } = require('../plugin/shared/write-queue.cjs');
 const mod = { exports: {} };
-vm.runInNewContext(fs.readFileSync('plugin/list-view.cjs', 'utf8'), {
+vm.runInNewContext(fs.readFileSync('plugin/lists/list-view.cjs', 'utf8'), {
   module: mod,
   require: (name) => (name === 'obsidian' ? { ItemView: class {}, Notice: class {} } : {}),
 });

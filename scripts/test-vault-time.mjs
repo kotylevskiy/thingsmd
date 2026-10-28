@@ -14,8 +14,8 @@ if (process.argv.includes('--webkit')) {
     try {
       results.push(
         await page.evaluate(async () => {
-          const { plannedLogAt } = window.loadPluginModule('./archive-policy.cjs');
-          const { startOfDay, dayKey } = window.loadPluginModule('./vault-time.cjs');
+          const { plannedLogAt } = window.loadPluginModule('./tasks/archive-policy.cjs');
+          const { startOfDay, dayKey } = window.loadPluginModule('./shared/vault-time.cjs');
           let saved = null;
           const plugin = {
             loadData: async () => saved,
@@ -23,7 +23,7 @@ if (process.argv.includes('--webkit')) {
               saved = value;
             },
           };
-          const install = window.loadPluginModule('./settings-service.cjs');
+          const install = window.loadPluginModule('./settings/settings-service.cjs');
           await install(plugin);
           const initial = saved.timeZone;
           await plugin.persistSettings({ timeZone: 'Europe/Berlin' });
@@ -84,7 +84,9 @@ if (process.argv.includes('--webkit')) {
         await selector.evaluate(
           (el) =>
             el.closest('.setting-item') ===
-            el.closest('.vertical-tab-content').querySelector('.setting-item:last-child'),
+            [...el.closest('.vertical-tab-content').querySelectorAll('.setting-item')]
+              .filter((item) => !item.closest('.ot-calendar-settings-section'))
+              .at(-1),
         ),
         true,
       );

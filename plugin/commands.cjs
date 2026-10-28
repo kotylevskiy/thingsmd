@@ -1,9 +1,9 @@
-const { isFinished } = require('./task-status.cjs');
-const { dayAfter } = require('./local-date.cjs');
-const { LISTS, isListAvailable } = require('./lists.cjs');
+const { isFinished } = require('./tasks/task-status.cjs');
+const { dayAfter } = require('./shared/local-date.cjs');
+const { LISTS, isListAvailable } = require('./lists/lists.cjs');
 const { Notice } = require('obsidian');
-const { referenceRanges } = require('./task-references.cjs');
-const { noteAccess } = require('./note-access.cjs');
+const { referenceRanges } = require('./notes/task-references.cjs');
+const { noteAccess } = require('./shared/note-access.cjs');
 module.exports = function (plugin) {
   const app = plugin.app;
   const notes = noteAccess(app);
@@ -50,7 +50,7 @@ module.exports = function (plugin) {
     );
     const row = candidates.find((r) => r.dataset.occurrence === occurrence) || candidates[0];
     if (!row) return null;
-    const card = require('./task-controller.cjs')(row, view);
+    const card = require('./tasks/task-controller.cjs')(row, view);
     const task =
       card.taskDraft?.task || card.currentTask || view.tasks?.find((t) => t.meta.id === id);
     return {

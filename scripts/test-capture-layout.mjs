@@ -31,7 +31,7 @@ try {
       document.body.classList.add('is-mobile');
       document.body.style.setProperty('--safe-area-inset-top', '59px');
       window.captureSaved = [];
-      const Capture = window.loadPluginModule('./task-capture.cjs');
+      const Capture = window.loadPluginModule('./tasks/task-capture.cjs');
       window.capturePlugin = {
         app: { workspace: {} },
         settings: { enableWaiting: true },

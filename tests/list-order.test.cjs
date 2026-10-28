@@ -1,7 +1,7 @@
 const test = require('node:test'),
   assert = require('node:assert/strict');
-const { compareList, listInsertion } = require('../plugin/list-order.cjs');
-const { upcomingDates } = require('../plugin/model.cjs');
+const { compareList, listInsertion } = require('../plugin/lists/list-order.cjs');
+const { upcomingDates } = require('../plugin/tasks/model.cjs');
 test('list ranks are independent and retain original note order', () => {
   const a = { meta: { id: 'a', order: 1 } },
     b = { meta: { id: 'b', order: 2 } };

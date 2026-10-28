@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const mod = { exports: {} };
-vm.runInNewContext(fs.readFileSync('plugin/task-indicators.cjs', 'utf8'), {
+vm.runInNewContext(fs.readFileSync('plugin/tasks/task-indicators.cjs', 'utf8'), {
   module: mod,
   require: (name) =>
     name === 'obsidian'
@@ -13,7 +13,7 @@ vm.runInNewContext(fs.readFileSync('plugin/task-indicators.cjs', 'utf8'), {
           },
         }
       : name === './task-status.cjs'
-        ? require('../plugin/task-status.cjs')
+        ? require('../plugin/tasks/task-status.cjs')
         : {},
 });
 test('waiting badge follows details, survives completion and is omitted in Waiting For', () => {

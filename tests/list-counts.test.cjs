@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { listCounts } = require('../plugin/list-counts.cjs');
+const { listCounts } = require('../plugin/lists/list-counts.cjs');
 const task = (meta = {}, references = []) => ({
   meta: { type: 'thingsmd-task', status: 'todo', ...meta },
   references,

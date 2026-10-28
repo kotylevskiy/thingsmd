@@ -21,16 +21,21 @@ test('navigation rejects active and recent sidebar panes', () => {
   assert.equal(mainWorkspaceLeaf(workspace), main);
 });
 
-test('navigation creates a main tab when no main pane exists', () => {
-  const created = {};
+test('navigation creates a main tab even when closing the last note removed its tab group', () => {
+  const created = {},
+    rootSplit = {};
   assert.equal(
     mainWorkspaceLeaf({
-      rootSplit: {},
+      rootSplit,
       activeLeaf: null,
       getMostRecentLeaf: () => null,
       iterateAllLeaves: () => {},
-      getLeaf: (mode) => {
-        assert.equal(mode, 'tab');
+      getLeaf: () => {
+        throw new Error('No tab group found.');
+      },
+      createLeafInParent: (split, index) => {
+        assert.equal(split, rootSplit);
+        assert.equal(index, 0);
         return created;
       },
     }),

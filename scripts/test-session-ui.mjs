@@ -3,7 +3,7 @@ import { browserFixture } from './browser-fixture.mjs';
 const { browser, page } = await browserFixture();
 try {
   await page.evaluate(() => {
-    const Capture = window.loadPluginModule('./task-capture.cjs');
+    const Capture = window.loadPluginModule('./tasks/task-capture.cjs');
     window.savedTasks = [];
     window.plugin = {
       app: { workspace: {} },
@@ -140,7 +140,7 @@ try {
   await page.evaluate(() => window.sidebar.callbacks.forEach((callback) => callback()));
   // Render actual Inbox rows, process one, edit it again, and navigate away.
   await page.evaluate(async () => {
-    const View = window.loadPluginModule('./list-view.cjs');
+    const View = window.loadPluginModule('./lists/list-view.cjs');
     const tasks = [
       {
         meta: { type: 'thingsmd-task', id: 'a', title: 'Inbox fixture', status: 'todo' },

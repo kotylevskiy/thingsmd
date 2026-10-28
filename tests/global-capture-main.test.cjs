@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
-const createMainCapture = require('../plugin/global-capture-main.cjs');
+const createMainCapture = require('../plugin/tasks/global-capture-main.cjs');
 function fixture() {
   const contents = new EventEmitter();
   const bindings = new Map([['unrelated', () => {}]]);

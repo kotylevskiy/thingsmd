@@ -4,7 +4,7 @@ const {
   restoreReference,
   restoreLocations,
   captureLocations,
-} = require('../plugin/trash-locations.cjs');
+} = require('../plugin/tasks/trash-locations.cjs');
 
 test('restore follows note context and retains intervening prose edits without duplicate references', () => {
   const location = { before: 'Before.\n\n', after: '\nAfter.\n' };
@@ -80,7 +80,7 @@ test('a legacy deleted task can return to its recorded project without a placeme
 });
 
 test('renaming a note or folder updates saved placements without matching similar names', () => {
-  const { renamedLocations } = require('../plugin/trash-locations.cjs');
+  const { renamedLocations } = require('../plugin/tasks/trash-locations.cjs');
   const meta = {
     project: 'Work/Project.md',
     deletedFrom: [

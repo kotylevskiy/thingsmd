@@ -1,6 +1,12 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseDate, dayKey, addDays, daysBetween, validDate } = require('../plugin/local-date.cjs');
+const {
+  parseDate,
+  dayKey,
+  addDays,
+  daysBetween,
+  validDate,
+} = require('../plugin/shared/local-date.cjs');
 test('local date parsing rejects impossible dates and accepts leap days', () => {
   assert.equal(parseDate('2028-02-29'), '2028-02-29');
   assert.equal(parseDate('2027-02-29'), null);

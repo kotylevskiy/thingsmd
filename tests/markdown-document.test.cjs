@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { frontmatter, decode } = require('../plugin/markdown-document.cjs');
+const { frontmatter, decode } = require('../plugin/shared/markdown-document.cjs');
 const parse = (text) => (text.trim() ? JSON.parse(text) : null);
 
 test('document decoding preserves body bytes and supports empty properties and CRLF', () => {

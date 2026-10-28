@@ -1,5 +1,5 @@
 const { parseYaml, stringifyYaml, Notice } = require('obsidian');
-const { noteAccess } = require('./note-access.cjs');
+const { noteAccess } = require('./shared/note-access.cjs');
 const { migrateFrontmatter } = require('./legacy-identifiers.cjs');
 
 module.exports = async function migrateIdentifiers(plugin) {

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const { createRequire } = require('node:module');
-const filename = require.resolve('../plugin/task-transfer.cjs');
+const filename = require.resolve('../plugin/tasks/task-transfer.cjs');
 const localRequire = createRequire(filename);
 function fixture() {
   const module = { exports: {} };
@@ -73,7 +73,7 @@ test('a coordinated note move emits one notice after placement, with the actual 
   assert.deepEqual(Array.from(notices[0][1].references), ['To.md']);
   assert.ok(!notes.get('From.md').includes('.thingsmd-storage/a.md'));
   assert.equal(
-    require('../plugin/task-references.cjs').referenceRanges(
+    require('../plugin/notes/task-references.cjs').referenceRanges(
       notes.get('To.md'),
       '.thingsmd-storage/a.md',
     ).length,

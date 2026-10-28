@@ -3,14 +3,26 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const { createRequire } = require('node:module');
-const filename = require.resolve('../plugin/task-editor.cjs'),
+const filename = require.resolve('../plugin/tasks/task-editor.cjs'),
   localRequire = createRequire(filename);
 const moduleStub = { exports: {} };
+const notices = [];
 vm.runInNewContext(fs.readFileSync(filename, 'utf8'), {
   module: moduleStub,
   setTimeout,
   clearTimeout,
-  require: (name) => (name === 'obsidian' ? {} : name === './dom.cjs' ? {} : localRequire(name)),
+  require: (name) =>
+    name === 'obsidian'
+      ? {
+          Notice: class {
+            constructor(message) {
+              notices.push(message);
+            }
+          },
+        }
+      : name === '../shared/dom.cjs'
+        ? {}
+        : localRequire(name),
 });
 const TaskEditor = moduleStub.exports;
 test('closing an editor drains edits arriving during multiple consecutive writes', async () => {
@@ -338,4 +350,36 @@ test('saving another field does not rebase an untouched checklist over an extern
   assert.equal(calls, 2);
   assert.equal(editor.taskDraft.values.checklist[0].text, 'Local draft');
   assert.equal(externalChecklist[0].text, 'External change');
+});
+
+test('a failed reread while closing retains the draft and permits retry without an unhandled rejection', async () => {
+  let fail = true,
+    closed = false;
+  const task = {
+    file: { path: 'ThingsMD/test.md' },
+    meta: { id: 'test', title: 'Saved' },
+    body: '',
+  };
+  const editor = new TaskEditor(
+    {
+      app: {},
+      taskRecords: async () => {
+        if (fail) throw new Error('Read failed');
+        return [task];
+      },
+    },
+    { querySelector: () => null },
+    async () => {
+      closed = true;
+    },
+  );
+  const draft = (editor.taskDraft = { task, values: { title: 'Saved' }, dirty: false });
+  assert.equal(await editor.finishTask(), false);
+  assert.equal(editor.taskDraft, draft);
+  assert.equal(closed, false);
+  assert.equal(notices.at(-1), 'Read failed');
+  fail = false;
+  assert.equal(await editor.finishTask(), true);
+  assert.equal(editor.taskDraft, null);
+  assert.equal(closed, true);
 });

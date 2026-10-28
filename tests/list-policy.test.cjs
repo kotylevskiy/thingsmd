@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { resolveList, isListAvailable } = require('../plugin/lists.cjs');
-const { normalizeSchedule } = require('../plugin/task-schedule.cjs');
+const { resolveList, isListAvailable } = require('../plugin/lists/lists.cjs');
+const { normalizeSchedule } = require('../plugin/tasks/task-schedule.cjs');
 
 test('hidden list fallbacks resolve consistently for navigation and restored layouts', () => {
   const settings = { captureDestination: 'daily-note', trashRetention: 'immediately' };

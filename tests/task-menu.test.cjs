@@ -9,16 +9,16 @@ function fixture(native = false, meta = {}) {
     menus = [],
     dialogCalls = [];
   const module = { exports: {} };
-  vm.runInNewContext(fs.readFileSync('plugin/task-menu.cjs', 'utf8'), {
+  vm.runInNewContext(fs.readFileSync('plugin/tasks/task-menu.cjs', 'utf8'), {
     module,
     document: { defaultView: {} },
     require: (name) =>
       name === './task-status.cjs'
-        ? require('../plugin/task-status.cjs')
+        ? require('../plugin/tasks/task-status.cjs')
         : name === './project-navigation.cjs'
           ? { destinations: async () => [] }
           : name === './task-controller.cjs'
-            ? require('../plugin/task-controller.cjs')
+            ? require('../plugin/tasks/task-controller.cjs')
             : {
                 Menu: class {
                   constructor() {

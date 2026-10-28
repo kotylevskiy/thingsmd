@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { projectProgress } = require('../plugin/project-progress.cjs');
-const { settings } = require('../plugin/settings-model.cjs');
+const { projectProgress } = require('../plugin/tasks/project-progress.cjs');
+const { settings } = require('../plugin/settings/settings-model.cjs');
 test('progress counts unique task references including logged completions, excluding trash, templates and code', () => {
   const task = (id, meta = {}) => ({
     file: { path: `.thingsmd-storage/${id}.md` },

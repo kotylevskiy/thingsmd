@@ -1,0 +1,27 @@
+[
+  {
+    "id": "google",
+    "name": "TECA PTA events",
+    "url": "https://calendar.google.com/calendar/ical/jk2jq8mlccpfj5qne0sk5caf58%40group.calendar.google.com/public/basic.ics",
+    "source": "https://www.tecapta.org/calendar-instructions"
+  },
+  {
+    "id": "icloud",
+    "name": "Munich Church Refresh events",
+    "url": "webcal://p122-caldav.icloud.com/published/2/MjcyMTU0ODg1MjcyMTU0OLUjJpbIcJYExkQACzADuubSOPz_EtZeMhP85VRN_-ZSVsmX4ibPyRPdqyzQ_HtcHnyw_AvQKIAupvha4kg_yPA",
+    "source": "https://munich-church-refresh.de/events/"
+  },
+  {
+    "id": "nextcloud",
+    "name": "UCLA Faculty Association events",
+    "url": "https://cloud.uclafa.org/remote.php/dav/public-calendars/Xo7BnacMiXTNM4x8?export",
+    "source": "https://uclafa.org/subscribe-to-our-calendar/"
+  },
+  {
+    "id": "radicale",
+    "name": "FileWave events",
+    "url": "https://cal.filewavex.org/jlevitsk/4a200847-b37c-036a-ee8e-d80d67d98dca/",
+    "source": "https://filewave.com/events",
+    "backendSource": "https://www.joshie.com/publishing-a-public-calendar/"
+  }
+]

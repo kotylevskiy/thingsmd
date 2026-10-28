@@ -42,7 +42,7 @@ test('global capture focuses the vault, keeps old binding on conflict, and remov
     }),
   };
   const module = { exports: {} };
-  vm.runInNewContext(fs.readFileSync('plugin/global-capture.cjs', 'utf8'), {
+  vm.runInNewContext(fs.readFileSync('plugin/tasks/global-capture.cjs', 'utf8'), {
     module,
     setTimeout: (cb) => cb(),
     require: (name) =>
@@ -51,7 +51,7 @@ test('global capture focuses the vault, keeps old binding on conflict, and remov
         : name === 'electron'
           ? { ipcRenderer: ipc }
           : name === './global-capture-main.cjs'
-            ? require('../plugin/global-capture-main.cjs')
+            ? require('../plugin/tasks/global-capture-main.cjs')
             : remote,
   });
   const p = {
@@ -61,7 +61,7 @@ test('global capture focuses the vault, keeps old binding on conflict, and remov
     register: (cb) => cleanup.push(cb),
     saveData: async () => {},
   };
-  await require('../plugin/settings-service.cjs')(p);
+  await require('../plugin/settings/settings-service.cjs')(p);
   module.exports(p);
   await p.setGlobalCaptureHotkey('Ctrl+Shift+Space');
   bindings.get('Ctrl+Shift+Space')();
@@ -78,12 +78,15 @@ test('global capture focuses the vault, keeps old binding on conflict, and remov
 
 test('global capture avoids desktop imports in the real mobile emulation mode', () => {
   const module = { exports: {} };
-  vm.runInNewContext(fs.readFileSync(require.resolve('../plugin/global-capture.cjs'), 'utf8'), {
-    module,
-    require(name) {
-      assert.equal(name, 'obsidian', 'A mobile UI must not load desktop-only modules');
-      return { Platform: { isDesktopApp: true, isMobile: true } };
+  vm.runInNewContext(
+    fs.readFileSync(require.resolve('../plugin/tasks/global-capture.cjs'), 'utf8'),
+    {
+      module,
+      require(name) {
+        assert.equal(name, 'obsidian', 'A mobile UI must not load desktop-only modules');
+        return { Platform: { isDesktopApp: true, isMobile: true } };
+      },
     },
-  });
+  );
   assert.doesNotThrow(() => module.exports({}));
 });

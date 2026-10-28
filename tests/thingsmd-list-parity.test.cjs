@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { inList, upcomingDates } = require('../plugin/model.cjs');
-const { applySchedulePolicy } = require('../plugin/task-schedule.cjs');
+const { inList, upcomingDates } = require('../plugin/tasks/model.cjs');
+const { applySchedulePolicy } = require('../plugin/tasks/task-schedule.cjs');
 const day = '2026-10-17';
 const lists = (meta, date = day) =>
   ['inbox', 'today', 'upcoming', 'anytime', 'someday'].filter((list) =>

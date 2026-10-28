@@ -1,0 +1,58 @@
+const { settings } = require('./settings-model.cjs');
+const { WriteQueue } = require('../shared/write-queue.cjs');
+const { resolveList } = require('../lists/lists.cjs');
+
+module.exports = async function installSettingsService(plugin) {
+  const data = await plugin.loadData();
+  plugin.settings = settings(data);
+  // Capture the first device's zone once; other devices must retain the saved zone.
+  if (data?.timeZone !== plugin.settings.timeZone)
+    await plugin.saveData({ ...data, timeZone: plugin.settings.timeZone });
+  const writes = new WriteQueue();
+  let disposed = false;
+  plugin.register?.(() => {
+    disposed = true;
+  });
+
+  // Stage changes, persist, then publish. In particular, a failed save must not
+  // activate immediate Trash deletion in the background maintenance loop.
+  // Hotkey registration participates via prepare/rollback in this same queue.
+  plugin.persistSettings = (patch, { prepare, rollback, committed } = {}) =>
+    writes.run('settings', async () => {
+      if (disposed) throw new Error('The plugin has been unloaded.');
+      const change = typeof patch === 'function' ? patch(plugin.settings) : patch;
+      const next = settings({ ...plugin.settings, ...change });
+      await prepare?.(next);
+      try {
+        if (disposed) throw new Error('The plugin has been unloaded.');
+        await plugin.saveData(next);
+      } catch (error) {
+        await rollback?.();
+        throw error;
+      }
+      plugin.settings = next;
+      if (!disposed) await committed?.();
+    });
+  plugin.updateSettings = (patch) =>
+    plugin.persistSettings(patch, {
+      // Preserve already logged tasks when changing the automatic logging policy.
+      prepare: () => plugin.maintainArchives(),
+      committed: async () => {
+        plugin.calendar?.configure(plugin.settings.calendars);
+        if (plugin.calendar) void plugin.calendar.reload().then(() => plugin.calendar.refreshAll());
+        plugin.mountListLinks();
+        plugin.paintTaskFolder?.();
+        plugin.refreshMobileNavigation?.();
+        plugin.tasksChanged();
+        plugin.captureModal?.card?.refreshSettings();
+        for (const leaf of plugin.app.workspace.getLeavesOfType('thingsmd-project-view')) {
+          // setState resolves unavailable lists when a deferred tab is loaded.
+          if (leaf.isDeferred) continue;
+          leaf.view.taskEditorController?.refreshSettings();
+          const page = resolveList(leaf.view.page, plugin.settings);
+          if (page !== leaf.view.page) await leaf.view.navigate(page);
+        }
+        await plugin.maintainArchives();
+      },
+    });
+};

@@ -87,9 +87,15 @@
     "test:calendar-locale-webkit": "node scripts/test-calendar-locale-webkit.mjs",
     "test:quiet-tooltips": "node scripts/test-quiet-tooltips.mjs",
     "test:task-deletion-undo": "node scripts/test-task-deletion-undo.mjs",
-    "test:logbook-groups": "node scripts/test-logbook-groups.mjs"
+    "test:logbook-groups": "node scripts/test-logbook-groups.mjs",
+    "test:calendar": "node scripts/test-calendar-ui.mjs",
+    "test:calendar-webkit": "node scripts/test-calendar-webkit.mjs",
+    "test:calendar-http": "node scripts/test-calendar-http.mjs",
+    "calendar:check-http": "node scripts/test-calendar-http.mjs",
+    "calendar:check-live": "node scripts/test-calendar-live.mjs"
   },
   "devDependencies": {
+    "esbuild": "0.28.2",
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
     "playwright-core": "^1.64.1",
@@ -100,5 +106,9 @@
     "singleQuote": true,
     "printWidth": 100,
     "trailingComma": "all"
+  },
+  "dependencies": {
+    "ical.js": "2.2.1",
+    "moment-timezone": "0.6.5"
   }
 }

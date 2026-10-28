@@ -56,7 +56,7 @@ async function fixture() {
     require: (name) =>
       name === 'obsidian'
         ? {}
-        : name === './note-access.cjs'
+        : name === './shared/note-access.cjs'
           ? {
               noteAccess: () => ({
                 read: async () => text,

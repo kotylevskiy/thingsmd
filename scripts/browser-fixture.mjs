@@ -1,5 +1,6 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
+import { build } from 'esbuild';
 export async function browserFixture({ browserType = chromium, pageOptions = {} } = {}) {
   const executablePath =
     browserType.name() !== 'chromium'
@@ -12,7 +13,7 @@ export async function browserFixture({ browserType = chromium, pageOptions = {} 
   const page = await browser.newPage(pageOptions);
   const sources = Object.fromEntries(
     await Promise.all(
-      (await readdir(new URL('../plugin/', import.meta.url)))
+      (await readdir(new URL('../plugin/', import.meta.url), { recursive: true }))
         .filter((f) => /\.(cjs|js)$/.test(f))
         .map(async (name) => [
           './' + name,
@@ -20,6 +21,16 @@ export async function browserFixture({ browserType = chromium, pageOptions = {} 
         ]),
     ),
   );
+  // Bundle external parser dependencies for the same browser runtime as mobile.
+  const parser = await build({
+    entryPoints: [new URL('../plugin/calendar/parser.cjs', import.meta.url).pathname],
+    bundle: true,
+    write: false,
+    format: 'cjs',
+    platform: 'browser',
+    target: 'es2022',
+  });
+  sources['./calendar/parser.cjs'] = parser.outputFiles[0].text;
   const css = await readFile(new URL('../plugin/styles.css', import.meta.url), 'utf8');
   await page.setContent(
     `<style>:root {--size-4-1:4px;--size-4-2:8px;--size-4-3:12px;--size-4-4:16px;--size-2-1:2px;--size-2-3:6px;--line-height-tight:1.3;--file-margins:16px;--font-text-size:16px;--file-line-width:700px;} *{box-sizing:border-box} body{margin:0}.modal-container{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}.modal{position:relative;display:flex;flex-direction:column;max-height:calc(100% - 40px);background:white;overflow:auto}.modal-close-button{display:block}${css}</style>`,
@@ -130,7 +141,12 @@ export async function browserFixture({ browserType = chromium, pageOptions = {} 
       new Function('module', 'exports', 'require', sources[name])(
         module,
         module.exports,
-        window.loadPluginModule,
+        (request) =>
+          window.loadPluginModule(
+            request.startsWith('.')
+              ? '.' + new URL(request, 'https://plugin.invalid/' + name.slice(2)).pathname
+              : request,
+          ),
       );
       return module.exports;
     };

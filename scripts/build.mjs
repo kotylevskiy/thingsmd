@@ -1,38 +1,38 @@
-import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
+import { mkdir, copyFile, writeFile, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-
+import { build } from 'esbuild';
 const root = new URL('../', import.meta.url);
 const output = new URL('dist/', root);
 await mkdir(output, { recursive: true });
-// Bundle each local module once and cache its exports, like CommonJS.
-// Obsidian, Electron, and CodeMirror remain host-provided dependencies.
-const modules = new Map();
-async function collect(name) {
-  if (modules.has(name)) return;
-  const source = await readFile(new URL(`plugin/${name}`, root), 'utf8');
-  modules.set(name, source);
-  for (const match of source.matchAll(/require\(['"]\.\/([^'"]+)['"]\)/g)) await collect(match[1]);
-}
-await collect('main.js');
-const factories = [...modules]
-  .map(
-    ([name, source]) =>
-      `${JSON.stringify('./' + name)}: (module, exports, require) => {\n${source}\n}`,
+const notices = (
+  await Promise.all(
+    ['ical.js', 'moment', 'moment-timezone'].map(
+      async (name) =>
+        `${name}\n${await readFile(new URL(`node_modules/${name}/LICENSE`, root), 'utf8')}`,
+    ),
   )
-  .join(',\n');
-const bundled = `const hostRequire = require;
-const factories = {${factories}};
-const cache = Object.create(null);
-function load(name) {
-  if (!Object.hasOwn(factories, name)) return hostRequire(name);
-  if (cache[name]) return cache[name].exports;
-  const entry = cache[name] = { exports: {} };
-  factories[name](entry, entry.exports, load);
-  return entry.exports;
-}
-module.exports = load('./main.js');
-`;
-await writeFile(new URL('main.js', output), bundled);
+).join('\n\n');
+await build({
+  stdin: {
+    contents: await readFile(new URL('plugin/main.js', root), 'utf8'),
+    resolveDir: fileURLToPath(new URL('plugin/', root)),
+    sourcefile: 'main.cjs',
+    loader: 'js',
+  },
+  outfile: fileURLToPath(new URL('main.js', output)),
+  bundle: true,
+  format: 'cjs',
+  platform: 'browser',
+  target: 'es2022',
+  external: ['obsidian', 'electron', '@electron/remote', '@codemirror/*'],
+  legalComments: 'inline',
+  banner: { js: `/* Third-party licenses\n${notices}\n*/` },
+});
 await copyFile(new URL('plugin/styles.css', root), new URL('styles.css', output));
 await copyFile(new URL('manifest.json', root), new URL('manifest.json', output));
+await writeFile(
+  new URL('THIRD_PARTY_NOTICES.md', output),
+  'Sources: https://github.com/kewisch/ical.js and https://momentjs.com/. IANA timezone data is public domain. Versions are pinned in package-lock.json.\n\n' +
+    notices,
+);
 console.log(`Built ${fileURLToPath(output)}`);

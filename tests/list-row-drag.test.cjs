@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const attach = require('../plugin/list-row-drag.cjs');
+const attach = require('../plugin/lists/list-row-drag.cjs');
 
 test('a row drop routes the target group and its insertion side to the view command', () => {
   const group = {},

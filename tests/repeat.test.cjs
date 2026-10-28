@@ -1,7 +1,12 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { nextDate, addInterval, availableDate, validate } = require('../plugin/repeat-model.cjs');
-const install = require('../plugin/repeat-engine.cjs');
+const {
+  nextDate,
+  addInterval,
+  availableDate,
+  validate,
+} = require('../plugin/tasks/repeat-model.cjs');
+const install = require('../plugin/tasks/repeat-engine.cjs');
 const rule = (changes) => ({
   mode: 'regular',
   unit: 'day',
@@ -316,7 +321,7 @@ test('unloading the plugin stops queued scheduler work', async () => {
 });
 
 test('repeat templates and generated copies obey single-placement list rules across availability and deadline days', async () => {
-  const { inList, upcomingDates } = require('../plugin/model.cjs');
+  const { inList, upcomingDates } = require('../plugin/tasks/model.cjs');
   for (const mode of ['regular', 'completion']) {
     const f = fixture({
       mode,

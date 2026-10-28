@@ -1,9 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { shouldLog, trashExpired } = require('../plugin/archive-policy.cjs');
-const { settings } = require('../plugin/settings-model.cjs');
+const { shouldLog, trashExpired } = require('../plugin/tasks/archive-policy.cjs');
+const { settings } = require('../plugin/settings/settings-model.cjs');
 test('archive settings default safely and validate saved values', () => {
   assert.deepEqual(settings(), {
+    calendars: [],
     tasksFolder: 'ThingsMD',
     tasksFolderDisplay: 'hidden',
     taskNotesTab: 'new',

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 function resolveLocale(remote) {
   const module = { exports: {} };
-  vm.runInNewContext(fs.readFileSync('plugin/system-locale.cjs', 'utf8'), {
+  vm.runInNewContext(fs.readFileSync('plugin/shared/system-locale.cjs', 'utf8'), {
     module,
     require: () => {
       if (remote instanceof Error) throw remote;

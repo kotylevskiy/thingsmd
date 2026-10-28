@@ -1,8 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const install = require('../plugin/task-actions.cjs');
-const { today, dayAfter } = require('../plugin/local-date.cjs');
-const { inToday } = require('../plugin/model.cjs');
+const install = require('../plugin/tasks/task-actions.cjs');
+const { today, dayAfter } = require('../plugin/shared/local-date.cjs');
+const { inToday } = require('../plugin/tasks/model.cjs');
 function fixture(patch = {}, fields = {}) {
   const task = {
     file: { path: 'task.md' },

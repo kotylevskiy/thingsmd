@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const { createRequire } = require('node:module');
-const filename = require.resolve('../plugin/task-notes.cjs');
+const filename = require.resolve('../plugin/notes/task-notes.cjs');
 const localRequire = createRequire(filename);
 
 // Isolate keyboard routing from Obsidian's renderer; real UI suites cover rendering.
@@ -29,7 +29,7 @@ test('Enter on a rendered link remains available to the link', async () => {
     require: (name) =>
       name === 'obsidian'
         ? { Component }
-        : name === './quiet-label.cjs'
+        : name === '../shared/quiet-label.cjs'
           ? { quietLabel() {} }
           : localRequire(name),
   });

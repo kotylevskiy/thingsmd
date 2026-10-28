@@ -14,7 +14,7 @@ for (const [locale, firstDay] of [
     const result = await page.evaluate(() => {
       document.body.classList.add('is-mobile');
       const pop = document.body.createDiv();
-      window.loadPluginModule('./date-picker.cjs').datePicker(pop, {
+      window.loadPluginModule('./shared/date-picker.cjs').datePicker(pop, {
         kind: 'deadline',
         value: '2026-10-19',
         onSelect() {},
@@ -23,7 +23,7 @@ for (const [locale, firstDay] of [
       });
       const dates = [...pop.querySelectorAll('[data-date]')].map((el) => el.dataset.date);
       return {
-        locale: window.loadPluginModule('./system-locale.cjs').systemLocale(),
+        locale: window.loadPluginModule('./shared/system-locale.cjs').systemLocale(),
         dates,
         heading: pop.querySelector('.ot-calendar-weekdays').firstElementChild.textContent,
         weekdays: Array.from({ length: 7 }, (_, day) =>

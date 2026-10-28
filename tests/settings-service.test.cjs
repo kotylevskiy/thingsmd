@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const install = require('../plugin/settings-service.cjs');
+const install = require('../plugin/settings/settings-service.cjs');
 async function fixture(data = null) {
   const writes = [],
     cleanup = [];
@@ -168,4 +168,36 @@ test('mobile navigation changes only after its preference is saved', async () =>
   await plugin.updateSettings({ mobileTaskNavigation: true });
   await plugin.updateSettings({ mobileTaskNavigation: false });
   assert.deepEqual(applied, [true, false]);
+});
+
+test('calendar edits resolve against committed settings without losing concurrent fields or removals', async () => {
+  const { plugin, writes } = await fixture({
+    timeZone: 'UTC',
+    calendars: [
+      { id: 'a', name: 'A' },
+      { id: 'b', name: 'B' },
+    ],
+  });
+  await Promise.all([
+    plugin.persistSettings((settings) => ({
+      calendars: settings.calendars.map((c) => (c.id === 'a' ? { ...c, name: 'Renamed' } : c)),
+    })),
+    plugin.persistSettings((settings) => ({
+      calendars: settings.calendars.map((c) => (c.id === 'a' ? { ...c, color: 'tomato' } : c)),
+    })),
+    plugin.persistSettings((settings) => ({
+      calendars: settings.calendars.filter((c) => c.id !== 'b'),
+    })),
+    plugin.persistSettings((settings) => ({
+      calendars: [...settings.calendars, { id: 'c', name: 'C' }],
+    })),
+  ]);
+  assert.deepEqual(
+    plugin.settings.calendars.map((c) => [c.id, c.name, c.color]),
+    [
+      ['a', 'Renamed', 'tomato'],
+      ['c', 'C', ''],
+    ],
+  );
+  assert.deepEqual(writes.at(-1).calendars, plugin.settings.calendars);
 });

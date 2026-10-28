@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { logbookGroups } = require('../plugin/logbook-groups.cjs');
+const { logbookGroups } = require('../plugin/lists/logbook-groups.cjs');
 const task = (id, completed, fields = {}) => ({ meta: { id, completed, ...fields } });
 const options = { now: new Date('2026-10-26T12:00:00Z'), timeZone: 'UTC', locale: 'en-GB' };
 test('Logbook uses recent daily sections then calendar months, newest first', () => {
@@ -75,7 +75,10 @@ for (const [locale, day, headings] of [
   test(`calendar-week sections on ${day} in ${locale}`, () => {
     const groups = logbookGroups(
       Array.from({ length: 15 }, (_, age) =>
-        task(String(age), `${require('../plugin/local-date.cjs').addDays(day, -age)}T12:00Z`),
+        task(
+          String(age),
+          `${require('../plugin/shared/local-date.cjs').addDays(day, -age)}T12:00Z`,
+        ),
       ),
       {
         now: new Date(`${day}T18:00Z`),

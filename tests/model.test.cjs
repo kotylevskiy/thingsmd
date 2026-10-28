@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { insertionOrder } = require('../plugin/model.cjs');
+const { insertionOrder } = require('../plugin/tasks/model.cjs');
 test('ordering inserts before, between and after tasks without rewriting siblings', () => {
   const tasks = [{ meta: { id: 'a', order: 1024 } }, { meta: { id: 'b', order: 2048 } }];
   assert.equal(insertionOrder(tasks, 'a'), 0);
@@ -10,7 +10,7 @@ test('ordering inserts before, between and after tasks without rewriting sibling
 });
 
 test('Today is a persistent When choice; arriving dates and deadlines also qualify', () => {
-  const { isTodayWhen, inToday } = require('../plugin/model.cjs');
+  const { isTodayWhen, inToday } = require('../plugin/tasks/model.cjs');
   assert.equal(isTodayWhen('today', '2026-10-16'), true);
   assert.equal(isTodayWhen('today', '2026-10-17'), true);
   assert.equal(isTodayWhen('2026-10-17', '2026-10-16'), false);
@@ -22,7 +22,7 @@ test('Today is a persistent When choice; arriving dates and deadlines also quali
 });
 
 test('ThingsMD list membership separates Inbox from planned or filed tasks', () => {
-  const { inList, upcomingDates } = require('../plugin/model.cjs');
+  const { inList, upcomingDates } = require('../plugin/tasks/model.cjs');
   const day = '2026-10-16';
   const lists = (task) =>
     ['inbox', 'today', 'upcoming', 'anytime', 'someday'].filter((list) => inList(task, list, day));
@@ -44,7 +44,7 @@ test('ThingsMD list membership separates Inbox from planned or filed tasks', () 
 });
 
 test('Trash preserves status; completed tasks log on the next local day', () => {
-  const { isHidden, isLogged, inList } = require('../plugin/model.cjs');
+  const { isHidden, isLogged, inList } = require('../plugin/tasks/model.cjs');
   const meta = {
     status: 'done',
     completed: new Date(2026, 9, 16, 23, 59).toISOString(),
@@ -69,14 +69,14 @@ test('Trash preserves status; completed tasks log on the next local day', () => 
 });
 
 test('daily-note capture keeps existing Inbox tasks accessible in Anytime', () => {
-  const { inList } = require('../plugin/model.cjs');
+  const { inList } = require('../plugin/tasks/model.cjs');
   const task = { meta: { status: 'todo' } };
   assert.equal(inList(task, 'anytime', '2026-10-16', 'daily', 'inbox'), false);
   assert.equal(inList(task, 'anytime', '2026-10-16', 'daily', 'daily-note'), true);
 });
 
 test('Evening belongs to Today and Anytime, and rolls into regular Today tomorrow', () => {
-  const { inEvening, inList } = require('../plugin/model.cjs');
+  const { inEvening, inList } = require('../plugin/tasks/model.cjs');
   const meta = { when: 'today', evening: '2026-10-16' };
   assert.equal(inEvening(meta, '2026-10-16'), true);
   assert.equal(inEvening(meta, '2026-10-17'), false);
@@ -87,7 +87,7 @@ test('Evening belongs to Today and Anytime, and rolls into regular Today tomorro
   }
 });
 test('Upcoming exposes seven calendar days plus later populated dates', () => {
-  const { upcomingDays } = require('../plugin/model.cjs');
+  const { upcomingDays } = require('../plugin/tasks/model.cjs');
   assert.deepEqual(upcomingDays([{ meta: { when: '2027-02-01' } }], '2026-12-29'), [
     '2026-12-30',
     '2026-12-31',
@@ -100,7 +100,7 @@ test('Upcoming exposes seven calendar days plus later populated dates', () => {
   ]);
 });
 test('start dates and deadlines remain independent at list boundaries', () => {
-  const { inList } = require('../plugin/model.cjs'),
+  const { inList } = require('../plugin/tasks/model.cjs'),
     day = '2026-10-16';
   const scheduled = { meta: { when: '2026-10-18', deadline: '2026-10-20' } };
   assert.equal(inList(scheduled, 'today', day), false);

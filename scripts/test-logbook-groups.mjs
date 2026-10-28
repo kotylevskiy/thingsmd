@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { connectTestVault } from './obsidian-connection.mjs';
 const require = createRequire(import.meta.url);
-const { logbookGroups } = require('../plugin/logbook-groups.cjs');
-const { addDays } = require('../plugin/local-date.cjs');
-const { dayKey } = require('../plugin/vault-time.cjs');
+const { logbookGroups } = require('../plugin/lists/logbook-groups.cjs');
+const { addDays } = require('../plugin/shared/local-date.cjs');
+const { dayKey } = require('../plugin/shared/vault-time.cjs');
 const { browser, page } = await connectTestVault({
   settings: { logbook: 'immediately', timeZone: 'UTC' },
 });

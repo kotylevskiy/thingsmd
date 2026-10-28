@@ -1,24 +1,25 @@
 const { Plugin, Notice } = require('obsidian');
-const { VIEW, resolveList } = require('./lists.cjs');
-const ThingsMDView = require('./list-view.cjs');
-const TaskCapture = require('./task-capture.cjs');
+const { VIEW, resolveList } = require('./lists/lists.cjs');
+const ThingsMDView = require('./lists/list-view.cjs');
+const TaskCapture = require('./tasks/task-capture.cjs');
 
 module.exports = class ThingsMDPlugin extends Plugin {
   async onload() {
-    require('./icons.cjs')();
+    require('./shared/icons.cjs')();
     // Compose services before installing UI adapters that call them.
-    require('./dialogs.cjs')(this);
-    require('./task-store.cjs')(this);
-    require('./task-note-frontmatter.cjs')(this);
-    require('./task-actions.cjs')(this);
-    require('./move-notice.cjs').install(this);
-    await require('./settings-service.cjs')(this);
-    await require('./task-folder.cjs')(this);
+    require('./shared/dialogs.cjs')(this);
+    require('./tasks/task-store.cjs')(this);
+    require('./notes/task-note-frontmatter.cjs')(this);
+    require('./tasks/task-actions.cjs')(this);
+    require('./tasks/move-notice.cjs').install(this);
+    await require('./settings/settings-service.cjs')(this);
+    require('./calendar/index.cjs')(this);
+    await require('./tasks/task-folder.cjs')(this);
     await require('./identifier-migration.cjs')(this);
-    require('./task-folder-explorer.cjs')(this);
-    require('./task-notes.cjs')(this);
-    require('./task-note-title.cjs')(this);
-    require('./archives.cjs')(this, (path) => {
+    require('./tasks/task-folder-explorer.cjs')(this);
+    require('./notes/task-notes.cjs')(this);
+    require('./notes/task-note-title.cjs')(this);
+    require('./tasks/archives.cjs')(this, (path) => {
       const cards = [...document.querySelectorAll('.ot-native')].map((el) => el._thingsmdCard);
       cards.push(...this.app.workspace.getLeavesOfType(VIEW).map((leaf) => leaf.view));
       cards.push(...(this.taskNoteControllers || []));
@@ -27,9 +28,9 @@ module.exports = class ThingsMDPlugin extends Plugin {
         cards.some((card) => card?.taskDraft?.task.file.path === path)
       );
     });
-    require('./settings.cjs')(this);
-    require('./task-menu.cjs')(this);
-    require('./daily-capture.cjs')(this);
+    require('./settings/settings.cjs')(this);
+    require('./tasks/task-menu.cjs')(this);
+    require('./tasks/daily-capture.cjs')(this);
     this.registerView(VIEW, (leaf) => new ThingsMDView(leaf, this));
     // Restore old saved tabs through the new view, whose getViewType writes VIEW.
     this.registerView(
@@ -37,20 +38,20 @@ module.exports = class ThingsMDPlugin extends Plugin {
       (leaf) => new ThingsMDView(leaf, this),
     );
     this.app.workspace.onLayoutReady(() => this.app.workspace.requestSaveLayout());
-    require('./search.cjs')(this);
-    require('./repeat-engine.cjs')(this);
-    require('./repeat-ui.cjs').install(this);
-    require('./touch-tasks.cjs')(this);
-    require('./task-transfer.cjs').install(this);
-    await require('./native-editor.cjs')(this);
-    require('./project-progress.cjs').install(this);
+    require('./search/search.cjs')(this);
+    require('./tasks/repeat-engine.cjs')(this);
+    require('./tasks/repeat-ui.cjs').install(this);
+    require('./tasks/touch-tasks.cjs')(this);
+    require('./tasks/task-transfer.cjs').install(this);
+    await require('./notes/native-editor.cjs')(this);
+    require('./tasks/project-progress.cjs').install(this);
     require('./sidebar.cjs')(this);
-    await require('./task-refresh.cjs')(this);
+    await require('./tasks/task-refresh.cjs')(this);
     this.addRibbonIcon('plus', 'New task', () =>
       this.newTaskHere().catch((error) => new Notice(error.message)),
     );
     require('./commands.cjs')(this);
-    require('./global-capture.cjs')(this);
+    require('./tasks/global-capture.cjs')(this);
     require('./mobile-navigation.cjs')(this);
     this.register(() => this.captureModal?.close());
     this.addCommand({ id: 'open', name: 'Open task lists', callback: () => this.open() });

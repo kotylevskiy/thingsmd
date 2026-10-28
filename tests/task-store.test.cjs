@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const { createRequire } = require('node:module');
 
 function fixture({ storageExists = true } = {}) {
-  const filename = require.resolve('../plugin/task-store.cjs');
+  const filename = require.resolve('../plugin/tasks/task-store.cjs');
   const localRequire = createRequire(filename);
   const module = { exports: {} };
   // JSON is a YAML subset; this fixture isolates storage/merge behavior from the
@@ -49,7 +49,7 @@ function fixture({ storageExists = true } = {}) {
     },
   };
   module.exports(plugin);
-  require('../plugin/task-actions.cjs')(plugin);
+  require('../plugin/tasks/task-actions.cjs')(plugin);
   return { plugin, files };
 }
 
@@ -234,7 +234,7 @@ test('move feedback follows successful persistence and can be suppressed for a c
 
 test('feedback compares with persisted state instead of stale editor fields', async () => {
   const { plugin } = fixture();
-  const { moveMessage } = require('../plugin/move-notice.cjs');
+  const { moveMessage } = require('../plugin/tasks/move-notice.cjs');
   const messages = [];
   plugin.notifyTaskMove = (before, after) => {
     const message = moveMessage(before, after, {}, '2026-10-17');

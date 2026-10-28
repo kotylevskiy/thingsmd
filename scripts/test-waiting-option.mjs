@@ -38,7 +38,7 @@ const enabled = (enableWaiting) =>
 try {
   if (fixture) {
     await page.evaluate(() => {
-      const Capture = window.loadPluginModule('./task-capture.cjs');
+      const Capture = window.loadPluginModule('./tasks/task-capture.cjs');
       window.waitingOptionPlugin = {
         settings: { enableWaiting: true },
         app: { workspace: {} },

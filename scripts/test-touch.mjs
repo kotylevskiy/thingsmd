@@ -19,11 +19,20 @@ const touch = (type, x, y) =>
         : [{ x, y, id: 1, radiusX: 4, radiusY: 4, force: 1 }],
   });
 const point = async (el) => {
-  await el.scrollIntoViewIfNeeded();
-  return el.evaluate((node) => {
-    const b = node.getBoundingClientRect();
-    return { x: b.x + Math.min(b.width / 2, 130), y: b.y + b.height / 2 };
-  });
+  // Releasing a hold replays any deferred render. Playwright's scrolling action
+  // can retain the retiring node; resolve the locator again before starting a gesture.
+  const until = Date.now() + 6000;
+  while (true) {
+    try {
+      await el.scrollIntoViewIfNeeded();
+      return await el.evaluate((node) => {
+        const b = node.getBoundingClientRect();
+        return { x: b.x + Math.min(b.width / 2, 130), y: b.y + b.height / 2 };
+      });
+    } catch (error) {
+      if (Date.now() >= until || !error.message.includes('not attached')) throw error;
+    }
+  }
 };
 async function tap(el, hold = 0, refresh = false) {
   const p = await point(el);

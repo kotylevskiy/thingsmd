@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { noteAccess } = require('../plugin/note-access.cjs');
+const { noteAccess } = require('../plugin/shared/note-access.cjs');
 
 test('note access prefers unsaved editor text and refuses stale writes or rollbacks', async () => {
   let text = 'Unsaved text',
@@ -112,7 +112,7 @@ test('metadata writes replace only the changed text and retain the description c
 });
 
 test('checked native writes use the registered background writer and unregister cleanly', async () => {
-  const { registerEditorWriter } = require('../plugin/note-access.cjs');
+  const { registerEditorWriter } = require('../plugin/shared/note-access.cjs');
   let text = 'Old text',
     nativeCalls = 0,
     fallbackCalls = 0;

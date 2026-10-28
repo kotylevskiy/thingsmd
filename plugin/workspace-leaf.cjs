@@ -8,5 +8,7 @@ module.exports = function mainWorkspaceLeaf(workspace) {
   workspace.iterateAllLeaves((leaf) => {
     if (!first && isMain(leaf)) first = leaf;
   });
-  return first || workspace.getLeaf('tab');
+  // Closing the last note can remove its tab group before Obsidian creates
+  // an empty replacement. Create in the root explicitly during that gap.
+  return first || workspace.createLeafInParent(workspace.rootSplit, 0);
 };

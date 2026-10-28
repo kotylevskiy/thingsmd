@@ -1,8 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { taskFolder } = require('../plugin/task-folder-policy.cjs');
-const { settings } = require('../plugin/settings-model.cjs');
-const { taskReferences, removeReferences } = require('../plugin/task-references.cjs');
+const { taskFolder } = require('../plugin/tasks/task-folder-policy.cjs');
+const { settings } = require('../plugin/settings/settings-model.cjs');
+const { taskReferences, removeReferences } = require('../plugin/notes/task-references.cjs');
 test('task folder defaults and validation keep tasks indexed and inside the vault', () => {
   assert.equal(settings().tasksFolder, 'ThingsMD');
   assert.equal(settings().tasksFolderDisplay, 'hidden');
@@ -39,7 +39,7 @@ function migrationFixture() {
   const fs = require('node:fs');
   const vm = require('node:vm');
   const { createRequire } = require('node:module');
-  const filename = require.resolve('../plugin/task-folder.cjs');
+  const filename = require.resolve('../plugin/tasks/task-folder.cjs');
   const localRequire = createRequire(filename);
   const module = { exports: {} };
   vm.runInNewContext(fs.readFileSync(filename, 'utf8'), {

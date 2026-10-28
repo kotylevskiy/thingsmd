@@ -17,7 +17,12 @@ try {
   }, title));
   const settingsPage = await findSettingsPage(page);
   assert.equal(
-    await settingsPage.locator('.vertical-tab-content .setting-item-name').last().textContent(),
+    await settingsPage
+      .locator('.vertical-tab-content .setting-item-name')
+      .evaluateAll(
+        (els) =>
+          els.filter((el) => !el.closest('.ot-calendar-settings-section')).at(-1)?.textContent,
+      ),
     'Vault time zone',
   );
   assert.equal(

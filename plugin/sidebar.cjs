@@ -1,6 +1,6 @@
 const { Notice, setIcon } = require('obsidian');
-const { LISTS, VIEW, isListAvailable } = require('./lists.cjs');
-const { button } = require('./dom.cjs');
+const { LISTS, VIEW, isListAvailable } = require('./lists/lists.cjs');
+const { button } = require('./shared/dom.cjs');
 
 // Own only file-explorer shortcuts. Native note controls stay owned by Obsidian.
 module.exports = function installSidebar(plugin) {
@@ -66,7 +66,7 @@ module.exports = function installSidebar(plugin) {
     plugin.paintListCounts?.();
   };
   plugin.listLinks = new Set();
-  require('./list-counts.cjs').install(plugin);
+  require('./lists/list-counts.cjs').install(plugin);
   plugin.register(() => {
     for (const nav of plugin.listLinks) nav.remove();
     plugin.listLinks.clear();

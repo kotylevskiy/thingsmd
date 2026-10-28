@@ -1,7 +1,7 @@
 const { test } = require('node:test'),
   assert = require('node:assert/strict');
-const { inList } = require('../plugin/model.cjs');
-const { settings } = require('../plugin/settings-model.cjs');
+const { inList } = require('../plugin/tasks/model.cjs');
+const { settings } = require('../plugin/settings/settings-model.cjs');
 test('waiting is independent of scheduling, excluded from actionable lists, and respects archives', () => {
   const t = { meta: { is_waiting: true, status: 'todo' }, references: [] },
     d = '2026-10-16';

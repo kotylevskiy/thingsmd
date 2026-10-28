@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { search } = require('../plugin/search-model.cjs');
+const { search } = require('../plugin/search/search-model.cjs');
 const task = (id, meta = {}, body = '') => ({
   file: { path: '.thingsmd-storage/' + id + '.md' },
   meta: { id, type: 'thingsmd-task', title: id, ...meta },

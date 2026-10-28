@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const { createRequire } = require('node:module');
 
 async function fixture() {
-  const filename = require.resolve('../plugin/task-refresh.cjs');
+  const filename = require.resolve('../plugin/tasks/task-refresh.cjs');
   const localRequire = createRequire(filename),
     module = { exports: {} };
   let poll;

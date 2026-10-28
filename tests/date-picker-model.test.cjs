@@ -1,6 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { firstWeekday, calendarDays, dateSuggestions } = require('../plugin/date-picker-model.cjs');
+const {
+  firstWeekday,
+  calendarDays,
+  dateSuggestions,
+} = require('../plugin/shared/date-picker-model.cjs');
 const keys = (text, now = new Date(2026, 9, 17, 23, 30)) =>
   dateSuggestions(text, now, 'en-GB').map((item) => item.date);
 

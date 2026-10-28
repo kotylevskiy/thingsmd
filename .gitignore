@@ -14,3 +14,8 @@ __MACOSX/
 .Trashes/
 .fseventsd/
 .VolumeIcon.icns
+
+# Local calendar subscriptions and other credentials
+.env
+.env.*
+!.env.example

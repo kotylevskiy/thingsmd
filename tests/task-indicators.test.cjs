@@ -28,19 +28,22 @@ class Element {
     if (on) this.cls += ` ${cls}`;
   }
 }
+const localRequire = require('node:module').createRequire(
+  require.resolve('../plugin/tasks/task-indicators.cjs'),
+);
 const mod = { exports: {} };
-vm.runInNewContext(fs.readFileSync('plugin/task-indicators.cjs', 'utf8'), {
+vm.runInNewContext(fs.readFileSync('plugin/tasks/task-indicators.cjs', 'utf8'), {
   module: mod,
   require: (name) =>
     name === 'obsidian'
       ? { setIcon: () => {} }
-      : name === './local-date.cjs'
+      : name === '../shared/local-date.cjs'
         ? {
-            ...require('../plugin/local-date.cjs'),
+            ...require('../plugin/shared/local-date.cjs'),
             today: () => '2026-10-17',
             dayAfter: () => '2026-10-18',
           }
-        : require(`../plugin/${name.replace('./', '')}`),
+        : localRequire(name),
   Intl,
   Date,
 });

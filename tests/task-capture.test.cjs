@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const { createRequire } = require('node:module');
-const filename = require.resolve('../plugin/task-capture.cjs');
+const filename = require.resolve('../plugin/tasks/task-capture.cjs');
 const localRequire = createRequire(filename);
 const stub = { exports: {} };
 class Modal {
@@ -22,7 +22,7 @@ vm.runInNewContext(fs.readFileSync(filename, 'utf8'), {
   require: (name) =>
     name === 'obsidian'
       ? { Modal }
-      : ['./task-editor.cjs', './dom.cjs'].includes(name)
+      : ['./task-editor.cjs', '../shared/dom.cjs'].includes(name)
         ? {}
         : localRequire(name),
 });

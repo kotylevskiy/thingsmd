@@ -5,6 +5,25 @@ plugin instance where they need Obsidian lifecycle registration or shared servic
 pure policy modules do not import Obsidian. The ESLint boundary rule enforces that
 separation for the policy layer.
 
+## Source layout
+
+| Location    | Responsibility                                                                     |
+| ----------- | ---------------------------------------------------------------------------------- |
+| `tasks/`    | Task logic, recurrence, capture, editing, folders, transfers and archives          |
+| `lists/`    | List views, membership, ordering, counts, rows and drag handling                   |
+| `notes/`    | Task-note controls, references, Live Preview and Reading-view integration          |
+| `calendar/` | Read-only calendar subscriptions, snapshots and event display                      |
+| `search/`   | Search UI and model                                                                |
+| `settings/` | Settings UI, validation, persistence and hotkey configuration                      |
+| `shared/`   | Checked note access, write queue, Markdown helpers, date utilities and reusable UI |
+
+The root retains plugin composition, command routing, sidebar/navigation, identifier
+migrations, shared styles and this document. Feature-specific UI stays with its
+feature; shared modules serve multiple features. Filenames remain explicit within
+folders. Tests stay in `tests/`; browser fixtures load plugin modules recursively.
+
+## Module responsibilities
+
 | Responsibility                                                 | Modules                                                                        |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | Task persistence and optimistic conflict checks                | `task-store`, `note-access`, `write-queue`                                     |

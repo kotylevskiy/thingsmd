@@ -1,8 +1,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { WriteQueue } = require('../plugin/write-queue.cjs');
-const installArchives = require('../plugin/archives.cjs');
-const installSettings = require('../plugin/settings-service.cjs');
+const { WriteQueue } = require('../plugin/shared/write-queue.cjs');
+const installArchives = require('../plugin/tasks/archives.cjs');
+const installSettings = require('../plugin/settings/settings-service.cjs');
 async function fixture() {
   const task = {
     file: { path: '.thingsmd-storage/a.md' },

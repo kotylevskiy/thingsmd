@@ -47,7 +47,7 @@ try {
     });
   if (fixture)
     await page.evaluate(() => {
-      const Capture = window.loadPluginModule('./task-capture.cjs');
+      const Capture = window.loadPluginModule('./tasks/task-capture.cjs');
       window.pickerPlugin = {
         app: { workspace: {} },
         renderTaskNotes: window.renderTaskNotesFixture,
@@ -259,7 +259,7 @@ try {
     );
     if (fixture) {
       await page.evaluate(() => {
-        const Dialog = window.loadPluginModule('./task-date-dialog.cjs');
+        const Dialog = window.loadPluginModule('./tasks/task-date-dialog.cjs');
         window.taskDateRecord = {
           meta: { id: 'calendar', when: 'anytime', deadline: '2099-06-01' },
           body: 'Native notes',

@@ -22,15 +22,16 @@ function fixture(paths) {
     },
   };
   const module = { exports: {} };
-  vm.runInNewContext(fs.readFileSync('plugin/project-navigation.cjs', 'utf8'), {
+  vm.runInNewContext(fs.readFileSync('plugin/tasks/project-navigation.cjs', 'utf8'), {
     module,
     innerWidth: 1000,
     innerHeight: 800,
     require: (name) => {
-      if (name === './task-references.cjs') return require('../plugin/task-references.cjs');
-      if (name === './note-access.cjs')
+      if (name === '../notes/task-references.cjs')
+        return require('../plugin/notes/task-references.cjs');
+      if (name === '../shared/note-access.cjs')
         return { noteAccess: () => ({ read: async (file) => texts.get(file.path) }) };
-      if (name === './workspace-leaf.cjs') return () => leaf;
+      if (name === '../workspace-leaf.cjs') return () => leaf;
       return {
         Notice: class {},
         Menu: class {

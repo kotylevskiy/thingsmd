@@ -23,7 +23,7 @@ function fixture() {
   let timer,
     changes = 0;
   const module = { exports: {} };
-  vm.runInNewContext(fs.readFileSync('plugin/touch-tasks.cjs', 'utf8'), {
+  vm.runInNewContext(fs.readFileSync('plugin/tasks/touch-tasks.cjs', 'utf8'), {
     module,
     document: { defaultView: {} },
     setTimeout: (callback) => {

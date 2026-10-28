@@ -52,7 +52,7 @@ try {
       },
       tasksChanged: () => setTimeout(() => window.refreshControls(), 0),
     };
-    window.manager = window.loadPluginModule('./task-note-controls.cjs')(plugin);
+    window.manager = window.loadPluginModule('./notes/task-note-controls.cjs')(plugin);
     window.refreshControls = () => {
       const live = new Set();
       window.manager.update(view, window.record.meta, live);

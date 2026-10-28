@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const install = require('../plugin/dialogs.cjs');
+const install = require('../plugin/shared/dialogs.cjs');
 
 test('closed dialogs release ownership and plugin unload closes only remaining dialogs', () => {
   let cleanup;

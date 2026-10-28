@@ -4,7 +4,7 @@ const {
   referenceRanges,
   removeReferences,
   insertReference,
-} = require('../plugin/task-references.cjs');
+} = require('../plugin/notes/task-references.cjs');
 const path = '.thingsmd-storage/a.md';
 test('task placement preserves prose and only removes live standalone references', () => {
   const text =
@@ -69,7 +69,7 @@ test('long fences preserve literal task examples during moves and reject inserti
 });
 
 test('one reference scan canonicalizes paths and preserves offsets across CRLF, fences and frontmatter', () => {
-  const { taskReferences } = require('../plugin/task-references.cjs');
+  const { taskReferences } = require('../plugin/notes/task-references.cjs');
   const text =
     '---\r\nexample: ![[.thingsmd-storage/hidden]]\r\n---\r\n' +
     '![[.thingsmd-storage/a]]\r\nInline ![[.thingsmd-storage/b]]\r\n' +

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const InboxSession = require('../plugin/inbox-session.cjs');
-const { inList } = require('../plugin/model.cjs');
+const InboxSession = require('../plugin/tasks/inbox-session.cjs');
+const { inList } = require('../plugin/tasks/model.cjs');
 const day = '2026-10-17';
 const task = (id, fields = {}) => ({ meta: { id, status: 'todo', ...fields } });
 const active = (tasks) => tasks.filter((t) => inList(t, 'inbox', day));

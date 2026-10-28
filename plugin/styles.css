@@ -892,18 +892,22 @@ input.ot-task-marker[type='checkbox'] {
 }
 
 /* Capture reuses the expanded task card, without a second form or heading. */
-.ot-group button.ot-capture {
-  display: block;
-  padding: calc(var(--size-4-1) * 1.25) 0;
-  margin: var(--size-4-1) 0 0 calc(15px + var(--size-4-2) + var(--size-2-1));
-  height: auto;
+.ot-group button.ot-capture,
+.ot-calendar button.ot-calendar-refresh {
   background: transparent;
   border: none;
   box-shadow: none;
   color: var(--text-muted);
   font-size: 13px;
 }
-.ot-group button.ot-capture:hover {
+.ot-group button.ot-capture {
+  display: block;
+  padding: calc(var(--size-4-1) * 1.25) 0;
+  margin: var(--size-4-1) 0 0 calc(15px + var(--size-4-2) + var(--size-2-1));
+  height: auto;
+}
+.ot-group button.ot-capture:hover,
+.ot-calendar button.ot-calendar-refresh:hover {
   color: var(--text-normal);
 }
 .ot-capture-container {
@@ -2255,4 +2259,276 @@ body.is-mobile .ot-capture-hint {
   .ot-task:not(.is-expanded) > .ot-task-line > .ot-repeat-indicator {
     margin-left: auto;
   }
+}
+
+/* Read-only calendar events remain separate from task selection and editing. */
+.ot-calendar:not(:empty) {
+  position: relative;
+  margin-bottom: var(--size-4-4);
+  padding: var(--size-4-2) 36px var(--size-4-2) var(--size-4-3);
+  border-radius: var(--radius-s, 6px);
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small, 13px);
+  line-height: 1.5;
+}
+.ot-calendar-events {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ot-calendar-event {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-1);
+  padding: 0;
+  margin: 0;
+}
+.ot-calendar-time {
+  flex: none;
+  color: var(--ot-calendar-color, var(--interactive-accent));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ot-calendar-time.is-all-day {
+  align-self: center;
+  width: 3px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--ot-calendar-color, var(--interactive-accent));
+}
+.ot-calendar-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: normal;
+}
+.ot-calendar-empty,
+.ot-calendar-status {
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+}
+.ot-calendar-status {
+  margin-bottom: var(--size-4-1);
+  overflow-wrap: anywhere;
+}
+.ot-calendar button.ot-calendar-refresh {
+  position: absolute;
+  top: var(--size-4-1);
+  right: var(--size-4-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 6px;
+}
+.ot-calendar-refresh svg {
+  width: 14px;
+  height: 14px;
+}
+.ot-calendar-refresh.is-refreshing svg {
+  animation: ot-calendar-refresh-spin 0.8s linear infinite;
+}
+@keyframes ot-calendar-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ot-calendar-refresh.is-refreshing svg {
+    animation: none;
+  }
+}
+.ot-calendar button.ot-calendar-refresh:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+@media (pointer: coarse) {
+  .ot-calendar button.ot-calendar-refresh {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+.ot-calendar-settings-section > .setting-item-heading .setting-item-description {
+  margin-top: var(--size-4-2, 8px);
+}
+.ot-calendar-settings-row {
+  align-items: center;
+}
+.ot-calendar-settings-row .setting-item-info {
+  align-self: center;
+}
+.ot-calendar-settings-row .setting-item-description:empty {
+  display: none;
+}
+.ot-calendar-settings-row .setting-item-name {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ot-calendar-color-dot {
+  flex: 0 0 10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.ot-calendar-configure {
+  width: 520px;
+  max-width: calc(100vw - 32px);
+}
+.ot-calendar-options .ot-calendar-refresh-setting {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+}
+.ot-calendar-refresh-setting .setting-item-control {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  gap: 8px;
+}
+.ot-calendar-refresh-setting input[type='range'] {
+  order: 0;
+  width: 100%;
+  margin: 0;
+}
+.ot-calendar-refresh-setting .slider-value {
+  order: 1;
+  align-self: center;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+.ot-calendar-color-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+.ot-calendar-color-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 32px);
+  gap: 8px;
+}
+.ot-calendar-color-grid > button.ot-calendar-swatch,
+.ot-calendar-default-color > button.ot-calendar-color-auto {
+  flex: 0 0 32px;
+  max-width: 32px;
+  corner-shape: round;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: none;
+  background: var(--calendar-swatch);
+  color: var(--calendar-check);
+}
+.ot-calendar-color-grid > button.ot-calendar-swatch:hover,
+.ot-calendar-default-color > button.ot-calendar-color-auto:hover {
+  box-shadow:
+    0 0 0 2px var(--background-primary),
+    0 0 0 3px var(--text-muted);
+}
+.ot-calendar-color-grid > button.ot-calendar-swatch:focus-visible,
+.ot-calendar-default-color > button.ot-calendar-color-auto:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 3px;
+}
+.ot-calendar-swatch-check {
+  display: flex;
+  visibility: hidden;
+}
+.is-selected > .ot-calendar-swatch-check,
+.is-selected > .ot-calendar-source-color > .ot-calendar-swatch-check {
+  visibility: visible;
+}
+.ot-calendar-swatch-check svg {
+  width: 16px;
+  height: 16px;
+}
+.ot-calendar-default-color {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  gap: 8px;
+}
+.ot-calendar-default-label {
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+:is(.is-mobile, .emulate-mobile) .ot-calendar-color-controls {
+  align-items: flex-start;
+}
+:is(.is-mobile, .emulate-mobile) .ot-calendar-color-setting .setting-item-control {
+  width: 100%;
+  justify-content: center;
+}
+.ot-calendar-options .setting-item-control {
+  gap: 8px;
+}
+.ot-calendar-configure-actions .setting-item-info {
+  display: none;
+}
+.ot-calendar-configure-actions .setting-item-control {
+  width: 100%;
+  justify-content: flex-end;
+}
+:is(.is-mobile, .emulate-mobile) .ot-calendar-options input[type='text'] {
+  width: 100%;
+  min-width: 0;
+}
+
+.ot-calendar-settings-row .setting-item-control {
+  flex: 0 0 auto;
+  gap: 8px;
+}
+.ot-calendar-settings-row .setting-item-control > .checkbox-container {
+  margin-inline-end: 8px;
+}
+.ot-calendar-settings-row .ot-calendar-row-action svg {
+  width: 16px;
+  height: 16px;
+}
+.ot-calendar-settings-row .setting-item-control > button.ot-calendar-row-action {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  color: var(--text-muted);
+}
+.ot-calendar-settings-row button.ot-calendar-row-action:hover {
+  color: var(--text-normal);
+}
+.ot-calendar-settings-row .setting-item-control > button.ot-calendar-remove {
+  border-radius: 50%;
+}
+@media (hover: hover) {
+  .ot-calendar-settings-row .setting-item-control > button.ot-calendar-remove:hover {
+    background-color: var(--background-modifier-error);
+    color: var(--text-on-accent);
+  }
+}
+.ot-calendar-settings-row button.ot-calendar-row-action:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+
+.ot-calendar-add {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
 }

@@ -1,10 +1,36 @@
 # Calendar test fixtures
 
-These are unmodified upstream test files, downloaded on 2026-10-28 and pinned to
+The local ICS files are unmodified upstream test files, downloaded on 2026-10-28 and pinned to
 the revisions below. They are parser/compatibility inputs, not proof that every
 provider currently produces the same data. Some intentionally exercise invalid
 or nonstandard input. Decide acceptance/rejection expectations explicitly when
 adding tests; a file's presence here does not mean it must be accepted.
+
+## Public live feeds
+
+[live-feeds.json](live-feeds.json) contains four owner-published subscription URLs
+and the pages advertising them. These are public event calendars, not personal
+secret links. Only links are stored; event contents are fetched when testing.
+
+Observed coverage on 2026-10-28:
+
+| Feed                                 | Event types                                | Recurrence features                         |
+| ------------------------------------ | ------------------------------------------ | ------------------------------------------- |
+| Google — TECA PTA                    | All-day, timed; UTC and named timezones    | Rules, excluded dates, modified occurrences |
+| iCloud — Munich Church Refresh       | Timed, named timezone                      | No recurring events                         |
+| Nextcloud — UCLA Faculty Association | All-day, timed, named timezones            | Rules                                       |
+| Radicale — FileWave                  | All-day, multi-day, timed, named timezones | Rules, excluded dates, modified occurrences |
+
+Use these URLs for manual or opt-in network integration checks. Convert
+`webcal://` to `https://` before fetching. For example, inspect the Google feed:
+
+```sh
+curl -i 'https://calendar.google.com/calendar/ical/jk2jq8mlccpfj5qne0sk5caf58%40group.calendar.google.com/public/basic.ics'
+```
+
+Contents and availability can change; do not assert fixed counts or dates, or
+make offline regression tests depend on these servers. Use the local ICS files
+for reproducible parser cases.
 
 ## ICAL.js samples
 
