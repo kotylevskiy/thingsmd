@@ -68,9 +68,7 @@ class ThingsMDView extends ItemView {
     this.registerEvent(this.app.workspace.on('thingsmd-tasks-changed', refresh));
     this.registerEvent(
       this.app.workspace.on('thingsmd-calendar-changed', () => {
-        const container = this.contentEl.querySelector('.ot-calendar');
-        if (container && this.plugin.calendar)
-          require('../calendar/view.cjs').renderCalendar(container, this.plugin.calendar);
+        this.renderCalendars();
       }),
     );
     this.registerDomEvent(this.contentEl.ownerDocument, 'pointerdown', (e) => {
@@ -211,15 +209,22 @@ class ThingsMDView extends ItemView {
     });
     setIcon(headingIcon, PAGES.find(([key]) => key === this.page)?.[2] || 'inbox');
     top.createEl('h1', { text: this.getDisplayText(), cls: 'inline-title' });
-    if (this.page === 'today' && this.plugin.calendar) {
-      require('../calendar/view.cjs').renderCalendar(
-        paper.createEl('section', { cls: 'ot-calendar' }),
-        this.plugin.calendar,
-      );
-      void this.plugin.calendar.refreshAll();
-    }
+    if (this.page === 'today') paper.createEl('section', { cls: 'ot-calendar' });
+    if (this.page === 'upcoming') paper.createDiv('ot-calendar-errors');
     require('./list-contents.cjs')(this, paper, active, progress);
+    this.renderCalendars();
+    if (['today', 'upcoming'].includes(this.page)) void this.plugin.calendar?.refreshAll();
     main.scrollTop = scroll;
+  }
+  renderCalendars() {
+    if (!this.plugin.calendar || this.closed) return;
+    const { renderCalendar, renderUpcomingCalendar } = require('../calendar/view.cjs');
+    if (this.page === 'upcoming' && this.contentEl.querySelector('.ot-calendar-errors'))
+      renderUpcomingCalendar(this.contentEl, this.plugin.calendar);
+    else if (this.page === 'today') {
+      const container = this.contentEl.querySelector('.ot-calendar');
+      if (container) renderCalendar(container, this.plugin.calendar);
+    }
   }
   group(parent, tasks, sectionId) {
     const group = parent.createDiv({

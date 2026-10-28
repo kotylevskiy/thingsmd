@@ -1,8 +1,17 @@
 # Calendar Integration
 
-Display read-only calendar events in Today, separate from tasks. Use one
+Display read-only calendar events in Today and Upcoming, separate from tasks. Use one
 implementation for Obsidian desktop, iOS and Android. The external calendar is
 authoritative; the vault stores snapshots shared between devices.
+
+## Display
+
+- Today shows the current day's events above tasks.
+- Upcoming shows events above tasks in each of the next seven daily sections, starting tomorrow, including days without tasks. Empty calendar blocks are hidden.
+- Multi-day events appear on every overlapping day; the end is exclusive. Upcoming presents them as all-day items, matching Things.
+- One visibility toggle controls both views. Colors, cached snapshots and refresh settings are shared.
+- Upcoming uses plain, compact event rows below each date heading: colored times or all-day markers, muted titles, then tasks. No panel background or extra refresh button.
+- Refresh on show and use **ThingsMD: Refresh calendars** in Obsidian's command palette for manual updates. It refreshes enabled calendars immediately, respecting provider retry limits. Errors appear once; refreshing updates event blocks without replacing task editors.
 
 ## Calendar access
 
@@ -55,7 +64,7 @@ mobile/desktop implementation. Adoption remains subject to provider/mobile tests
 Missing timezone definitions use bundled Moment Timezone IANA data. Versions of
 both libraries are pinned in `package-lock.json` and included in the plugin build.
 
-- **Download the published feed without date parameters:** server-side filtering is not universal. Select Today locally.
+- **Download the published feed without date parameters:** server-side filtering is not universal. Select the displayed period locally.
 - **Preserve recurrence rules and exceptions:** an old series can still contain today's events. Expand only the displayed period.
 - **Display supplied private events:** the source already determines access.
 
@@ -96,7 +105,7 @@ differ. This limitation is accepted to keep synchronization simple.
 - **Refresh on show/resume when due, plus manual refresh:** mobile background execution is not guaranteed.
 - **Respect provider hints and rate limits; back off after failures:** avoid excessive requests. Nextcloud [defaults to a four-hour hint](https://github.com/nextcloud/server/blob/v33.0.10/apps/dav/lib/CalDAV/ICSExportPlugin/ICSExportPlugin.php).
 - **Use `ETag`/`Last-Modified` and `304` when supported:** reduce unchanged downloads. Real-provider support requires validation.
-- **Show cached data immediately; retain it on failure:** preserve offline access and avoid blanking Today after network errors.
+- **Show cached data immediately; retain it on failure:** preserve offline access and avoid blanking either view after network errors.
 
 ## Testing
 
@@ -107,17 +116,18 @@ for sample contents and test dates.
 - `npm run calendar:check-http` — local HTTP server with validators, failures and rate limits.
 - `npm run calendar:check-live` — opt-in downloads from the four public fixture links; no personal `.env` values are used.
 - `npm run test:calendar` — real Obsidian settings, Today, cache and task draft checks in a marked disposable vault.
+- `npm run test:calendar-upcoming` — daily grouping, recurrence, cache, shared visibility and draft preservation in desktop/mobile emulation.
 - `npm run test:calendar-webkit` — mobile layout, parser and timezone checks in WebKit.
 
 Configure calendars under **Settings → ThingsMD → Calendars**. Each calendar has a
-single row with its name, color, Today visibility toggle, settings gear and remove icon, in that order, at the end of plugin settings. The settings popup contains the name, color palette and full-width refresh slider with its value below. Removing a calendar
+single row with its name, color, Today/Upcoming visibility toggle, settings gear and remove icon, in that order, at the end of plugin settings. The settings popup contains the name, color palette and full-width refresh slider with its value below. Removing a calendar
 removes its configuration; cached files and the named secret remain available
 for explicit deletion.
 
 Downloads time out after 30 seconds; accepted feeds are limited to 8 MB.
 Recurrence expansion is bounded to 200,000 iterations and checks a two-second
-work budget. A limit error retains the last valid snapshot. Today's expansion is
-cached in memory and recalculated when the snapshot or local day changes.
+work budget. A limit error retains the last valid snapshot. Today and Upcoming expansions are cached in memory and recalculated when the
+snapshot or local day changes.
 
 Serve them locally from the repository root:
 

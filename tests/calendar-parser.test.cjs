@@ -1,10 +1,38 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { parseCalendar, eventsOnDay } = require('../plugin/calendar/parser.cjs');
+const { parseCalendar, eventsOnDay, eventsInRange } = require('../plugin/calendar/parser.cjs');
 const { wrap, event } = require('./helpers/calendar.cjs');
 const day = (value) => new Date(value + 'T12:00:00');
 const read = (body, value = '2026-10-28') => eventsOnDay(parseCalendar(body), day(value));
+
+test('week expansion preserves recurrence exceptions and caches both displayed periods', () => {
+  const parsed = parseCalendar(
+    wrap(
+      event([
+        'DTSTART:20261028T100000',
+        'DURATION:PT1H',
+        'RRULE:FREQ=DAILY;COUNT=10',
+        'EXDATE:20261030T100000',
+      ]),
+      event(['RECURRENCE-ID:20261031T100000', 'DTSTART:20261102T140000', 'SUMMARY:Moved']),
+    ),
+  );
+  const start = new Date(2026, 9, 29),
+    end = new Date(2026, 10, 5);
+  const today = eventsOnDay(parsed, day('2026-10-28'));
+  const week = eventsInRange(parsed, start, end);
+  assert.equal(week.length, 6);
+  assert.equal(week.filter((e) => e.title === 'Moved').length, 1);
+  assert.equal(week.filter((e) => new Date(e.start).getDate() === 31).length, 0);
+  assert.ok(week.every((e) => e.start >= start.getTime() && e.start < end.getTime()));
+  assert.equal(eventsOnDay(parsed, day('2026-10-28')), today);
+  assert.equal(eventsInRange(parsed, start, end), week);
+  assert.throws(() => eventsInRange(parsed, end, start), /Invalid calendar date range/);
+  assert.throws(() => eventsInRange(parsed, start, end, { maxIterations: 1 }), /expansion limit/);
+  eventsOnDay(parsed, day('2026-11-05'));
+  assert.equal(parsed.rangeCache.size, 2);
+});
 
 test('all-day exclusive end, floating times, overnight overlap, and zero duration', () => {
   const allDay = wrap(event(['DTSTART;VALUE=DATE:20261027', 'DTEND;VALUE=DATE:20261029']));

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { CalendarService, ROOT } = require('../plugin/calendar/service.cjs');
 const { calendars, subscriptionUrl } = require('../plugin/calendar/model.cjs');
 const { wrap, body } = require('./helpers/calendar.cjs');
+const { event } = require('./helpers/calendar.cjs');
 const config = {
   id: 'test',
   name: 'Calendar',
@@ -51,6 +52,71 @@ function fixture(files = new Map(), options = {}) {
     },
   };
 }
+test('Upcoming groups the next seven local days, with exclusive ends and shared visibility/colors', async () => {
+  const f = fixture();
+  const ev = (id, ...properties) => event(properties).replace('UID:test', `UID:${id}`);
+  f.reply({
+    status: 200,
+    headers: {},
+    text: wrap(
+      'COLOR:tomato',
+      ev('past', 'DTSTART:20261028T090000'),
+      ev('series', 'DTSTART:20261029T090000', 'RRULE:FREQ=DAILY;COUNT=2'),
+      ev('trip', 'DTSTART;VALUE=DATE:20261028', 'DTEND;VALUE=DATE:20261031', 'SUMMARY:Trip'),
+      ev('overnight', 'DTSTART:20261029T230000', 'DTEND:20261030T010000', 'SUMMARY:Overnight'),
+      ev(
+        'midnight-end',
+        'DTSTART:20261029T220000',
+        'DTEND:20261030T000000',
+        'SUMMARY:Until midnight',
+      ),
+      ev('last', 'DTSTART:20261104T235900', 'SUMMARY:Last day'),
+      ev('outside', 'DTSTART:20261105T000000', 'SUMMARY:Outside'),
+    ),
+  });
+  await f.service.refreshAll();
+  const date = new Date(2026, 9, 28, 12);
+  const { days, statuses } = f.service.upcoming(date);
+  assert.deepEqual(
+    [...days.keys()],
+    [
+      '2026-10-29',
+      '2026-10-30',
+      '2026-10-31',
+      '2026-11-01',
+      '2026-11-02',
+      '2026-11-03',
+      '2026-11-04',
+    ],
+  );
+  assert.deepEqual(
+    days.get('2026-10-29').map((e) => [e.title, e.allDay]),
+    [
+      ['Trip', true],
+      ['Overnight', true],
+      ['Meeting', false],
+      ['Until midnight', false],
+    ],
+  );
+  assert.deepEqual(
+    days.get('2026-10-30').map((e) => e.title),
+    ['Trip', 'Overnight', 'Meeting'],
+  );
+  assert.equal(days.get('2026-10-31').length, 0);
+  assert.equal(days.get('2026-11-04')[0].title, 'Last day');
+  assert.ok(
+    [...days.values()].flat().every((e) => e.color === 'tomato' && e.calendarId === config.id),
+  );
+  assert.equal(statuses.length, 1);
+  assert.equal(f.calls.length, 1, 'Upcoming reuses the same snapshot without another download');
+  f.service.configure([{ ...config, color: '#123456' }]);
+  assert.equal(f.service.upcoming(date).days.get('2026-10-29')[0].color, '#123456');
+  assert.equal(f.service.today(date).events[0].color, '#123456');
+  f.service.configure([{ ...config, enabled: false }]);
+  assert.equal([...f.service.upcoming(date).days.values()].flat().length, 0);
+  assert.equal(f.service.upcoming(date).statuses.length, 0);
+  assert.equal(f.service.today(date).events.length, 0);
+});
 test('settings store only secret names and normalize paths and intervals', () => {
   assert.deepEqual(
     calendars([{ ...config, url: 'secret', refreshMinutes: 1 }, { ...config }, { id: '../bad' }]),

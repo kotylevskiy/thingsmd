@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { browserFixture } from './browser-fixture.mjs';
+import { assertCalendarLayout } from './calendar-layout.mjs';
 const { webkit } = await import(process.env.THINGSMD_PLAYWRIGHT_MODULE || 'playwright-core');
 const { browser, page } = await browserFixture({
   browserType: webkit,
@@ -79,6 +80,79 @@ try {
   assert.equal(result.refreshBackground, 'rgba(0, 0, 0, 0)');
   assert.equal(result.tooltipAttributes, 0);
   await page.getByRole('button', { name: 'Refresh calendars', exact: true }).tap();
+  await page.addStyleTag({
+    content:
+      'body { font-family: -apple-system, sans-serif; } .inline-title { font-size: 26px; line-height: 1.2; padding-top: 0.5em; }',
+  });
+  const upcoming = await page.evaluate(() => {
+    const { CalendarService } = window.loadPluginModule('./calendar/service.cjs');
+    const { parseCalendar } = window.loadPluginModule('./calendar/parser.cjs');
+    const { renderUpcomingCalendar } = window.loadPluginModule('./calendar/view.cjs');
+    const service = new CalendarService({ now: () => new Date(2026, 2, 27, 12).getTime() });
+    service.configure([{ id: 'webkit', name: 'WebKit', enabled: true }]);
+    service.state(service.config[0]).snapshot = {
+      parsed: parseCalendar(
+        [
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'COLOR:tomato',
+          'BEGIN:VEVENT',
+          'UID:dst-week',
+          'DTSTART;TZID=Europe/Berlin:20260328T090000',
+          'DURATION:PT1H',
+          'RRULE:FREQ=DAILY;COUNT=3',
+          'SUMMARY:<img src=x> A long calendar appointment that must stay on one line',
+          'END:VEVENT',
+          'BEGIN:VEVENT',
+          'UID:trip',
+          'DTSTART;VALUE=DATE:20260328',
+          'DTEND;VALUE=DATE:20260330',
+          'SUMMARY:Trip',
+          'END:VEVENT',
+          'END:VCALENDAR',
+        ].join('\r\n'),
+      ),
+    };
+    const root = document.body.createDiv('ot-paper');
+    const title = root.createDiv('ot-list-heading');
+    title.createSpan('ot-list-heading-icon').innerHTML = '<svg width=26 height=26></svg>';
+    title.createEl('h1', { cls: 'inline-title', text: 'Upcoming' });
+    root.createDiv('ot-calendar-errors');
+    for (const key of service.upcoming().days.keys()) {
+      const section = root.createEl('section', { cls: 'ot-section', attr: { 'data-date': key } });
+      const heading = section.createEl('h2', { cls: 'ot-day-heading' });
+      heading.createSpan({ cls: 'ot-day-number', text: String(Number(key.slice(-2))) });
+      heading.createSpan({ cls: 'ot-day-separator', attr: { 'aria-hidden': 'true' } });
+      heading.createSpan({ cls: 'ot-day-name', text: 'Day' });
+      section.createDiv({ cls: 'ot-calendar', attr: { 'data-calendar-date': key } });
+    }
+    renderUpcomingCalendar(root, service);
+    const group = root.querySelector('.ot-section').createDiv('ot-group');
+    const task = group.createDiv('ot-task').createDiv('ot-task-line');
+    task.createEl('input', { attr: { type: 'checkbox' } });
+    task.createSpan({ cls: 'ot-task-title', text: 'Task after calendar events' });
+    task.parentElement.createDiv({ cls: 'ot-project-badge', text: 'Project label' });
+    const days = service.upcoming().days;
+    return {
+      counts: [...days.values()].map((events) => events.length),
+      times: ['2026-03-28', '2026-03-29'].map((day) =>
+        new Date(days.get(day).find((e) => !e.allDay).start).toISOString(),
+      ),
+      noImages: root.querySelectorAll('img').length === 0,
+      noRefresh: root.querySelectorAll('button').length === 0,
+      layout: [...root.querySelectorAll('.ot-calendar:not(:empty)')].every(
+        (el) =>
+          getComputedStyle(el).backgroundColor === 'rgba(0, 0, 0, 0)' &&
+          el.scrollWidth <= el.clientWidth,
+      ),
+    };
+  });
+  assert.deepEqual(upcoming.counts, [2, 2, 1, 0, 0, 0, 0]);
+  assert.deepEqual(upcoming.times, ['2026-03-28T08:00:00.000Z', '2026-03-29T07:00:00.000Z']);
+  assert.equal(upcoming.noImages, true);
+  assert.equal(upcoming.noRefresh, true);
+  assert.equal(upcoming.layout, true);
+  await assertCalendarLayout(page);
   // Real swatch component with fixture storage; native settings are covered in Obsidian.
   await page.addStyleTag({
     content:

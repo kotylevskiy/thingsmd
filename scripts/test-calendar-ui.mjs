@@ -293,7 +293,7 @@ try {
     return Math.max(...centers) - Math.min(...centers) < 1;
   };
   assert.equal(await calendarRow.evaluate(centered), true, 'Calendar row centers align');
-  const visibility = calendarRow.getByLabel('Show in Today', { exact: true });
+  const visibility = calendarRow.getByLabel('Show in Today and Upcoming', { exact: true });
   const gear = calendarRow.getByRole('button', { name: 'Configure calendar', exact: true });
   const trash = calendarRow.getByRole('button', { name: 'Remove calendar', exact: true });
   await settings.locator('.ot-calendar-settings-header').hover();
@@ -586,7 +586,7 @@ try {
   assert.equal(await mobileRow.evaluate(centered), true, 'Mobile calendar row centers align');
   const mobileBounds = await Promise.all(
     [
-      mobileRow.getByLabel('Show in Today', { exact: true }),
+      mobileRow.getByLabel('Show in Today and Upcoming', { exact: true }),
       mobileRow.getByRole('button', { name: 'Configure calendar', exact: true }),
       mobileRow.getByRole('button', { name: 'Remove calendar', exact: true }),
     ].map((el) => el.boundingBox()),

@@ -31,6 +31,7 @@ module.exports = function renderListContents(view, paper, active, progress) {
       const [y, m, d] = date.split('-').map(Number);
       const dayHeading = section.createEl('h2', { cls: 'ot-day-heading' });
       dayHeading.createSpan({ cls: 'ot-day-number', text: String(d) });
+      dayHeading.createSpan({ cls: 'ot-day-separator', attr: { 'aria-hidden': 'true' } });
       dayHeading.createSpan({
         cls: 'ot-day-name',
         text:
@@ -46,6 +47,8 @@ module.exports = function renderListContents(view, paper, active, progress) {
                   : {}),
               }).format(new Date(y, m - 1, d, 12)),
       });
+      if (date <= dayAfter(7))
+        section.createDiv({ cls: 'ot-calendar', attr: { 'data-calendar-date': date } });
       view.group(
         section,
         active.filter((task) => upcomingDates(task.meta, today()).includes(date)),

@@ -27,7 +27,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: var(--size-4-4);
+  gap: var(--size-4-2);
   margin-bottom: var(--size-4-6);
 }
 .ot-list-heading .inline-title {
@@ -35,6 +35,7 @@
   min-width: 0;
   margin-top: 0;
   margin-bottom: 0;
+  padding: 0;
 }
 .ot-paper > .ot-section > h2 {
   font-size: var(--font-ui-small);
@@ -1590,7 +1591,7 @@ input.ot-task-marker[type='checkbox'] {
 @media (max-width: 520px) {
   .ot-list-heading {
     flex-wrap: wrap;
-    column-gap: calc(var(--size-4-1) * 2.5);
+    column-gap: var(--size-4-2);
     row-gap: var(--size-4-1);
   }
   .ot-list-heading .inline-title {
@@ -1816,17 +1817,41 @@ input.ot-task-marker[type='checkbox']::after,
   width: 15px;
   height: 15px;
 }
-.ot-paper .ot-day-heading {
-  display: flex;
+.ot-paper > .ot-section > h2.ot-day-heading {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
   align-items: baseline;
-  gap: var(--size-2-3);
+  column-gap: var(--size-4-2);
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: var(--size-4-3);
+}
+.ot-day-separator {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  margin-top: 2px;
+  border-top: 1px solid var(--background-modifier-border);
 }
 .ot-day-number {
-  font-size: var(--font-ui-large);
+  grid-column: 1;
+  grid-row: 1;
+  position: relative;
+  top: -2px;
+  font-size: 26px;
+  line-height: 1;
   color: var(--text-normal);
 }
 .ot-day-name {
+  grid-column: 2;
+  grid-row: 1;
   color: var(--text-muted);
+}
+.ot-section[data-date] > .ot-group > .ot-task:not(.is-expanded) > .ot-task-line {
+  padding-left: var(--size-4-1);
+}
+.ot-section[data-date] > .ot-group > .ot-task:not(.is-expanded) > .ot-project-badge {
+  margin-left: calc(var(--size-4-1) + var(--ot-title-indent, 25px));
 }
 .ot-task:not(.is-expanded):has(> .ot-project-badge) > .ot-task-line {
   min-height: 28px;
@@ -2271,6 +2296,12 @@ body.is-mobile .ot-capture-hint {
   color: var(--text-muted);
   font-size: var(--font-ui-small, 13px);
   line-height: 1.5;
+}
+.ot-calendar[data-calendar-date]:not(:empty) {
+  padding: 0;
+  margin: 0 0 var(--size-4-1) calc(1px + var(--size-4-1));
+  border-radius: 0;
+  background: transparent;
 }
 .ot-calendar-events {
   list-style: none;

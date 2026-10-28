@@ -163,10 +163,21 @@ function parseCalendar(text) {
 }
 
 function eventsOnDay(parsed, date = new Date(), { maxIterations = 200000 } = {}) {
-  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-  const end = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime();
+  return eventsInRange(
+    parsed,
+    new Date(date.getFullYear(), date.getMonth(), date.getDate()),
+    new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1),
+    { maxIterations },
+  );
+}
+
+function eventsInRange(parsed, fromDate, untilDate, { maxIterations = 200000 } = {}) {
+  const start = fromDate.getTime(),
+    end = untilDate.getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start)
+    throw new CalendarError('Invalid calendar date range.');
   const cacheKey = `${start}/${end}/${maxIterations}`;
-  if (parsed.dayCache?.key === cacheKey) return parsed.dayCache.events;
+  if (parsed.rangeCache?.has(cacheKey)) return parsed.rangeCache.get(cacheKey);
   const began = performance.now();
   const result = new Map();
   let iterations = 0;
@@ -223,7 +234,7 @@ function eventsOnDay(parsed, date = new Date(), { maxIterations = 200000 } = {})
           add(uid, { item: master, startDate: master.startDate, endDate: master.endDate });
         }
       }
-      // Moved exceptions can originate outside this day or lack a master.
+      // Moved exceptions can originate outside this range or lack a master.
       if (!master || !cancelled(master))
         for (const exception of exceptions)
           add(uid, {
@@ -237,11 +248,14 @@ function eventsOnDay(parsed, date = new Date(), { maxIterations = 200000 } = {})
       (a, b) =>
         Number(b.allDay) - Number(a.allDay) || a.start - b.start || a.title.localeCompare(b.title),
     );
-    parsed.dayCache = { key: cacheKey, events };
+    parsed.rangeCache ||= new Map();
+    parsed.rangeCache.set(cacheKey, events);
+    // Keep Today and Upcoming hot without retaining every previously viewed period.
+    if (parsed.rangeCache.size > 2) parsed.rangeCache.delete(parsed.rangeCache.keys().next().value);
     return events;
   } catch (error) {
     if (error instanceof CalendarError) throw error;
     throw new CalendarError('Unable to expand calendar events.');
   }
 }
-module.exports = { parseCalendar, eventsOnDay, CalendarError, MAX_BYTES };
+module.exports = { parseCalendar, eventsOnDay, eventsInRange, CalendarError, MAX_BYTES };

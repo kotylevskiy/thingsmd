@@ -1,4 +1,5 @@
-const { parseCalendar, eventsOnDay, CalendarError } = require('./parser.cjs');
+const { parseCalendar, eventsOnDay, eventsInRange, CalendarError } = require('./parser.cjs');
+const { dayKey } = require('../shared/local-date.cjs');
 const { calendars, subscriptionUrl, retryDelay } = require('./model.cjs');
 const { defaultColor } = require('./color.cjs');
 const ROOT = 'ThingsMD Calendars';
@@ -90,6 +91,46 @@ class CalendarService {
     );
   }
   today(date = new Date(this.now())) {
+    return this.period(
+      new Date(date.getFullYear(), date.getMonth(), date.getDate()),
+      new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1),
+    );
+  }
+  upcoming(date = new Date(this.now())) {
+    const midnight = (offset) =>
+      new Date(date.getFullYear(), date.getMonth(), date.getDate() + offset);
+    const { events, statuses } = this.period(midnight(1), midnight(8));
+    const days = new Map();
+    for (let offset = 1; offset <= 7; offset++) {
+      const start = midnight(offset).getTime(),
+        end = midnight(offset + 1).getTime();
+      days.set(
+        dayKey(midnight(offset)),
+        events
+          .filter(
+            (event) =>
+              event.start < end &&
+              (event.end > event.start ? event.end > start : event.start >= start),
+          )
+          .map((event) => ({
+            ...event,
+            // Like Things, show a multi-day appointment as an all-day item on each day.
+            allDay:
+              event.allDay ||
+              dayKey(new Date(event.start)) !==
+                dayKey(new Date(Math.max(event.start, event.end - 1))),
+          }))
+          .sort(
+            (a, b) =>
+              Number(b.allDay) - Number(a.allDay) ||
+              a.start - b.start ||
+              a.title.localeCompare(b.title),
+          ),
+      );
+    }
+    return { days, statuses };
+  }
+  period(start, end) {
     const events = [],
       statuses = [];
     for (const config of this.config.filter((c) => c.enabled)) {
@@ -97,7 +138,7 @@ class CalendarService {
       try {
         if (state.snapshot)
           events.push(
-            ...eventsOnDay(state.snapshot.parsed, date).map((event) => ({
+            ...eventsInRange(state.snapshot.parsed, start, end).map((event) => ({
               ...event,
               calendarId: config.id,
               calendarName: config.name,

@@ -6,6 +6,27 @@ function renderCalendar(container, service) {
   const { events, statuses } = service.today();
   if (!statuses.length) return;
   container.removeAttribute('aria-label');
+  renderRefresh(container, service, statuses);
+  renderStatuses(container, statuses);
+  if (!events.length)
+    container.createDiv({
+      cls: 'ot-calendar-empty',
+      text: statuses.some((s) => s.refreshing) ? 'Loading events…' : 'No events today',
+    });
+  renderEvents(container, events);
+}
+function renderUpcomingCalendar(container, service) {
+  const { days, statuses } = service.upcoming();
+  const errors = container.querySelector('.ot-calendar-errors');
+  errors.empty();
+  renderStatuses(errors, statuses);
+  for (const section of container.querySelectorAll('.ot-calendar[data-calendar-date]')) {
+    section.empty();
+    const events = days.get(section.dataset.calendarDate) || [];
+    if (events.length) renderEvents(section, events);
+  }
+}
+function renderRefresh(container, service, statuses) {
   const refresh = container.createEl('button', {
     cls: 'ot-calendar-refresh',
     attr: { type: 'button' },
@@ -16,17 +37,16 @@ function renderCalendar(container, service) {
   refresh.toggleClass('is-refreshing', refresh.disabled);
   refresh.setAttribute('aria-busy', String(refresh.disabled));
   refresh.onclick = () => void service.refreshAll(true);
+}
+function renderStatuses(container, statuses) {
   for (const status of statuses.filter((status) => status.error))
     container.createDiv({
       cls: 'ot-calendar-status',
       text: `${status.name}: ${status.error}${status.cached ? ' Showing cached events.' : ''}`,
       attr: { role: 'status' },
     });
-  if (!events.length)
-    container.createDiv({
-      cls: 'ot-calendar-empty',
-      text: statuses.some((s) => s.refreshing) ? 'Loading events…' : 'No events today',
-    });
+}
+function renderEvents(container, events) {
   const time = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
   const list = container.createEl('ul', { cls: 'ot-calendar-events' });
   quietLabel(list, 'Calendar events');
@@ -45,4 +65,4 @@ function renderCalendar(container, service) {
     row.createSpan({ cls: 'ot-calendar-title', text: event.title });
   }
 }
-module.exports = { renderCalendar };
+module.exports = { renderCalendar, renderUpcomingCalendar };

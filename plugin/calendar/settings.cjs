@@ -11,7 +11,7 @@ module.exports = function calendarSettings(plugin, container, redisplay) {
     .setClass('ot-calendar-settings-header')
     .setName('Calendars')
     .setHeading()
-    .setDesc('Sync your calendars to the vault to view them in the Today section.');
+    .setDesc('Sync your calendars to the vault to view them in Today and Upcoming.');
   if (!supported)
     section.createEl('p', {
       text: 'Obsidian 1.11.4 or newer is required to add calendars. Synced snapshots remain available.',
@@ -23,7 +23,7 @@ module.exports = function calendarSettings(plugin, container, redisplay) {
       plugin.calendar?.color(calendar) || calendar.color || defaultColor(calendar.id);
     row.nameEl.prepend(dot);
     row.addToggle((toggle) => {
-      quietLabel(toggle.toggleEl, 'Show in Today');
+      quietLabel(toggle.toggleEl, 'Show in Today and Upcoming');
       toggle.setValue(calendar.enabled).onChange(async (enabled) => {
         toggle.setDisabled(true);
         try {
