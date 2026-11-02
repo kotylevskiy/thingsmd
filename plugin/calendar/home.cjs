@@ -1,5 +1,5 @@
 const { SNAPSHOT } = require('./snapshot.cjs');
-const { ensureFolder } = require('./vault-storage.cjs');
+const { ensureFolder, removeEmptyFolder } = require('./vault-storage.cjs');
 const LEGACY_ROOT = 'ThingsMD Calendars';
 const calendarRoot = (home) => `${home}/Calendars`;
 
@@ -90,11 +90,7 @@ async function moveCalendarHome(
   // Delete empty old folders only; never recursively delete a calendar directory.
   for (const folder of [...folders, from]) {
     try {
-      if (!(await adapter.exists(folder))) continue;
-      const children = await adapter.list(folder);
-      if (!children.files.length && !children.folders.length) {
-        await adapter.rmdir(folder, false);
-      }
+      await removeEmptyFolder(vault, folder);
     } catch {
       /* Some adapters cannot remove folders nonrecursively. Retain empty folders
          rather than risk deleting a file that sync added since the check. */

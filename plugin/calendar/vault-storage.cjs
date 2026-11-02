@@ -15,6 +15,31 @@ async function ensureFolder(vault, path) {
   }
 }
 
+async function removeEmptyFolder(vault, path) {
+  const adapter = vault.adapter;
+  if (!(await adapter.exists(path))) return;
+  const children = await adapter.list(path);
+  if (children.files.length || children.folders.length) return;
+  if (
+    typeof adapter.fsPromises?.rmdir === 'function' &&
+    typeof adapter.getFullPath === 'function' &&
+    typeof adapter.queue === 'function' &&
+    typeof adapter.reconcileInternalFile === 'function'
+  ) {
+    // Desktop's rmdir(path, false) currently calls Node's rm with recursive:false,
+    // which rejects directories even when empty. Use the adapter's native rmdir
+    // in its operation queue, then reconcile exactly as the public method does.
+    // Native rmdir also rejects a folder populated by sync after our empty check.
+    await adapter.queue(async () => {
+      await adapter.fsPromises.rmdir(adapter.getFullPath(path));
+      await adapter.reconcileInternalFile(path);
+    });
+  } else {
+    // Mobile/other adapters implement their own nonrecursive directory removal.
+    await adapter.rmdir(path, false);
+  }
+}
+
 // Adapter boundary: the calendar service needs immutable files, not Obsidian's
 // vault/file APIs. Conditional deletion preserves copies edited during sync.
 function calendarVaultStorage(vault) {
@@ -36,4 +61,4 @@ function calendarVaultStorage(vault) {
     },
   };
 }
-module.exports = { calendarVaultStorage, ensureFolder };
+module.exports = { calendarVaultStorage, ensureFolder, removeEmptyFolder };

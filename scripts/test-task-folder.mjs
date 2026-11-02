@@ -92,11 +92,12 @@ try {
           ),
           visible: p.calendar.today().events.some((event) => event.calendarId === id),
           removedLegacy: !(await app.vault.adapter.exists(`ThingsMD Calendars/${id}/${snapshot}`)),
+          removedLegacyFolder: !(await app.vault.adapter.exists(`ThingsMD Calendars/${id}`)),
         };
       },
       { id, snapshot },
     ),
-    { stored: true, visible: true, removedLegacy: true },
+    { stored: true, visible: true, removedLegacy: true, removedLegacyFolder: true },
     'Legacy snapshots migrate automatically and remain readable without a secret',
   );
   const row = page.locator(`.nav-folder-title[data-path="ThingsMD"]`).first();
@@ -135,6 +136,9 @@ try {
     ['ThingsMD', 'Tab'],
     [target, 'Tab'],
   ]) {
+    const previousCalendarRoot = await page.evaluate(
+      () => app.plugins.getPlugin('thingsmd').calendar.root,
+    );
     await folderInput.fill(folder);
     assert.notEqual(
       await page.evaluate(() => app.plugins.getPlugin('thingsmd').settings.tasksFolder),
@@ -165,6 +169,14 @@ try {
       ),
       true,
       'Calendars move with the ThingsMD home',
+    );
+    await waitForAsync(
+      page,
+      async (root) =>
+        !(await app.vault.adapter.exists(root)) &&
+        !app.vault.getAbstractFileByPath(root) &&
+        ![...document.querySelectorAll('.nav-folder-title')].some((el) => el.dataset.path === root),
+      previousCalendarRoot,
     );
   }
   await page.evaluate(() => app.setting.close());

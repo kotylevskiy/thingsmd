@@ -146,3 +146,56 @@ test('empty-folder cleanup failures cannot fail a committed move', async () => {
   await moveCalendarHome(f.plugin, 'ThingsMD');
   assert.equal(f.service.root, 'ThingsMD/Calendars');
 });
+
+function desktopRemoval(f, beforeRemove = () => {}) {
+  const adapter = f.plugin.app.vault.adapter;
+  const reconciled = [];
+  adapter.rmdir = async () => {
+    throw new Error('EISDIR: rm with recursive:false refuses a directory');
+  };
+  adapter.queue = (operation) => operation();
+  adapter.getFullPath = (path) => `/disposable/${path}`;
+  adapter.reconcileInternalFile = async (path) => reconciled.push(path);
+  adapter.fsPromises = {
+    async rmdir(fullPath) {
+      assert.ok(fullPath.startsWith('/disposable/'));
+      const path = fullPath.slice('/disposable/'.length);
+      beforeRemove(path);
+      const children = await adapter.list(path);
+      if (children.files.length || children.folders.length) throw new Error('ENOTEMPTY');
+      f.folders.delete(path);
+    },
+  };
+  return reconciled;
+}
+
+test('desktop home moves remove empty calendar directories even when the public nonrecursive API fails', async () => {
+  const root = 'ThingsMD/Tasks/Calendars';
+  const f = fixture(root);
+  for (const id of ['second', 'third']) {
+    f.folders.add(`${root}/${id}`);
+    f.files.set(`${root}/${id}/${name}`, body(id));
+  }
+  const reconciled = desktopRemoval(f);
+  await moveCalendarHome(f.plugin, 'ThingsMD-Home');
+  for (const id of ['test', 'second', 'third']) {
+    assert.equal(f.files.has(`ThingsMD-Home/Calendars/${id}/${name}`), true);
+    assert.equal(f.folders.has(`${root}/${id}`), false);
+  }
+  assert.equal(f.folders.has(root), false);
+  assert.deepEqual(reconciled, [`${root}/test`, `${root}/second`, `${root}/third`, root]);
+});
+
+test('desktop cleanup retains a file synced into an empty old folder before its removal', async () => {
+  const f = fixture();
+  const oldFolder = `${LEGACY_ROOT}/test`;
+  desktopRemoval(f, (path) => {
+    if (path === oldFolder) f.files.set(`${oldFolder}/external.md`, 'Synced while moving');
+  });
+  await moveCalendarHome(f.plugin, 'ThingsMD-Home');
+  assert.equal(f.files.has(`ThingsMD-Home/Calendars/test/${name}`), true);
+  assert.equal(f.files.get(`${oldFolder}/external.md`), 'Synced while moving');
+  assert.equal(f.folders.has(oldFolder), true);
+  assert.equal(f.folders.has(LEGACY_ROOT), true);
+  assert.equal(f.service.root, 'ThingsMD-Home/Calendars');
+});
