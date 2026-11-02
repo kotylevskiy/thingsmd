@@ -1,35 +1,12 @@
-const { subscriptionUrl } = require('./model.cjs');
-const { parseCalendar, eventsOnDay } = require('./parser.cjs');
+const { validateSubscription } = require('./subscription.cjs');
+const { newSource } = require('./identity.cjs');
 
 async function createCalendar(
   plugin,
   { url },
   { cancelled = () => false, timeoutMs = 30000 } = {},
 ) {
-  const subscription = subscriptionUrl(url);
-  let timer, parsed;
-  try {
-    const response = await Promise.race([
-      plugin.calendar.request({
-        url: subscription,
-        method: 'GET',
-        headers: { Accept: 'text/calendar' },
-        throw: false,
-      }),
-      new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error()), timeoutMs);
-      }),
-    ]);
-    if (response.status !== 200) throw new Error();
-    parsed = parseCalendar(response.text);
-    eventsOnDay(parsed);
-  } catch {
-    throw new Error(
-      'Unable to load a valid ICS calendar. Check the subscription URL and connection.',
-    );
-  } finally {
-    clearTimeout(timer);
-  }
+  const { subscription, parsed } = await validateSubscription(plugin, url, timeoutMs);
   const isCancelled = () => cancelled() || plugin.calendar.disposed;
   if (isCancelled()) throw new Error('Calendar creation cancelled.');
   const id = crypto.randomUUID();
@@ -41,8 +18,10 @@ async function createCalendar(
     enabled: true,
     refreshMinutes: 15,
     color: '',
+    source: await newSource(subscription, parsed.uid),
   };
   const secrets = plugin.app.secretStorage;
+  if (isCancelled()) throw new Error('Calendar creation cancelled.');
   try {
     secrets.setSecret(secretName, subscription);
     await plugin.updateSettings((settings) => {

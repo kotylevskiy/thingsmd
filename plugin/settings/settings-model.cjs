@@ -7,9 +7,8 @@ function settings(data = {}) {
     tasksFolder: require('../tasks/task-folder-policy.cjs').taskFolder(
       data?.tasksFolder ?? 'ThingsMD',
     ),
-    tasksFolderDisplay: ['normal', 'last', 'hidden'].includes(data?.tasksFolderDisplay)
-      ? data.tasksFolderDisplay
-      : 'hidden',
+    // Preserve visibility for the removed "Show last" preference.
+    tasksFolderDisplay: ['normal', 'last'].includes(data?.tasksFolderDisplay) ? 'normal' : 'hidden',
     taskNotesTab: data?.taskNotesTab === 'current' ? 'current' : 'new',
     globalCaptureHotkey:
       typeof data?.globalCaptureHotkey === 'string' ? data.globalCaptureHotkey.trim() : '',

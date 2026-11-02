@@ -13,7 +13,7 @@ module.exports = class ThingsMDPlugin extends Plugin {
     require('./tasks/task-actions.cjs')(this);
     require('./tasks/move-notice.cjs').install(this);
     await require('./settings/settings-service.cjs')(this);
-    require('./calendar/index.cjs')(this);
+    await require('./calendar/index.cjs')(this);
     await require('./tasks/task-folder.cjs')(this);
     await require('./identifier-migration.cjs')(this);
     require('./tasks/task-folder-explorer.cjs')(this);

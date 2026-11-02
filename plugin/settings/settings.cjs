@@ -82,13 +82,13 @@ module.exports = function installSettingsUI(plugin) {
             );
         });
       new Setting(this.containerEl)
-        .setName('Tasks home folder')
+        .setName('ThingsMD home folder')
         .setDesc(
-          'Vault-relative folder for task notes. Press Enter or leave the field to move existing tasks and update their references.',
+          'Vault-relative folder for task notes and calendars. Press Enter or leave the field to move existing data and update task references.',
         )
         .addText((input) => {
           input.setValue(plugin.settings.tasksFolder);
-          input.inputEl.setAttribute('aria-label', 'Tasks home folder');
+          input.inputEl.setAttribute('aria-label', 'ThingsMD home folder');
           let saving = false;
           const save = async () => {
             if (saving || input.getValue() === plugin.settings.tasksFolder) return;
@@ -112,23 +112,23 @@ module.exports = function installSettingsUI(plugin) {
           });
         });
       new Setting(this.containerEl)
-        .setName('Tasks folder in File Explorer')
-        .setDesc(
-          'Hiding affects only File Explorer. Show last places the folder after its siblings regardless of sorting.',
-        )
-        .addDropdown((dropdown) => {
-          dropdown
-            .addOption('normal', 'Show normally')
-            .addOption('last', 'Show last')
-            .addOption('hidden', 'Hide');
-          dropdown.selectEl.setAttribute('aria-label', 'Tasks folder in File Explorer');
-          dropdown
-            .setValue(plugin.settings.tasksFolderDisplay)
-            .onChange((value) =>
-              plugin
-                .updateSettings({ tasksFolderDisplay: value })
-                .catch((error) => new Notice(error.message)),
-            );
+        .setName('Hide ThingsMD folder')
+        .setDesc('The ThingsMD home folder contains task notes and cached calendar events.')
+        .addToggle((toggle) => {
+          toggle.toggleEl.setAttribute('aria-label', 'Hide ThingsMD folder');
+          toggle
+            .setValue(plugin.settings.tasksFolderDisplay === 'hidden')
+            .onChange(async (hide) => {
+              toggle.setDisabled(true);
+              try {
+                await plugin.updateSettings({ tasksFolderDisplay: hide ? 'hidden' : 'normal' });
+              } catch (error) {
+                toggle.setValue(plugin.settings.tasksFolderDisplay === 'hidden');
+                new Notice(error.message);
+              } finally {
+                toggle.setDisabled(false);
+              }
+            });
         });
       new Setting(this.containerEl)
         .setName('Move completed tasks to Logbook')

@@ -12,6 +12,7 @@ const text = () =>
   [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
+    'UID:ui-calendar',
     'NAME:Created calendar',
     'X-WR-CALNAME:Fallback name',
     'COLOR:tomato',
@@ -52,7 +53,14 @@ const server = createServer(async (req, res) => {
     return;
   }
   res.writeHead(200, { 'Content-Type': 'text/calendar', ETag: etag });
-  res.end(text());
+  let body = text();
+  if (req.url === '/other-calendar.ics')
+    body = body
+      .replace('UID:ui-calendar', 'UID:other-calendar')
+      .replace('NAME:Created calendar', 'NAME:Other calendar')
+      .replace(`SUMMARY:Timed fixture ${version}`, 'SUMMARY:Replacement fixture');
+  if (req.url === '/without-uid.ics') body = body.replace('UID:ui-calendar\r\n', '');
+  res.end(body);
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const url = `http://127.0.0.1:${server.address().port}/calendar.ics`;
@@ -92,6 +100,7 @@ try {
   await emulateMobile(false);
   await page.evaluate(() => app.setting.close());
   await page.setViewportSize({ width: 1200, height: 900 });
+  await page.mouse.move(0, 0);
   previous = await page.evaluate(() => app.plugins.getPlugin('thingsmd').settings.calendars);
   await page.evaluate(
     async ({ id, url }) => {
@@ -106,6 +115,7 @@ try {
     { id, url },
   );
   await page.locator('.ot-calendar-title').filter({ hasText: 'Timed fixture 1' }).waitFor();
+  await page.waitForTimeout(200);
   assert.equal(await page.locator('.ot-calendar-event').count(), 2);
   assert.equal(await page.locator('.ot-calendar input[type=checkbox]').count(), 0);
   assert.equal(
@@ -166,13 +176,19 @@ try {
   const cached = () =>
     page.evaluate(
       (id) =>
-        app.vault.getFiles().filter((f) => f.path.startsWith(`ThingsMD Calendars/${id}/`)).length,
+        app.vault
+          .getFiles()
+          .filter((f) =>
+            f.path.startsWith(
+              `${app.plugins.getPlugin('thingsmd').settings.tasksFolder}/Calendars/${id}/`,
+            ),
+          ).length,
       id,
     );
   assert.equal(await cached(), 1);
   const persisted = await page.evaluate(() => app.plugins.getPlugin('thingsmd').loadData());
   assert.ok(!JSON.stringify(persisted).includes(url));
-  // Calendar controls sit at the end, with no editable subscription URL.
+  // Calendar controls sit at the end, with subscription setup in the dialog.
   await page.evaluate(() => {
     app.setting.open();
     app.setting.openTabById('thingsmd');
@@ -460,8 +476,8 @@ try {
     .waitFor();
   await page.evaluate(() => app.setting.close());
   const colors = () =>
-    page.locator('.ot-calendar-time').evaluateAll((els) =>
-      els.map((el) => ({
+    page.evaluate(() =>
+      [...document.querySelectorAll('.ot-calendar-time')].map((el) => ({
         color: getComputedStyle(el).color,
         background: getComputedStyle(el).backgroundColor,
       })),
@@ -500,7 +516,9 @@ try {
   await page.evaluate(() => app.setting.close());
   await page.waitForFunction(
     () =>
-      getComputedStyle(document.querySelector('.ot-calendar-time')).color === 'rgb(255, 99, 71)',
+      getComputedStyle(document.querySelector('.ot-calendar-time')).color === 'rgb(255, 99, 71)' &&
+      getComputedStyle(document.querySelector('.ot-calendar-time')).backgroundColor ===
+        'rgb(255, 99, 71)',
   );
   assert.equal((await colors())[0].background, 'rgb(255, 99, 71)');
   taskPath = await page.evaluate(async () => {
@@ -530,7 +548,7 @@ try {
       await app.plugins.getPlugin('thingsmd').calendar.refreshAll(true);
     }, id);
   }
-  await page.locator('.ot-calendar-status').filter({ hasText: 'URL secret' }).waitFor();
+  await page.locator('.ot-calendar-status').filter({ hasText: 'subscription URL' }).waitFor();
   assert.equal(await page.locator('.ot-calendar-event').count(), 2);
   await input.press('Escape');
   await waitForAsync(
@@ -541,6 +559,113 @@ try {
       ),
     taskPath,
   );
+  status = 200;
+  await page.evaluate(() => {
+    app.setting.open();
+    app.setting.openTabById('thingsmd');
+  });
+  const deviceSettings = await settingsPage(page);
+  await deviceSettings.bringToFront();
+  await deviceSettings.getByRole('button', { name: 'Configure calendar', exact: true }).click();
+  const deviceDialog = await calendarDialog('.ot-calendar-configure');
+  const deviceUrl = deviceDialog.getByLabel('Subscription URL', { exact: true });
+  assert.equal(await deviceUrl.getAttribute('type'), 'password');
+  assert.equal(await deviceUrl.inputValue(), '');
+  await deviceUrl.fill(url.replace('/calendar.ics', '/not-calendar'));
+  await deviceDialog.getByRole('button', { name: 'Save URL', exact: true }).click();
+  await deviceDialog.getByRole('alert').filter({ hasText: 'Unable to load a valid ICS' }).waitFor();
+  assert.equal(await page.evaluate((id) => !!app.secretStorage.getSecret(id), id), false);
+  await deviceUrl.fill(url);
+  await deviceDialog.getByRole('button', { name: 'Save URL', exact: true }).click();
+  await deviceDialog.getByText('The subscription URL is saved securely on this device.').waitFor();
+  assert.equal(await deviceUrl.inputValue(), '');
+  assert.equal(
+    await page.evaluate(({ id, url }) => app.secretStorage.getSecret(id) === url, { id, url }),
+    true,
+  );
+  assert.ok(
+    !(
+      await page.evaluate(() => JSON.stringify(app.plugins.getPlugin('thingsmd').settings))
+    ).includes(url),
+  );
+  const beforeSource = await page.evaluate(
+    () => app.plugins.getPlugin('thingsmd').settings.calendars[0],
+  );
+  assert.equal(beforeSource.source.uid, 'ui-calendar');
+  const sameCalendarUrl = url.replace('/calendar.ics', '/same-calendar.ics');
+  await deviceUrl.fill(sameCalendarUrl);
+  await deviceDialog.getByRole('button', { name: 'Save URL', exact: true }).click();
+  await waitForAsync(
+    page,
+    ({ id, sameCalendarUrl }) => app.secretStorage.getSecret(id) === sameCalendarUrl,
+    { id, sameCalendarUrl },
+  );
+  await page.waitForTimeout(100);
+  assert.equal(await deviceDialog.page().locator('.ot-calendar-source-warning').count(), 0);
+  assert.equal(
+    await deviceDialog.getByRole('button', { name: 'Save link', exact: true }).count(),
+    0,
+  );
+  const otherUrl = url.replace('/calendar.ics', '/other-calendar.ics');
+  await deviceUrl.fill(otherUrl);
+  assert.equal(await deviceDialog.page().locator('.ot-calendar-source-warning').count(), 0);
+  await deviceDialog.getByRole('button', { name: 'Save URL', exact: true }).click();
+  const desktopWarning = await calendarDialog('.ot-calendar-source-warning');
+  assert.equal(
+    await desktopWarning.evaluate(
+      (el) => !!el.closest('.modal-container') && !el.closest('.ot-calendar-configure'),
+    ),
+    true,
+  );
+  await desktopWarning.page().screenshot({ path: 'artifacts/calendar-source-warning-desktop.png' });
+  const desktopReplace = desktopWarning.getByRole('button', {
+    name: 'Save link',
+    exact: true,
+  });
+  assert.equal(
+    await desktopReplace.evaluate((el) => el.matches('.mod-warning, .mod-destructive')),
+    true,
+    await desktopReplace.evaluate((el) => el.outerHTML),
+  );
+  assert.equal(
+    await desktopWarning
+      .getByRole('button', { name: 'Cancel', exact: true })
+      .evaluate((el) => el === document.activeElement),
+    true,
+  );
+  await desktopWarning.page().keyboard.press('Enter');
+  await desktopWarning.waitFor({ state: 'detached' });
+  assert.equal(
+    await page.evaluate(
+      ({ id, sameCalendarUrl }) => app.secretStorage.getSecret(id) === sameCalendarUrl,
+      { id, sameCalendarUrl },
+    ),
+    true,
+  );
+  await deviceDialog.getByRole('button', { name: 'Save URL', exact: true }).click();
+  await desktopWarning.waitFor();
+  assert.equal(await desktopWarning.isVisible(), true);
+  await desktopWarning.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await desktopWarning.waitFor({ state: 'detached' });
+  assert.equal(await deviceUrl.inputValue(), otherUrl);
+  await deviceUrl.fill(url.replace('/calendar.ics', '/without-uid.ics'));
+  await deviceDialog.getByRole('button', { name: 'Save URL', exact: true }).click();
+  await desktopWarning.waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => app.plugins.getPlugin('thingsmd').settings.calendars[0].source),
+    beforeSource.source,
+  );
+  await desktopWarning.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await desktopWarning.waitFor({ state: 'detached' });
+  await deviceUrl.fill(url);
+  await deviceDialog.getByRole('button', { name: 'Save URL', exact: true }).click();
+  await waitForAsync(page, ({ id, url }) => app.secretStorage.getSecret(id) === url, { id, url });
+  await deviceDialog.getByRole('button', { name: 'Done', exact: true }).click();
+  await page.evaluate(async (id) => {
+    app.setting.close();
+    app.secretStorage.deleteSecret(id);
+    await app.plugins.getPlugin('thingsmd').calendar.refreshAll(true);
+  }, id);
   await page.setViewportSize({ width: 390, height: 844 });
   await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true });
   await emulateMobile(true);
@@ -661,6 +786,108 @@ try {
     { sizes: Array.from({ length: 13 }, () => [32, 32]), aligned: true, labelSingleLine: true },
   );
   await mobileSettings.screenshot({ path: 'artifacts/calendar-setup-mobile.png' });
+  const mobileUrl = mobileSettings.getByLabel('Subscription URL', { exact: true });
+  assert.equal(await mobileUrl.getAttribute('type'), 'password');
+  assert.ok(await mobileUrl.evaluate((el) => el.getBoundingClientRect().width >= 250));
+  await mobileUrl.fill(url);
+  await mobileSettings.getByRole('button', { name: 'Save URL', exact: true }).click();
+  await mobileSettings
+    .getByText('The subscription URL is saved securely on this device.')
+    .waitFor();
+  assert.equal(await mobileUrl.inputValue(), '');
+  await page.evaluate(async (id) => {
+    const folder = `${app.plugins.getPlugin('thingsmd').calendar.root}/${id}`;
+    await app.vault.create(`${folder}/keep.md`, 'Unrelated note must survive cache cleanup.');
+  }, id);
+  await mobileUrl.fill(otherUrl);
+  await mobileSettings.getByRole('button', { name: 'Save URL', exact: true }).click();
+  const mobileWarning = await calendarDialog('.ot-calendar-source-warning');
+  assert.equal(
+    await mobileSettings.locator('.ot-calendar-configure .ot-calendar-source-warning').count(),
+    0,
+  );
+  assert.equal(await mobileWarning.evaluate((el) => el.scrollWidth <= el.clientWidth + 1), true);
+  await mobileWarning.page().screenshot({ path: 'artifacts/calendar-source-warning-mobile.png' });
+  await mobileWarning.getByRole('button', { name: 'Save link', exact: true }).click();
+  await mobileWarning.waitFor({ state: 'detached' });
+  assert.equal(await mobileSettings.locator('.ot-calendar-replace-dialog').count(), 0);
+  await waitForAsync(
+    page,
+    () => !!app.plugins.getPlugin('thingsmd').settings.calendars[0].source.generation,
+  );
+  await waitForAsync(page, () => !app.plugins.getPlugin('thingsmd').calendar.pending.size);
+  const replaced = await page.evaluate(
+    () => app.plugins.getPlugin('thingsmd').settings.calendars[0],
+  );
+  for (const key of ['id', 'name', 'color', 'refreshMinutes', 'enabled'])
+    assert.equal(replaced[key], beforeSource[key]);
+  assert.equal(replaced.source.uid, 'other-calendar');
+  await waitForAsync(
+    page,
+    async ({ id, generation }) => {
+      const folder = `${app.plugins.getPlugin('thingsmd').calendar.root}/${id}`;
+      const files = (await app.vault.adapter.list(folder)).files.filter((path) =>
+        path.endsWith('.ics'),
+      );
+      return files.length > 0 && files.every((path) => path.endsWith(`_s-${generation}.ics`));
+    },
+    { id, generation: replaced.source.generation },
+  );
+  await page.evaluate(
+    async ({ id, body }) => {
+      const plugin = app.plugins.getPlugin('thingsmd');
+      const folder = `${plugin.calendar.root}/${id}`;
+      await app.vault.create(`${folder}/2099-01-01T00-00-00-000Z_old-device.ics`, body);
+      await plugin.calendar.reload();
+    },
+    { id, body: text() },
+  );
+  await waitForAsync(
+    page,
+    async (id) => {
+      const folder = `${app.plugins.getPlugin('thingsmd').calendar.root}/${id}`;
+      return (
+        !(await app.vault.adapter.exists(`${folder}/2099-01-01T00-00-00-000Z_old-device.ics`)) &&
+        (await app.vault.adapter.read(`${folder}/keep.md`)) ===
+          'Unrelated note must survive cache cleanup.'
+      );
+    },
+    id,
+  );
+  assert.equal(
+    await page.evaluate(({ id, otherUrl }) => app.secretStorage.getSecret(id) === otherUrl, {
+      id,
+      otherUrl,
+    }),
+    true,
+  );
+  await page.evaluate(
+    async ({ id, url }) => {
+      app.secretStorage.setSecret(id, url);
+      await app.plugins.getPlugin('thingsmd').calendar.refreshAll(true);
+    },
+    { id, url },
+  );
+  assert.equal(
+    await page.evaluate(() =>
+      app.plugins
+        .getPlugin('thingsmd')
+        .calendar.today()
+        .events.some((e) => e.title === 'Replacement fixture'),
+    ),
+    true,
+  );
+  assert.match(
+    await page.evaluate(() => app.plugins.getPlugin('thingsmd').calendar.today().statuses[0].error),
+    /does not match/,
+  );
+  await page.evaluate(
+    async ({ id, otherUrl }) => {
+      app.secretStorage.setSecret(id, otherUrl);
+      await app.plugins.getPlugin('thingsmd').calendar.refreshAll(true);
+    },
+    { id, otherUrl },
+  );
   await mobileSettings.getByRole('button', { name: 'Done', exact: true }).click();
   await mobileSettings.locator('.ot-calendar-configure').waitFor({ state: 'detached' });
   await mobileSettings.setViewportSize(settingsViewport);
@@ -676,7 +903,7 @@ try {
   for (const candidate of page.context().pages())
     await candidate.evaluate(() => {
       for (const button of document.querySelectorAll(
-        '.ot-calendar-create button, .ot-calendar-configure button',
+        '.ot-calendar-create button, .ot-calendar-configure button, .ot-calendar-source-warning button',
       ))
         if (['Cancel', 'Done'].includes(button.textContent)) button.click();
     });
@@ -693,8 +920,9 @@ try {
       await plugin.openList('today');
       for (const path of [
         taskPath,
-        `ThingsMD Calendars/${id}`,
-        created && `ThingsMD Calendars/${created.id}`,
+        `${app.plugins.getPlugin('thingsmd').settings.tasksFolder}/Calendars/${id}`,
+        created &&
+          `${app.plugins.getPlugin('thingsmd').settings.tasksFolder}/Calendars/${created.id}`,
       ]) {
         const file = path && app.vault.getAbstractFileByPath(path);
         if (file) await app.vault.delete(file, true);

@@ -89,6 +89,7 @@
     "test:task-deletion-undo": "node scripts/test-task-deletion-undo.mjs",
     "test:logbook-groups": "node scripts/test-logbook-groups.mjs",
     "test:calendar": "node scripts/test-calendar-ui.mjs",
+    "test:calendar-sync": "node scripts/test-calendar-sync.mjs",
     "test:calendar-upcoming": "node scripts/test-calendar-upcoming.mjs",
     "test:calendar-webkit": "node scripts/test-calendar-webkit.mjs",
     "test:calendar-http": "node scripts/test-calendar-http.mjs",

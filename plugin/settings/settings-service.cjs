@@ -13,24 +13,45 @@ module.exports = async function installSettingsService(plugin) {
   plugin.register?.(() => {
     disposed = true;
   });
+  plugin.withSettingsLock = (operation) =>
+    writes.run('settings', async () => {
+      if (disposed) throw new Error('The plugin has been unloaded.');
+      return operation();
+    });
 
   // Stage changes, persist, then publish. In particular, a failed save must not
   // activate immediate Trash deletion in the background maintenance loop.
   // Hotkey registration participates via prepare/rollback in this same queue.
   plugin.persistSettings = (patch, { prepare, rollback, committed } = {}) =>
-    writes.run('settings', async () => {
+    plugin.withSettingsLock(async () => {
+      // Calendar bindings on disk are authoritative after synchronization. Resolve
+      // queued edits against them so an unrelated local edit cannot restore an old source.
+      const disk = plugin.readCalendarSettings ? await plugin.readCalendarSettings() : undefined;
       if (disposed) throw new Error('The plugin has been unloaded.');
-      const change = typeof patch === 'function' ? patch(plugin.settings) : patch;
-      const next = settings({ ...plugin.settings, ...change });
+      const base = disk ? settings(disk) : plugin.settings;
+      const change = typeof patch === 'function' ? patch(base) : patch;
+      const next = settings({ ...base, ...change });
+      // Calendar synchronization applies calendar/home changes live. Preserve
+      // unrelated runtime preferences while retaining their latest disk values.
+      const published = disk
+        ? settings({
+            ...plugin.settings,
+            ...change,
+            calendars: next.calendars,
+            tasksFolder: next.tasksFolder,
+          })
+        : next;
       await prepare?.(next);
       try {
         if (disposed) throw new Error('The plugin has been unloaded.');
-        await plugin.saveData(next);
+        if (disk && JSON.stringify(await plugin.readCalendarSettings()) !== JSON.stringify(disk))
+          throw new Error('Settings changed while saving. Try again.');
+        await plugin.saveData(disk ? { ...disk, ...next } : next);
       } catch (error) {
         await rollback?.();
         throw error;
       }
-      plugin.settings = next;
+      plugin.settings = published;
       if (!disposed) await committed?.();
     });
   plugin.updateSettings = (patch) =>
@@ -46,8 +67,9 @@ module.exports = async function installSettingsService(plugin) {
         plugin.tasksChanged();
         plugin.captureModal?.card?.refreshSettings();
         for (const leaf of plugin.app.workspace.getLeavesOfType('thingsmd-project-view')) {
-          // setState resolves unavailable lists when a deferred tab is loaded.
-          if (leaf.isDeferred) continue;
+          // setState resolves unavailable lists when a tab is loaded. Obsidian
+          // can also retain an unloaded placeholder while plugins are reloading.
+          if (leaf.isDeferred || typeof leaf.view.navigate !== 'function') continue;
           leaf.view.taskEditorController?.refreshSettings();
           const page = resolveList(leaf.view.page, plugin.settings);
           if (page !== leaf.view.page) await leaf.view.navigate(page);

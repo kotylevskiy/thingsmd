@@ -9,20 +9,18 @@ const { browser, page } = await browserFixture({
 try {
   const css = await readFile(new URL('../plugin/styles.css', import.meta.url), 'utf8');
   await page.setContent(
-    `<style>${css}</style><div class="ot-task-folder-siblings"><div class="ot-task-folder-last">ThingsMD</div><div>Zulu</div><div>Alpha</div></div>`,
+    `<style>${css}</style><div><div class="folder-fixture">ThingsMD</div><div>Zulu</div><div>Alpha</div></div>`,
   );
-  const row = page.locator('.ot-task-folder-last');
-  assert.equal(
-    await row.evaluate(
-      (el) =>
-        el.getBoundingClientRect().top >
-        el.parentElement.lastElementChild.getBoundingClientRect().top,
-    ),
-    true,
-  );
+  const row = page.locator('.folder-fixture');
+  const before = await row.boundingBox();
   await row.evaluate((el) => el.classList.add('ot-task-folder-hidden'));
   assert.equal(await row.isVisible(), false);
-  console.log('WebKit fixture: task-folder ordering and hiding passed at mobile width.');
+  await row.evaluate((el) => el.classList.remove('ot-task-folder-hidden'));
+  assert.equal(await row.isVisible(), true);
+  assert.deepEqual(await row.boundingBox(), before);
+  console.log(
+    'WebKit fixture: folder hiding and restored natural ordering passed at mobile width.',
+  );
 } finally {
   await browser.close();
 }

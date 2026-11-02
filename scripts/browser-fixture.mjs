@@ -1,7 +1,11 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { chromium } from 'playwright-core';
 import { build } from 'esbuild';
-export async function browserFixture({ browserType = chromium, pageOptions = {} } = {}) {
+export async function browserFixture({
+  browserType = chromium,
+  pageOptions = {},
+  secureContext = false,
+} = {}) {
   const executablePath =
     browserType.name() !== 'chromium'
       ? undefined
@@ -11,6 +15,12 @@ export async function browserFixture({ browserType = chromium, pageOptions = {} 
           : undefined);
   const browser = await browserType.launch({ executablePath, headless: true });
   const page = await browser.newPage(pageOptions);
+  if (secureContext) {
+    await page.route('https://thingsmd.test/', (route) =>
+      route.fulfill({ contentType: 'text/html', body: '<!doctype html>' }),
+    );
+    await page.goto('https://thingsmd.test/');
+  }
   const sources = Object.fromEntries(
     await Promise.all(
       (await readdir(new URL('../plugin/', import.meta.url), { recursive: true }))

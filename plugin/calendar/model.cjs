@@ -1,4 +1,5 @@
 const { normalizeColor } = require('./color.cjs');
+const { sourceIdentity } = require('./identity.cjs');
 const ID = /^[a-zA-Z0-9_-]{1,80}$/;
 function calendars(value) {
   const seen = new Set();
@@ -9,14 +10,18 @@ function calendars(value) {
       seen.add(entry.id);
       return true;
     })
-    .map((entry) => ({
-      id: entry.id,
-      name: String(entry.name || 'Calendar').slice(0, 100),
-      secretName: typeof entry.secretName === 'string' ? entry.secretName : '',
-      enabled: entry.enabled !== false,
-      color: normalizeColor(entry.color),
-      refreshMinutes: Math.max(5, Math.min(10080, Number(entry.refreshMinutes) || 15)),
-    }));
+    .map((entry) => {
+      const source = sourceIdentity(entry.source);
+      return {
+        id: entry.id,
+        name: String(entry.name || 'Calendar').slice(0, 100),
+        secretName: typeof entry.secretName === 'string' ? entry.secretName : '',
+        enabled: entry.enabled !== false,
+        color: normalizeColor(entry.color),
+        refreshMinutes: Math.max(5, Math.min(10080, Number(entry.refreshMinutes) || 15)),
+        ...(source ? { source } : {}),
+      };
+    });
 }
 function subscriptionUrl(value) {
   let url;

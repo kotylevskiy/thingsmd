@@ -6,6 +6,7 @@ page.setDefaultTimeout(8000);
 const id = `folder-test-${Date.now()}`;
 const project = `Folder test ${id}.md`;
 const target = `Tasks test ${id}`;
+const snapshot = '2026-11-02T00-00-00-000Z_fixture.ics';
 let original;
 const linkPreference = await page.evaluate(() => {
   const value = app.vault.getConfig('alwaysUpdateLinks');
@@ -19,6 +20,35 @@ try {
       plugin.publicMarkdownExperiment?.close();
       plugin.markdownExperiment?.close();
       const original = { ...plugin.settings };
+      await plugin.updateSettings({
+        calendars: [
+          ...plugin.settings.calendars,
+          { id, name: 'Home migration calendar', secretName: id, enabled: true },
+        ],
+      });
+      await app.vault.createFolder(`ThingsMD Calendars/${id}`);
+      const now = new Date();
+      const day = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+      const legacySnapshot = await app.vault.create(
+        `ThingsMD Calendars/${id}/2026-11-02T00-00-00-000Z_fixture.ics`,
+        [
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'BEGIN:VEVENT',
+          'UID:home-migration',
+          `DTSTART;VALUE=DATE:${day}`,
+          'SUMMARY:Home migration event',
+          'END:VEVENT',
+          'END:VCALENDAR',
+          '',
+        ].join('\r\n'),
+      );
+      // Another device may already have synced the migrated copy into the new home.
+      await app.vault.createFolder(`${plugin.settings.tasksFolder}/Calendars/${id}`);
+      await app.vault.create(
+        `${plugin.settings.tasksFolder}/Calendars/${id}/2026-11-02T00-00-00-000Z_fixture.ics`,
+        await app.vault.read(legacySnapshot),
+      );
       const adapter = app.vault.adapter;
       if (!(await adapter.exists('.thingsmd-storage'))) await adapter.mkdir('.thingsmd-storage');
       await adapter.write(
@@ -52,6 +82,23 @@ try {
     await page.evaluate(() => app.plugins.getPlugin('thingsmd').settings.tasksFolder),
     'ThingsMD',
   );
+  assert.deepEqual(
+    await page.evaluate(
+      async ({ id, snapshot }) => {
+        const p = app.plugins.getPlugin('thingsmd');
+        return {
+          stored: !!app.vault.getAbstractFileByPath(
+            `${p.settings.tasksFolder}/Calendars/${id}/${snapshot}`,
+          ),
+          visible: p.calendar.today().events.some((event) => event.calendarId === id),
+          removedLegacy: !(await app.vault.adapter.exists(`ThingsMD Calendars/${id}/${snapshot}`)),
+        };
+      },
+      { id, snapshot },
+    ),
+    { stored: true, visible: true, removedLegacy: true },
+    'Legacy snapshots migrate automatically and remain readable without a secret',
+  );
   const row = page.locator(`.nav-folder-title[data-path="ThingsMD"]`).first();
   await waitForAsync(
     page,
@@ -61,7 +108,7 @@ try {
         ?.closest('.ot-task-folder-hidden'),
   );
   console.log('Checking explorer modes');
-  for (const mode of ['normal', 'last', 'hidden']) {
+  for (const mode of ['normal', 'hidden']) {
     await page.evaluate(async (mode) => {
       await app.plugins.getPlugin('thingsmd').updateSettings({ tasksFolderDisplay: mode });
     }, mode);
@@ -69,11 +116,6 @@ try {
       await row.evaluate((el) => getComputedStyle(el.closest('.nav-folder')).display === 'none'),
       mode === 'hidden',
     );
-    if (mode === 'last')
-      assert.equal(
-        await row.evaluate((el) => getComputedStyle(el.closest('.nav-folder')).order),
-        '1',
-      );
   }
   await page.evaluate(() => {
     app.setting.open();
@@ -86,7 +128,7 @@ try {
     page,
     () => app.plugins.getPlugin('thingsmd').settings.taskNotesTab === 'current',
   );
-  const folderInput = settingsPage.getByLabel('Tasks home folder', { exact: true });
+  const folderInput = settingsPage.getByLabel('ThingsMD home folder', { exact: true });
   assert.equal(await settingsPage.getByRole('button', { name: 'Apply', exact: true }).count(), 0);
   for (const [folder, trigger] of [
     [target, 'Enter'],
@@ -106,9 +148,24 @@ try {
     );
     await waitForAsync(
       settingsPage,
-      () => !document.querySelector('[aria-label="Tasks home folder"]').readOnly,
+      () => !document.querySelector('[aria-label="ThingsMD home folder"]').readOnly,
     );
     assert.equal(await folderInput.inputValue(), folder);
+    assert.equal(
+      await page.evaluate(
+        ({ folder, id, snapshot }) => {
+          const p = app.plugins.getPlugin('thingsmd');
+          return (
+            p.calendar.root === `${folder}/Calendars` &&
+            !!app.vault.getAbstractFileByPath(`${folder}/Calendars/${id}/${snapshot}`) &&
+            p.calendar.today().events.some((event) => event.calendarId === id)
+          );
+        },
+        { folder, id, snapshot },
+      ),
+      true,
+      'Calendars move with the ThingsMD home',
+    );
   }
   await page.evaluate(() => app.setting.close());
   await waitForAsync(
@@ -320,12 +377,20 @@ try {
         const file = app.vault.getAbstractFileByPath(path);
         if (file) await app.vault.delete(file);
       }
+      const calendar = app.vault.getAbstractFileByPath(`${p.settings.tasksFolder}/Calendars/${id}`);
+      if (calendar) await app.vault.delete(calendar, true);
+      const legacyCalendar = app.vault.getAbstractFileByPath(`ThingsMD Calendars/${id}`);
+      if (legacyCalendar) await app.vault.delete(legacyCalendar, true);
+      const legacyCalendars = app.vault.getAbstractFileByPath('ThingsMD Calendars');
+      if (legacyCalendars && !legacyCalendars.children.length)
+        await app.vault.delete(legacyCalendars, true);
       const folder = app.vault.getAbstractFileByPath(target);
-      if (folder && !folder.children.length) await app.vault.delete(folder, true);
+      if (folder) await app.vault.delete(folder, true);
       if (original)
         await p.updateSettings({
           tasksFolderDisplay: original.tasksFolderDisplay || 'hidden',
           taskNotesTab: original.taskNotesTab,
+          calendars: original.calendars,
         });
       await p.open();
     },

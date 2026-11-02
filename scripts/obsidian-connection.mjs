@@ -23,6 +23,10 @@ export async function connectTestVault({ settings = {} } = {}) {
       }
     if (matches.length !== 1) throw new Error(`Expected one test vault; found ${matches.length}`);
     const page = matches[0];
+    // Native Settings can retain focus between drivers. Start in the vault so
+    // Obsidian creates later modals in the same window the driver is exercising.
+    await page.evaluate(() => app.setting.close());
+    await page.bringToFront();
     const runtimeErrors = [];
     const onPageError = (error) => runtimeErrors.push(error.stack || error.message);
     const onConsole = (message) => {

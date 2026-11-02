@@ -22,8 +22,13 @@ test('task folder defaults and validation keep tasks indexed and inside the vaul
     'Tasks\u0000Other',
   ])
     assert.throws(() => taskFolder(path));
-  for (const mode of ['normal', 'last', 'hidden'])
+  for (const mode of ['normal', 'hidden'])
     assert.equal(settings({ tasksFolderDisplay: mode }).tasksFolderDisplay, mode);
+});
+test('folder visibility defaults to hidden and converts the removed Show last mode to shown', () => {
+  for (const value of [undefined, null, '', 'invalid', false])
+    assert.equal(settings({ tasksFolderDisplay: value }).tasksFolderDisplay, 'hidden');
+  assert.equal(settings({ tasksFolderDisplay: 'last' }).tasksFolderDisplay, 'normal');
 });
 test('custom-folder placements preserve fenced examples and unrelated embeds', () => {
   const body =
@@ -93,7 +98,8 @@ function migrationFixture() {
       },
     },
     readTask: async (path) => files.get(path),
-    persistSettings: async (patch) => Object.assign(plugin.settings, patch),
+    persistSettings: async (patch) =>
+      Object.assign(plugin.settings, typeof patch === 'function' ? patch(plugin.settings) : patch),
   };
   return { install: module.exports, plugin, files, body };
 }

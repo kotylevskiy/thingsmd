@@ -51,8 +51,11 @@ Use Obsidian's [SecretStorage](https://docs.obsidian.md/plugins/guides/secret-st
 - Store the entire subscription URL as a named secret; settings contain only its name.
 - Creation asks only for the URL. Use the first non-empty calendar-level `NAME`, then `X-WR-CALNAME`, then “Calendar”; trim whitespace and limit the name to 100 characters. Renaming remains available in the settings popup; refreshes do not overwrite it.
 - Enter the URL once in Add calendar. Download and validate the ICS before storing a secret or calendar configuration. Failed validation or cancellation creates nothing.
-- Existing calendars have no URL editor. Changing the source requires removing the calendar and creating a new one.
-- On other devices, populate the saved secret name through Obsidian’s Secrets settings to enable downloads.
+- Calendar settings include a masked URL field for device setup and source replacement. Failed validation, cancellation, or a concurrent secret change leaves the saved URL intact.
+- Save a salted SHA-256 fingerprint of the normalized subscription URL and the optional `VCALENDAR` UID when adding a calendar. A matching fingerprint is accepted first; otherwise both calendar UIDs must be present and equal. Meeting UIDs and names are not used as identity checks.
+- Only pressing **Save URL** can open the mismatch warning popup. The popup contains **Cancel** and **Save link**, using Obsidian's native destructive styling. **Save link** confirms the replacement directly, preserves presentation settings, saves the new identity and starts a separate cache generation. Cancelling or a failed settings write retains the previous subscription. Other devices with unverified old links must reconnect.
+- Existing calendars learn identity from cached calendar UIDs and established local secrets. A cached UID is checked before an existing URL is trusted. A new device without either baseline must confirm replacement; its first pasted URL is never silently trusted.
+- On other devices, open Calendar settings and paste the subscription URL to enable downloads. URLs are validated before being saved in secret storage; the same field can replace a saved URL.
 - Devices without the secret can display synchronized snapshots but cannot refresh them.
 - SecretStorage requires Obsidian 1.11.4+; desktop encryption at rest starts in [1.11.5](https://obsidian.md/changelog/2026-01-20-desktop-v1.11.5/). Do not fall back to storing URLs in plain settings.
 
@@ -89,15 +92,27 @@ file. The external calendar remains authoritative; event-level merging and
 deletion tombstones are unnecessary.
 
 - **Filename:** UTC fetch timestamp plus unique suffix, preventing device collisions.
-- **Storage:** `ThingsMD Calendars/<calendar-id>/` in the vault. Sync must include these `.ics` files and the plugin's calendar settings; secrets are configured separately on each device.
+- **Source replacement:** replacement snapshots also carry a source-generation suffix. Readers and retention operate on the active generation, so delayed snapshots from older devices cannot reappear. Known retired-source snapshots are removed after a valid active-source snapshot has been stored. Cleanup retries on reload and removes late-arriving retired snapshots while preserving unknown generations that may belong to a newer settings update.
+- **Storage:** `<ThingsMD home folder>/Calendars/<calendar-id>/` in the vault. Existing snapshots from `ThingsMD Calendars/` are migrated automatically, and calendars move with the home folder. Sync must include these `.ics` files and the plugin's calendar settings; secrets are configured separately on each device.
 - **Retention:** latest three valid snapshots per calendar; files less than one hour old are retained to allow synchronization to settle.
 - **Selection:** newest valid snapshot by filename timestamp; fall back if unreadable or incompletely synced.
 - **Display:** one snapshot at a time, preventing deleted events from returning through a merge with older data.
 - **Unchanged response:** no new file for identical content or `304`. HTTP validators remain associated with the body they validate; refresh state can stay local.
+- **Synced settings:** trust the current settings file delivered by the vault's sync tool. Foreground devices check for calendar settings changes every second and also re-read settings before a request and before publishing its result. A changed source/home invalidates the old request; a superseded cache write is removed. Local subscription secrets remain device-local, so an old mismatched link cannot update the newly selected calendar.
+- **Local settings edits:** merge edits against the current disk settings and reject a save if that file changes during preparation. Missing, malformed or incomplete calendar settings pause refreshes while retaining the last valid cache. The plugin does not attempt to order sync versions or resolve the sync tool's conflicts.
 - **Empty feed:** a valid empty snapshot displays no events; a failed download retains the cache.
 
 Timestamp ordering is approximate because device clocks and provider caches can
 differ. This limitation is accepted to keep synchronization simple.
+
+## Implementation boundaries
+
+- `index.cjs` wires Obsidian APIs and lifecycle events. `vault-storage.cjs` adapts vault files to immutable snapshot storage and guards deletions against external edits.
+- `service.cjs` owns refresh state, HTTP validation and cache selection. Its injected settings synchronizer checks the current binding before requests, publication and deletion.
+- `refresh-coordinator.cjs` coalesces refresh triggers and polls settings independently of downloads. It cancels deferred work on unload and allows later polls to recover from incomplete sync.
+- `settings-sync.cjs` validates and adopts the current settings file under the shared settings queue. It does not order versions or resolve sync conflicts.
+- `identity.cjs` defines the URL-hash/optional-calendar-UID policy. `subscription.cjs` validates and commits a device URL with rollback and stale-confirmation checks. Dialogs only collect input and confirmation.
+- `snapshot.cjs` defines cache filenames; `home.cjs` moves managed snapshots with rollback while preserving unrelated files.
 
 ## Refreshing
 
@@ -116,11 +131,12 @@ for sample contents and test dates.
 - `npm run calendar:check-http` — local HTTP server with validators, failures and rate limits.
 - `npm run calendar:check-live` — opt-in downloads from the four public fixture links; no personal `.env` values are used.
 - `npm run test:calendar` — real Obsidian settings, Today, cache and task draft checks in a marked disposable vault.
+- `npm run test:calendar-sync` — external settings delivery without plugin restart, in-flight response rejection, safe local edits, incomplete-file recovery and draft preservation on desktop/mobile emulation. This simulates sync with external filesystem writes; it does not exercise a live sync provider.
 - `npm run test:calendar-upcoming` — daily grouping, recurrence, cache, shared visibility and draft preservation in desktop/mobile emulation.
 - `npm run test:calendar-webkit` — mobile layout, parser and timezone checks in WebKit.
 
 Configure calendars under **Settings → ThingsMD → Calendars**. Each calendar has a
-single row with its name, color, Today/Upcoming visibility toggle, settings gear and remove icon, in that order, at the end of plugin settings. The settings popup contains the name, color palette and full-width refresh slider with its value below. Removing a calendar
+single row with its name, color, Today/Upcoming visibility toggle, settings gear and remove icon, in that order, at the end of plugin settings. The settings popup contains the name, color palette, full-width refresh slider with its value below, and subscription URL setup. Removing a calendar
 removes its configuration; cached files and the named secret remain available
 for explicit deletion.
 

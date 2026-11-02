@@ -117,9 +117,18 @@ async function moveTasks(plugin, from, to, commit = async () => {}) {
 module.exports = async (plugin) => {
   plugin.changeTasksFolder = async (value) => {
     const next = taskFolder(value);
-    await moveTasks(plugin, plugin.settings.tasksFolder, next, () =>
-      plugin.persistSettings({ tasksFolder: next }),
-    );
+    const previous = plugin.settings.tasksFolder;
+    await moveTasks(plugin, previous, next, () => {
+      const commit = () =>
+        plugin.persistSettings((settings) => {
+          if (settings.tasksFolder !== previous)
+            throw new Error('The ThingsMD home folder changed during sync. Try again.');
+          return { tasksFolder: next };
+        });
+      return plugin.calendar
+        ? require('../calendar/home.cjs').moveCalendarHome(plugin, next, commit)
+        : commit();
+    });
     plugin.paintTaskFolder?.();
   };
   if (await plugin.app.vault.adapter.exists(LEGACY_FOLDER))

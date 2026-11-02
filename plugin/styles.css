@@ -2070,13 +2070,6 @@ input.ot-task-marker[type='checkbox']::after,
 .ot-task-folder-hidden {
   display: none !important;
 }
-.ot-task-folder-siblings {
-  display: flex;
-  flex-direction: column;
-}
-.ot-task-folder-last {
-  order: 1;
-}
 .ot-task-notes-preview {
   cursor: text;
   overflow-x: auto;
@@ -2287,6 +2280,12 @@ body.is-mobile .ot-capture-hint {
 }
 
 /* Read-only calendar events remain separate from task selection and editing. */
+.ot-paper > .ot-calendar:empty,
+.ot-section[data-date] > .ot-calendar:empty {
+  /* These panels share a class with the date picker. Empty feeds must not
+     inherit its padding and leave a blank block above the task controls. */
+  display: none;
+}
 .ot-calendar:not(:empty) {
   position: relative;
   margin-bottom: var(--size-4-4);
@@ -2408,9 +2407,28 @@ body.is-mobile .ot-capture-hint {
   border-radius: 50%;
 }
 
-.ot-calendar-configure {
+.ot-calendar-configure,
+.ot-calendar-source-warning {
   width: 520px;
   max-width: calc(100vw - 32px);
+}
+.ot-calendar-options .ot-calendar-subscription-setting {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+.ot-calendar-subscription-setting .setting-item-control {
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+}
+.ot-calendar-subscription-setting input[type='password'] {
+  flex: none;
+  width: 100%;
+  min-width: 0;
+}
+.ot-calendar-subscription-setting button {
+  align-self: flex-end;
 }
 .ot-calendar-options .ot-calendar-refresh-setting {
   flex-direction: column;

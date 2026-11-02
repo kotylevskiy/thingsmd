@@ -129,7 +129,7 @@ test('disabling Waiting For persists the setting and redirects its open list wit
   assert.equal(refreshed, 1);
 });
 
-test('settings leave deferred tabs unloaded and update the mounted list', async () => {
+test('settings leave deferred and reload-placeholder tabs unloaded and update the mounted list', async () => {
   const { plugin } = await fixture();
   const dormant = { isDeferred: true, view: {} };
   const navigated = [];
@@ -137,6 +137,7 @@ test('settings leave deferred tabs unloaded and update the mounted list', async 
     workspace: {
       getLeavesOfType: () => [
         dormant,
+        { isDeferred: false, view: {} },
         { view: { page: 'waiting', navigate: async (page) => navigated.push(page) } },
       ],
     },

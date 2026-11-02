@@ -2,14 +2,8 @@
 module.exports = (plugin) => {
   const roots = new Set();
   const clear = (root) => {
-    for (const el of root.querySelectorAll(
-      '.ot-task-folder-hidden,.ot-task-folder-last,.ot-task-folder-siblings',
-    ))
-      el.classList.remove(
-        'ot-task-folder-hidden',
-        'ot-task-folder-last',
-        'ot-task-folder-siblings',
-      );
+    for (const el of root.querySelectorAll('.ot-task-folder-hidden'))
+      el.classList.remove('ot-task-folder-hidden');
   };
   plugin.paintTaskFolder = () => {
     // Closed explorer panes must not retain their entire DOM until plugin unload.
@@ -29,10 +23,6 @@ module.exports = (plugin) => {
       if (!row) continue;
       if (plugin.settings.tasksFolderDisplay === 'hidden')
         row.classList.add('ot-task-folder-hidden');
-      if (plugin.settings.tasksFolderDisplay === 'last') {
-        row.classList.add('ot-task-folder-last');
-        row.parentElement.classList.add('ot-task-folder-siblings');
-      }
     }
   };
   let timer;

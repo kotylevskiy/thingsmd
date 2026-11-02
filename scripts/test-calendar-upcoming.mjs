@@ -112,6 +112,13 @@ try {
   assert.deepEqual(await titles(3), ['Moved appointment']);
   assert.deepEqual(await titles(7), ['Seventh-day appointment']);
   assert.equal(await section(4).locator('.ot-calendar').innerText(), '');
+  assert.equal(
+    await section(4)
+      .locator('.ot-calendar')
+      .evaluate((el) => el.getBoundingClientRect().height),
+    0,
+    'An empty feed has no layout height, including inherited date-picker padding',
+  );
   assert.equal(await page.locator('.ot-calendar-empty').count(), 0);
   assert.equal(
     await page
@@ -230,7 +237,9 @@ try {
       const task = (await p.taskRecords()).find((t) => t.meta.id === taskId);
       if (task) await p.deleteTask(task.file);
       app.secretStorage.deleteSecret(id);
-      const folder = app.vault.getAbstractFileByPath(`ThingsMD Calendars/${id}`);
+      const folder = app.vault.getAbstractFileByPath(
+        `${app.plugins.getPlugin('thingsmd').settings.tasksFolder}/Calendars/${id}`,
+      );
       if (folder) await app.vault.delete(folder, true);
       await p.openList('upcoming');
     },

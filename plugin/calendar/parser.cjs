@@ -147,8 +147,16 @@ function parseCalendar(text) {
       .filter((value) => typeof value === 'string')
       .map((value) => value.replace(/\s+/g, ' ').trim())
       .find(Boolean);
+    const calendarUid = component.getFirstPropertyValue('uid');
     return {
       groups,
+      // A UID on VCALENDAR identifies the feed; VEVENT UIDs identify meetings.
+      uid:
+        typeof calendarUid === 'string' &&
+        calendarUid.length <= 1024 &&
+        !/[\u0000-\u001f\u007f]/.test(calendarUid)
+          ? calendarUid.trim()
+          : '',
       name: (name || 'Calendar').slice(0, 100),
       color:
         normalizeColor(component.getFirstPropertyValue('color'), false) ||

@@ -15,9 +15,7 @@ module.exports = class CreateCalendarDialog extends Modal {
     let url;
     new Setting(this.contentEl)
       .setName('Subscription URL')
-      .setDesc(
-        'Paste an ICS or webcal link. To change the source later, remove this calendar and add a new one.',
-      )
+      .setDesc('Paste an ICS or webcal link. The URL is stored securely on this device.')
       .addText((input) => {
         url = input;
         input.inputEl.type = 'password';

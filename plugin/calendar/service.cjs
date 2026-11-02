@@ -2,12 +2,10 @@ const { parseCalendar, eventsOnDay, eventsInRange, CalendarError } = require('./
 const { dayKey } = require('../shared/local-date.cjs');
 const { calendars, subscriptionUrl, retryDelay } = require('./model.cjs');
 const { defaultColor } = require('./color.cjs');
-const ROOT = 'ThingsMD Calendars';
-const SNAPSHOT = /^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)_[a-zA-Z0-9-]+\.ics$/;
+const { generation, matchesSource, sourceKey } = require('./identity.cjs');
+const { SNAPSHOT, stamp } = require('./snapshot.cjs');
+const ROOT = 'ThingsMD/Calendars';
 const GRACE = 60 * 60 * 1000;
-function stamp(time) {
-  return new Date(time).toISOString().replace(/[:.]/g, '-');
-}
 class CalendarService {
   constructor({
     storage,
@@ -18,8 +16,23 @@ class CalendarService {
     random = Math.random,
     uuid = () => crypto.randomUUID(),
     timeoutMs = 30000,
+    root = ROOT,
+    verified = async () => {},
+    synchronize = async () => {},
   }) {
-    Object.assign(this, { storage, request, secret, changed, now, random, uuid, timeoutMs });
+    Object.assign(this, {
+      storage,
+      request,
+      secret,
+      changed,
+      now,
+      random,
+      uuid,
+      timeoutMs,
+      root,
+      verified,
+      synchronize,
+    });
     this.config = [];
     this.states = new Map();
     this.pending = new Map();
@@ -29,27 +42,73 @@ class CalendarService {
     this.config = calendars(value);
     for (const [id, state] of this.states) {
       const config = this.config.find((c) => c.id === id);
-      if (!config || config.secretName !== state.secretName) this.states.delete(id);
+      if (
+        !config ||
+        config.secretName !== state.secretName ||
+        generation(config) !== state.generation
+      )
+        this.states.delete(id);
     }
     this.changed();
   }
   state(config) {
-    if (!this.states.has(config.id))
-      this.states.set(config.id, { secretName: config.secretName, next: 0, failures: 0 });
+    const current = this.config.find((c) => c.id === config.id);
+    const existing = this.states.get(config.id);
+    const next = () => ({
+      secretName: config.secretName,
+      generation: generation(config),
+      next: 0,
+      failures: 0,
+    });
+    if (
+      !current ||
+      current.secretName !== config.secretName ||
+      generation(current) !== generation(config)
+    )
+      return next();
+    if (
+      !existing ||
+      existing.secretName !== config.secretName ||
+      existing.generation !== generation(config)
+    )
+      this.states.set(config.id, next());
     return this.states.get(config.id);
+  }
+  async current(config, state, root) {
+    // The sync tool owns version ordering. Re-read its current file at each
+    // asynchronous publication/deletion boundary instead of comparing revisions.
+    await this.synchronize();
+    return (
+      this.active(config, state) &&
+      root === this.root &&
+      this.config.some(
+        (c) => c.id === config.id && sourceKey(c.source) === sourceKey(config.source),
+      )
+    );
   }
   active(config, state) {
     return (
       !this.disposed &&
+      !this.moving &&
+      !!state &&
       this.states.get(config.id) === state &&
-      this.config.some((c) => c.id === config.id && c.enabled && c.secretName === config.secretName)
+      this.config.some(
+        (c) =>
+          c.id === config.id &&
+          c.enabled &&
+          c.secretName === config.secretName &&
+          generation(c) === generation(config),
+      )
     );
   }
   async snapshots(config) {
-    const folder = `${ROOT}/${config.id}`;
+    const folder = `${this.root}/${config.id}`;
     return (await this.storage.list(folder))
       .filter(
-        (path) => path.startsWith(folder + '/') && SNAPSHOT.test(path.slice(folder.length + 1)),
+        (path) =>
+          path.startsWith(folder + '/') &&
+          (SNAPSHOT.exec(path.slice(folder.length + 1))?.[2] || '') === generation(config) &&
+          SNAPSHOT.test(path.slice(folder.length + 1)),
       )
       .sort()
       .reverse();
@@ -76,9 +135,16 @@ class CalendarService {
     return state.snapshot;
   }
   async reload() {
+    if (this.moving || this.disposed) return;
+    try {
+      await this.synchronize();
+    } catch {
+      return;
+    }
     for (const config of this.config.filter((c) => c.enabled)) {
       try {
         await this.load(config);
+        await this.cleanupRetired(config).catch(() => {});
       } catch {
         this.state(config).error = 'Unable to read cached calendar.';
       }
@@ -151,7 +217,7 @@ class CalendarService {
       statuses.push({
         id: config.id,
         name: config.name,
-        error: state.error || '',
+        error: this.settingsError || state.error || '',
         cached: !!state.snapshot,
         refreshing: this.pending.has(config.id),
       });
@@ -163,11 +229,28 @@ class CalendarService {
     return { events, statuses };
   }
   async refreshAll(force = false) {
+    if (this.disposed || this.moving) return;
+    try {
+      await this.synchronize();
+    } catch {
+      return;
+    }
     // Sequential requests avoid bursting against a provider with many calendars.
-    for (const config of this.config.filter((c) => c.enabled)) await this.refresh(config, force);
+    for (const config of this.config.filter((c) => c.enabled)) {
+      const root = this.root;
+      await this.refresh(config, force);
+      const current = this.config.find((c) => c.id === config.id && c.enabled);
+      if (
+        current &&
+        (generation(current) !== generation(config) ||
+          current.secretName !== config.secretName ||
+          root !== this.root)
+      )
+        await this.refresh(current, force);
+    }
   }
   refresh(config, force = false) {
-    if (this.disposed) return Promise.resolve();
+    if (this.disposed || this.moving) return Promise.resolve();
     if (this.pending.has(config.id)) return this.pending.get(config.id);
     const state = this.state(config);
     if ((!force && state.next > this.now()) || state.retryAfter > this.now())
@@ -182,12 +265,14 @@ class CalendarService {
   }
   async fetch(config, state) {
     let timer;
+    const root = this.root;
     try {
+      if (!(await this.current(config, state, root))) return;
       await this.load(config, state);
-      if (!this.active(config, state)) return;
+      if (!(await this.current(config, state, root))) return;
       const value = await this.secret(config.secretName);
       if (!value) {
-        state.error = 'Set this calendar’s URL secret on this device to refresh.';
+        state.error = 'Add the subscription URL in Calendar settings on this device to refresh.';
         state.next = this.now() + 60000;
         return;
       }
@@ -203,6 +288,7 @@ class CalendarService {
         if (validator.etag) headers['If-None-Match'] = validator.etag;
         else if (validator.modified) headers['If-Modified-Since'] = validator.modified;
       }
+      if (!(await this.current(config, state, root))) return;
       const response = await Promise.race([
         this.request({ url, headers, method: 'GET', throw: false }),
         new Promise((_, reject) => {
@@ -213,7 +299,9 @@ class CalendarService {
         }),
       ]);
       clearTimeout(timer);
-      if (!this.active(config, state)) return;
+      if (!(await this.current(config, state, root))) return;
+      if (subscriptionUrl(await this.secret(config.secretName)) !== url)
+        throw new CalendarError('The subscription URL changed during refresh. Refresh again.');
       const responseHeaders = Object.fromEntries(
         Object.entries(response.headers || {}).map(([key, val]) => [key.toLowerCase(), val]),
       );
@@ -230,14 +318,31 @@ class CalendarService {
         const body = response.text;
         const parsed = parseCalendar(body);
         eventsOnDay(parsed, new Date(this.now()));
+        const baseline =
+          config.source ||
+          (state.snapshot?.parsed.uid ? { uid: state.snapshot.parsed.uid } : undefined);
+        if (baseline && !(await matchesSource(baseline, url, parsed.uid)))
+          throw new CalendarError(
+            'The saved subscription does not match this calendar. Open Calendar settings to reconnect.',
+          );
         if (!this.active(config, state)) return;
+        await this.verified(config, url, parsed);
+        // First-time identity capture can enrich the same binding. A different
+        // source or home still invalidates this request through its state/root.
+        if (!this.active(config, state) || root !== this.root) return;
+        config = this.config.find((c) => c.id === config.id);
+        if (config.source && !(await matchesSource(config.source, url, parsed.uid))) return;
         // Re-read after the request: another device may have synced a snapshot.
         await this.load(config, state);
-        if (!this.active(config, state)) return;
+        if (!(await this.current(config, state, root))) return;
         if (body !== state.snapshot?.body) {
-          const path = `${ROOT}/${config.id}/${stamp(this.now())}_${this.uuid()}.ics`;
+          const suffix = generation(config) ? `_s-${generation(config)}` : '';
+          const path = `${this.root}/${config.id}/${stamp(this.now())}_${this.uuid()}${suffix}.ics`;
           await this.storage.create(path, body);
-          if (!this.active(config, state)) return;
+          if (!(await this.current(config, state, root))) {
+            await this.storage.remove(path, body).catch(() => {});
+            return;
+          }
           // Filename ordering also applies when a synchronized clock is ahead.
           await this.load(config, state);
         }
@@ -266,6 +371,7 @@ class CalendarService {
       await this.cleanup(config).catch(() => {});
     } catch (error) {
       if (!this.active(config, state)) return;
+      if (this.settingsError) return;
       state.error =
         error instanceof CalendarError
           ? error.message
@@ -281,24 +387,62 @@ class CalendarService {
     }
   }
   async cleanup(config) {
+    const state = this.state(config);
+    const root = this.root;
+    await this.cleanupRetired(config);
     let valid = 0;
     for (const path of await this.snapshots(config)) {
-      if (this.disposed) return;
+      if (!(await this.current(config, state, root))) return;
       const old = path.split('/').pop().slice(0, 24) < stamp(this.now() - GRACE);
       if (valid >= 3 && !old) continue;
+      let body;
       try {
-        const parsed = parseCalendar(await this.storage.read(path));
+        body = await this.storage.read(path);
+        const parsed = parseCalendar(body);
         if (valid < 3) eventsOnDay(parsed, new Date(this.now()));
       } catch {
         continue;
       }
       valid++;
-      if (valid > 3 && old && this.states.get(config.id)?.snapshot?.path !== path)
-        await this.storage.remove(path);
+      if (valid > 3 && old && this.states.get(config.id)?.snapshot?.path !== path) {
+        if (!(await this.current(config, state, root))) return;
+        await this.storage.remove(path, body);
+      }
+    }
+  }
+  async cleanupRetired(config) {
+    const retired = new Set(config.source?.retiredGenerations || []);
+    if (!retired.size) return;
+    const state = this.states.get(config.id);
+    const snapshot = state?.snapshot;
+    const folder = `${this.root}/${config.id}`;
+    if (!snapshot || !this.active(config, state) || !snapshot.path.startsWith(folder + '/')) return;
+    const root = this.root;
+    if (!(await this.current(config, state, root))) return;
+    const match = SNAPSHOT.exec(snapshot.path.slice(folder.length + 1));
+    if (!match || (match[2] || '') !== generation(config)) return;
+    const paths = (await this.storage.list(folder)).filter((path) => {
+      if (!path.startsWith(folder + '/')) return false;
+      const entry = SNAPSHOT.exec(path.slice(folder.length + 1));
+      // Unknown generations may belong to settings that have not synced yet.
+      return entry && retired.has(entry[2] || '') && (entry[2] || '') !== generation(config);
+    });
+    if (!paths.length || !this.active(config, state)) return;
+    // Keep the previous cache until a complete active-source snapshot is durable.
+    if ((await this.storage.read(snapshot.path)) !== snapshot.body) return;
+    for (const path of paths) {
+      if (!this.active(config, state)) return;
+      try {
+        const body = await this.storage.read(path);
+        if (!(await this.current(config, state, root))) return;
+        await this.storage.remove(path, body);
+      } catch {
+        /* Retry sync races and failed cleanup on the next reload. */
+      }
     }
   }
   dispose() {
     this.disposed = true;
   }
 }
-module.exports = { CalendarService, ROOT };
+module.exports = { CalendarService, ROOT, SNAPSHOT };

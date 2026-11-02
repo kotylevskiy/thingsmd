@@ -27,7 +27,10 @@ function fixture(files = new Map(), options = {}) {
         assert.ok(!files.has(p));
         files.set(p, b);
       },
-      remove: async (p) => files.delete(p),
+      remove: async (p, expected) => {
+        if (expected === undefined || files.get(p) === expected) return files.delete(p);
+        return false;
+      },
     },
     request: async (request) => {
       calls.push(request);
@@ -52,6 +55,221 @@ function fixture(files = new Map(), options = {}) {
     },
   };
 }
+test('custom home paths are used for reading, publishing and pruning snapshots', async () => {
+  const f = fixture(new Map(), { root: 'Work/ThingsMD/Calendars' });
+  await f.service.refreshAll();
+  assert.ok([...f.files.keys()].every((path) => path.startsWith('Work/ThingsMD/Calendars/test/')));
+  const otherDevice = fixture(f.files, { root: 'Work/ThingsMD/Calendars', secret: () => null });
+  await otherDevice.service.refreshAll();
+  assert.equal(otherDevice.service.today().events.length, 1);
+});
+test('source replacement ignores retired snapshots and stops old device URLs from publishing', async () => {
+  const { newSource } = require('../plugin/calendar/identity.cjs');
+  const f = fixture();
+  await f.service.refreshAll();
+  const oldFiles = [...f.files.keys()];
+  const source = await newSource('https://example.com/new', 'new-calendar', 'new-source', ['']);
+  f.service.configure([{ ...config, source }]);
+  await f.service.reload();
+  assert.equal(f.service.today().events.length, 0);
+  await f.service.refreshAll(true);
+  assert.match(f.service.today().statuses[0].error, /does not match/);
+  assert.deepEqual([...f.files.keys()], oldFiles);
+  f.service.secret = () => 'https://example.com/new';
+  f.reply({ status: 200, headers: {}, text: body('Replacement event') });
+  await f.service.refreshAll(true);
+  assert.equal(f.service.today().events[0].title, 'Replacement event');
+  assert.ok(oldFiles.every((path) => !f.files.has(path)));
+  assert.ok([...f.files.keys()].some((path) => path.endsWith('_s-new-source.ics')));
+  f.files.set(`${ROOT}/test/2099-01-01T00-00-00-000Z_old-device.ics`, body('Retired source'));
+  const remote = fixture(f.files, { secret: () => null });
+  remote.service.configure([{ ...config, source }]);
+  await remote.service.reload();
+  assert.equal(remote.service.today().events[0].title, 'Replacement event');
+  assert.equal(f.files.has(`${ROOT}/test/2099-01-01T00-00-00-000Z_old-device.ics`), false);
+});
+
+test('a source replacement received during a download invalidates its eventual response', async () => {
+  const { newSource } = require('../plugin/calendar/identity.cjs');
+  const f = fixture();
+  let release;
+  f.reply(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  const pending = f.service.refreshAll();
+  while (!release) await new Promise((resolve) => setImmediate(resolve));
+  const source = await newSource('https://example.com/new', '', 'new-source');
+  f.service.configure([{ ...config, source }]);
+  f.reply({ status: 200, text: body('Current response') });
+  release({ status: 200, text: body('Old request') });
+  await pending;
+  assert.equal(f.files.size, 0);
+  assert.equal(f.service.today().events.length, 0);
+});
+
+test('an unpinned legacy calendar checks its cached UID before publishing another feed', async () => {
+  const f = fixture();
+  f.reply({
+    status: 200,
+    text: body('Trusted event').replace('VERSION:2.0', 'VERSION:2.0\r\nUID:calendar-a'),
+  });
+  await f.service.refreshAll();
+  f.reply({
+    status: 200,
+    text: body('Wrong event').replace('VERSION:2.0', 'VERSION:2.0\r\nUID:calendar-b'),
+  });
+  await f.service.refreshAll(true);
+  assert.equal(f.files.size, 1);
+  assert.equal(f.service.today().events[0].title, 'Trusted event');
+  assert.match(f.service.today().statuses[0].error, /does not match/);
+});
+
+test('retired cleanup deletes only known old source snapshots and preserves future sync and unrelated files', async () => {
+  const { newSource } = require('../plugin/calendar/identity.cjs');
+  const f = fixture();
+  const folder = `${ROOT}/test`;
+  const old = `${folder}/2026-10-28T10-00-00-000Z_old.ics`;
+  const retired = `${folder}/2026-10-28T10-00-00-000Z_old_s-retired.ics`;
+  const future = `${folder}/2026-10-29T10-00-00-000Z_new_s-future.ics`;
+  const partial = `${folder}/2026-10-28T10-00-00-000Z_partial.ics`;
+  for (const path of [old, retired, future]) f.files.set(path, body());
+  f.files.set(partial, 'BEGIN:VCALENDAR');
+  f.files.set(`${folder}/notes.md`, 'Keep this note');
+  f.files.set(`${folder}/manual.ics`, body());
+  const source = await newSource('https://example.com/private-token', '', 'active', [
+    '',
+    'retired',
+  ]);
+  f.service.configure([{ ...config, source }]);
+  await f.service.refreshAll();
+  assert.equal(f.files.has(old), false);
+  assert.equal(f.files.has(retired), false);
+  assert.equal(f.files.has(partial), false);
+  assert.equal(f.files.has(future), true);
+  assert.equal(f.files.get(`${folder}/notes.md`), 'Keep this note');
+  assert.equal(f.files.has(`${folder}/manual.ics`), true);
+  assert.equal(f.service.today().events.length, 1);
+});
+
+test('retired snapshots survive until a valid replacement cache has been written completely', async () => {
+  const { newSource } = require('../plugin/calendar/identity.cjs');
+  const f = fixture();
+  const old = `${ROOT}/test/2026-10-28T10-00-00-000Z_old.ics`;
+  f.files.set(old, body('Previous source'));
+  const source = await newSource('https://example.com/private-token', '', 'active', ['']);
+  f.service.configure([{ ...config, source }]);
+  let published;
+  f.service.storage.create = async (path) => {
+    published = path;
+    f.files.set(path, 'BEGIN:VCALENDAR');
+  };
+  await f.service.refreshAll();
+  assert.equal(f.files.has(old), true);
+  f.files.set(published, body('Replacement source'));
+  await f.service.reload();
+  assert.equal(f.files.has(old), false);
+  assert.equal(f.service.today().events[0].title, 'Replacement source');
+});
+
+test('cleanup failures are retried when reading a synced replacement cache without a local secret', async () => {
+  const { newSource } = require('../plugin/calendar/identity.cjs');
+  const f = fixture();
+  const source = await newSource('https://example.com/private-token', '', 'active', ['']);
+  f.service.configure([{ ...config, source }]);
+  const old = `${ROOT}/test/2026-10-28T10-00-00-000Z_old.ics`;
+  f.files.set(old, body());
+  const remove = f.service.storage.remove;
+  f.service.storage.remove = async () => {
+    throw new Error('temporary storage error');
+  };
+  await f.service.refreshAll();
+  assert.equal(f.files.has(old), true);
+  assert.equal(f.service.today().statuses[0].error, '');
+  f.service.storage.remove = remove;
+  f.service.secret = () => null;
+  await f.service.reload();
+  assert.equal(f.files.has(old), false);
+  assert.equal(f.service.today().events.length, 1);
+});
+
+test('cleanup stops if the calendar source changes while it reads a retired snapshot', async () => {
+  const { newSource } = require('../plugin/calendar/identity.cjs');
+  const f = fixture();
+  const source = await newSource('https://example.com/private-token', '', 'active', ['']);
+  f.service.configure([{ ...config, source }]);
+  await f.service.refreshAll();
+  const old = `${ROOT}/test/2026-10-28T10-00-00-000Z_old.ics`;
+  f.files.set(old, body());
+  const read = f.service.storage.read;
+  let release;
+  f.service.storage.read = async (path) => {
+    if (path === old)
+      await new Promise((resolve) => {
+        release = resolve;
+      });
+    return read(path);
+  };
+  const cleanup = f.service.reload();
+  while (!release) await new Promise((resolve) => setImmediate(resolve));
+  const next = await newSource('https://example.com/next', '', 'next', ['', 'active']);
+  f.service.configure([{ ...config, source: next }]);
+  release();
+  await cleanup;
+  assert.equal(f.files.has(old), true);
+});
+
+test('retired cleanup skips a file changed between reading and deletion', async () => {
+  const { newSource } = require('../plugin/calendar/identity.cjs');
+  const f = fixture();
+  const source = await newSource('https://example.com/private-token', '', 'active', ['']);
+  f.service.configure([{ ...config, source }]);
+  await f.service.refreshAll();
+  const old = `${ROOT}/test/2026-10-28T10-00-00-000Z_old.ics`;
+  f.files.set(old, body());
+  const remove = f.service.storage.remove;
+  f.service.storage.remove = async (path, expected) => {
+    if (path === old) f.files.set(old, body('External edit'));
+    return remove(path, expected);
+  };
+  await f.service.cleanupRetired(f.service.config[0]);
+  assert.equal(f.files.get(old), body('External edit'));
+});
+
+test('normal retention preserves a snapshot edited between validation and deletion', async () => {
+  const f = fixture();
+  for (const hour of ['06', '07', '08', '09'])
+    f.files.set(`${ROOT}/test/2026-10-28T${hour}-00-00-000Z_cached.ics`, body());
+  await f.service.reload();
+  const oldest = [...f.files.keys()].sort()[0];
+  const remove = f.service.storage.remove;
+  f.service.storage.remove = async (path, expected) => {
+    if (path === oldest) f.files.set(path, body('External edit'));
+    return remove(path, expected);
+  };
+  await f.service.cleanup(f.service.config[0]);
+  assert.equal(f.files.get(oldest), body('External edit'));
+});
+
+test('normal retention stops if source settings change while validating a snapshot', async () => {
+  const { newSource } = require('../plugin/calendar/identity.cjs');
+  const f = fixture();
+  for (const hour of ['06', '07', '08', '09'])
+    f.files.set(`${ROOT}/test/2026-10-28T${hour}-00-00-000Z_cached.ics`, body());
+  await f.service.reload();
+  const oldest = [...f.files.keys()].sort()[0];
+  const source = await newSource('https://example.com/next', '', 'next');
+  const read = f.service.storage.read;
+  f.service.storage.read = async (path) => {
+    const value = await read(path);
+    if (path === oldest) f.service.configure([{ ...config, source }]);
+    return value;
+  };
+  await f.service.cleanup(f.service.config[0]);
+  assert.equal(f.files.size, 4);
+});
 test('Upcoming groups the next seven local days, with exclusive ends and shared visibility/colors', async () => {
   const f = fixture();
   const ev = (id, ...properties) => event(properties).replace('UID:test', `UID:${id}`);

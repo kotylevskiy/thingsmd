@@ -2,6 +2,8 @@ const { Modal, Setting, Notice } = require('obsidian');
 const { defaultColor } = require('./color.cjs');
 const { colorSwatches } = require('./color-swatches.cjs');
 const { quietLabel } = require('../shared/quiet-label.cjs');
+const { saveSubscription, SubscriptionMismatch } = require('./subscription.cjs');
+const CalendarSourceWarningDialog = require('./source-warning-dialog.cjs');
 
 function intervalLabel(minutes) {
   if (minutes < 60) return `${minutes} minutes`;
@@ -75,14 +77,80 @@ module.exports = class CalendarSettingsDialog extends Modal {
         }
       });
     });
-    if (
-      plugin.app.secretStorage &&
-      calendar.secretName &&
-      !plugin.app.secretStorage.getSecret(calendar.secretName)
-    )
-      group.createEl('p', {
-        text: `To refresh on this device, add the same subscription URL in Obsidian’s Secrets settings under “${calendar.secretName}”.`,
+    if (plugin.app.secretStorage && calendar.secretName) {
+      const hasSecret = !!plugin.app.secretStorage.getSecret(calendar.secretName);
+      let url, apply;
+      const subscription = new Setting(group)
+        .setName('Subscription URL')
+        .setClass('ot-calendar-subscription-setting')
+        .setDesc(
+          hasSecret
+            ? 'A subscription URL is saved on this device. Paste a URL to replace it.'
+            : 'Paste the same ICS or webcal link to refresh this calendar on this device.',
+        );
+      subscription.addText((input) => {
+        url = input;
+        input.inputEl.type = 'password';
+        input.inputEl.autocomplete = 'off';
+        input.inputEl.spellcheck = false;
+        quietLabel(input.inputEl, 'Subscription URL');
+        input.setPlaceholder('https://… or webcal://…');
+        input.onChange((value) => {
+          apply.setDisabled(!value.trim());
+          error.empty();
+          this.warningDialog?.close();
+        });
       });
+      const error = group.createDiv({ attr: { role: 'alert' } });
+      const submit = async (options = {}) => {
+        if (this.saving || !url.getValue().trim()) return;
+        this.saving = true;
+        apply.setDisabled(true).setButtonText('Checking calendar…');
+        url.inputEl.readOnly = true;
+        error.setText('');
+        const candidateUrl = url.getValue();
+        let replacement;
+        try {
+          await saveSubscription(plugin, calendar, candidateUrl, {
+            ...options,
+            cancelled: () => this.cancelled,
+          });
+          if (!this.cancelled) {
+            url.setValue('');
+            subscription.setDesc('The subscription URL is saved securely on this device.');
+          }
+        } catch (failure) {
+          if (!this.cancelled && failure instanceof SubscriptionMismatch) {
+            const warning = (this.warningDialog = new CalendarSourceWarningDialog(
+              plugin,
+              current().name,
+              failure.calendarName,
+            ));
+            warning.open();
+            if (await warning.result) replacement = { replace: true, expected: failure.expected };
+            this.warningDialog = undefined;
+          } else if (!this.cancelled) error.setText(failure.message);
+        } finally {
+          this.saving = false;
+          url.inputEl.readOnly = false;
+          apply.setButtonText('Save URL').setDisabled(!url.getValue().trim());
+        }
+        if (replacement && !this.cancelled && url.getValue() === candidateUrl)
+          await submit(replacement);
+      };
+      subscription.addButton((button) => {
+        apply = button;
+        button
+          .setButtonText('Save URL')
+          .setDisabled(true)
+          .onClick(() => submit());
+      });
+      this.scope.register([], 'Enter', () => {
+        if (url.inputEl.ownerDocument.activeElement !== url.inputEl) return true;
+        void submit();
+        return false;
+      });
+    }
     new Setting(group).setClass('ot-calendar-configure-actions').addButton((button) =>
       button
         .setButtonText('Done')
@@ -91,6 +159,8 @@ module.exports = class CalendarSettingsDialog extends Modal {
     );
   }
   onClose() {
+    this.cancelled = true;
+    this.warningDialog?.close();
     this.plugin.calendarDialogs.delete(this);
     this.contentEl.empty();
     if (!this.plugin.calendar.disposed) this.changed();
