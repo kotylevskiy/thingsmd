@@ -25,6 +25,7 @@ module.exports = function installArchives(plugin, hasOpenDraft) {
       // Remove only standalone task references, preserving prose and code examples.
       // Refuse unsaved open drafts so permanent cleanup cannot discard an edit.
       if (hasOpenDraft(path)) return;
+      await plugin.assertTaskAuthority?.(task.file, current.meta.id);
       const edits = [];
       try {
         for (const file of plugin.app.vault.getMarkdownFiles()) {
@@ -38,6 +39,7 @@ module.exports = function installArchives(plugin, hasOpenDraft) {
         }
         if ((await plugin.readTask(task.file)) !== raw)
           throw new Error('Task changed during cleanup; its file was retained.');
+        await plugin.assertTaskAuthority?.(task.file, current.meta.id);
         await plugin.app.vault.adapter.remove(path);
         plugin.tasksChanged();
       } catch (error) {

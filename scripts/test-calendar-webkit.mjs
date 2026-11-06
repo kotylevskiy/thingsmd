@@ -388,6 +388,105 @@ try {
   assert.equal(await page.evaluate(() => window.calendarWarningResult), false);
   assert.equal(await page.evaluate(() => window.calendarWarningPlugin.calendarDialogs.size), 0);
 
+  // Exercise the actual settings dialog with a minimal Obsidian host shim.
+  // Subscription validation and persistence still use the real plugin modules.
+  await page.evaluate(() => {
+    document.querySelector('.ot-calendar-configure').remove();
+    const host = window.loadPluginModule('obsidian');
+    Object.assign(host.ButtonComponent.prototype, {
+      setDisabled(value) {
+        this.buttonEl.disabled = value;
+        return this;
+      },
+      setCta() {
+        return this;
+      },
+    });
+    Object.assign(host.Setting.prototype, {
+      setName(value) {
+        this.settingEl.createDiv({ text: value });
+        return this;
+      },
+      setDesc(value) {
+        this.descEl ||= this.settingEl.createDiv('setting-item-description');
+        this.descEl.setText(value);
+        return this;
+      },
+      addText(callback) {
+        const inputEl = this.controlEl.createEl('input');
+        callback({
+          inputEl,
+          getValue: () => inputEl.value,
+          setValue(value) {
+            inputEl.value = value;
+            return this;
+          },
+          setPlaceholder(value) {
+            inputEl.placeholder = value;
+            return this;
+          },
+          onChange(fn) {
+            inputEl.oninput = () => fn(inputEl.value);
+            return this;
+          },
+        });
+        return this;
+      },
+      addSlider(callback) {
+        const sliderEl = this.controlEl.createEl('input', { attr: { type: 'range' } });
+        callback({
+          sliderEl,
+          getValue: () => Number(sliderEl.value),
+          setValue(value) {
+            sliderEl.value = value;
+            return this;
+          },
+          setLimits(min, max, step) {
+            Object.assign(sliderEl, { min, max, step });
+            return this;
+          },
+          onChange(fn) {
+            sliderEl.oninput = () => fn(Number(sliderEl.value));
+            return this;
+          },
+        });
+        return this;
+      },
+    });
+    const plugin = window.calendarWarningPlugin;
+    plugin.calendar.color = () => '#123456';
+    Object.assign(plugin.settings.calendars[0], { name: 'Settings fixture', refreshMinutes: 15 });
+    window.openCalendarSettings = () => {
+      const Dialog = window.loadPluginModule('./calendar/settings-dialog.cjs');
+      new Dialog(plugin, plugin.settings.calendars[0], () => {}).open();
+    };
+  });
+  for (const width of [390, 720]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.evaluate(() => window.openCalendarSettings());
+    const dialog = page.locator('.ot-calendar-configure');
+    const input = dialog.getByLabel('Subscription URL', { exact: true });
+    const change = dialog.getByRole('button', { name: 'Change URL', exact: true });
+    assert.equal(await input.isVisible(), false);
+    await change.click();
+    await input.fill('https://example.com/unsaved');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    assert.equal(await input.isVisible(), false);
+    await change.click();
+    assert.equal(await input.inputValue(), '');
+    await input.fill('https://example.com/other');
+    await input.press('Enter');
+    await change.waitFor({ state: 'visible' });
+    assert.equal(await input.isVisible(), false);
+    assert.equal(
+      await dialog.getByRole('button', { name: 'Save URL', exact: true }).isVisible(),
+      false,
+    );
+    assert.ok(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth));
+    await dialog.getByRole('button', { name: 'Done', exact: true }).click();
+    await dialog.waitFor({ state: 'detached' });
+  }
+
   console.log(
     'PASS WebKit mobile: bundled parser/timezones, DST, local-day filtering, all-day dates, safe text, layout and touch',
   );

@@ -6,6 +6,9 @@ const { normalizeSchedule, applySchedulePolicy } = require('./task-schedule.cjs'
 // Views call these commands; the repository remains responsible only for files.
 const actions = {
   async patchTask(task, patch, body, { notify = true } = {}) {
+    // Repeat controls route by ID before update() is reached; a native note
+    // opened on an extra copy must not mutate the selected template indirectly.
+    if (task.meta.repeat) await this.assertTaskAuthority?.(task.file, task.meta.id);
     patch = normalizeSchedule(patch);
     if (task.meta.repeat && isFinished(patch)) {
       await this.repeating.createNext(task.meta.id, true, task.meta.repeat.next, patch.status);
@@ -47,6 +50,8 @@ const actions = {
     if (Object.hasOwn(patch, 'status')) patch = { ...patch, loggedAt: null };
     let before;
     const saved = await this.update(task.file, (current) => {
+      if (current.meta.id !== task.meta.id)
+        throw new Error('This task changed elsewhere. Your draft is still open.');
       before = { ...task, ...current };
       for (const key of Object.keys(patch)) {
         // Changing completion always resets logging. A background archive stamp

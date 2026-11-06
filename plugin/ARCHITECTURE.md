@@ -44,6 +44,15 @@ and merges only the changed fields; conflicting external changes are rejected.
 and checks the expected text before writing. Use this access layer for note edits,
 including Reading-view operations, rather than writing directly to the vault.
 
+Task scans group documents by their frontmatter ID. `task-identity` elects the exact
+`<id>.md` filename, then the shortest filename, with locale-independent lexical
+ties. Only that version participates in task lists and automation; the other
+records remain attached as conflict evidence without being changed or deleted.
+List notices consider membership of both the selected version and the extra
+copies. Writes recheck selection so a draft opened before sync cannot modify an
+extra copy or silently redirect itself to the newly selected document. This is a
+document-selection heuristic, not a merge of offline edits or a sync transaction.
+
 Native Obsidian owns Markdown body editing. The public editor-extension bridge in
 `task-note-frontmatter` applies checked metadata updates without replacing the
 whole editor document or moving its scroll position. Task title drafts have a

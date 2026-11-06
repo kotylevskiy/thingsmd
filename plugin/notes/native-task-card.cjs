@@ -37,12 +37,22 @@ module.exports = function nativeTaskCard(
     const task = lookup(path);
     card.currentTask = task;
     const signature = task
-      ? JSON.stringify([task.meta, task.body, isHidden(task.meta), plugin.settings.enableWaiting])
+      ? JSON.stringify([
+          task.meta,
+          task.body,
+          task.conflicts,
+          isHidden(task.meta),
+          plugin.settings.enableWaiting,
+        ])
       : 'missing';
     if (card.signature === signature && root.childElementCount) return;
     card.signature = signature;
     root.empty();
-    root.classList.toggle('ot-hidden-task', !!task && isHidden(task.meta));
+    root.classList.toggle(
+      'ot-hidden-task',
+      !!task && isHidden(task.meta) && !task.conflicts?.length,
+    );
+    if (task?.conflicts?.length) require('../lists/task-conflict-notice.cjs')(root, [task], plugin);
     if (task && isHidden(task.meta)) {
       view?.requestMeasure();
       return;
@@ -151,7 +161,9 @@ module.exports = function nativeTaskCard(
   card.saveTaskDraft = async () => {
     try {
       await pendingCreations.get(path)?.();
-      if (card.taskDraft) card.taskDraft.task.file = lookup(path).file;
+      // Only provisional captures may adopt a new file. A sync election must
+      // not redirect an existing draft into a different document.
+      if (card.taskDraft && !card.taskDraft.task.file) card.taskDraft.task.file = lookup(path).file;
       return await TaskEditor.prototype.saveTaskDraft.call(card);
     } catch (error) {
       new Notice(error.message);

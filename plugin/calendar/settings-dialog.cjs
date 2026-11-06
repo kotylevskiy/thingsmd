@@ -79,13 +79,13 @@ module.exports = class CalendarSettingsDialog extends Modal {
     });
     if (plugin.app.secretStorage && calendar.secretName) {
       const hasSecret = !!plugin.app.secretStorage.getSecret(calendar.secretName);
-      let url, apply;
+      let url, apply, change, cancel;
       const subscription = new Setting(group)
         .setName('Subscription URL')
         .setClass('ot-calendar-subscription-setting')
         .setDesc(
           hasSecret
-            ? 'A subscription URL is saved on this device. Paste a URL to replace it.'
+            ? 'The subscription URL is saved securely on this device.'
             : 'Paste the same ICS or webcal link to refresh this calendar on this device.',
         );
       subscription.addText((input) => {
@@ -102,6 +102,23 @@ module.exports = class CalendarSettingsDialog extends Modal {
         });
       });
       const error = group.createDiv({ attr: { role: 'alert' } });
+      const setEditing = (editing) => {
+        const saved = !!plugin.app.secretStorage.getSecret(calendar.secretName);
+        url.inputEl.style.display = editing ? '' : 'none';
+        apply.buttonEl.style.display = editing ? '' : 'none';
+        change.buttonEl.style.display = editing ? 'none' : '';
+        cancel.buttonEl.style.display = editing && saved ? '' : 'none';
+        subscription.setDesc(
+          saved
+            ? editing
+              ? 'Paste a URL to replace the subscription saved on this device.'
+              : 'The subscription URL is saved securely on this device.'
+            : 'Paste the same ICS or webcal link to refresh this calendar on this device.',
+        );
+        url.setValue('');
+        apply.setDisabled(true);
+        error.empty();
+      };
       const submit = async (options = {}) => {
         if (this.saving || !url.getValue().trim()) return;
         this.saving = true;
@@ -116,8 +133,8 @@ module.exports = class CalendarSettingsDialog extends Modal {
             cancelled: () => this.cancelled,
           });
           if (!this.cancelled) {
-            url.setValue('');
-            subscription.setDesc('The subscription URL is saved securely on this device.');
+            setEditing(false);
+            change.buttonEl.focus({ preventScroll: true });
           }
         } catch (failure) {
           if (!this.cancelled && failure instanceof SubscriptionMismatch) {
@@ -145,6 +162,22 @@ module.exports = class CalendarSettingsDialog extends Modal {
           .setDisabled(true)
           .onClick(() => submit());
       });
+      subscription.addButton((button) => {
+        change = button;
+        button.setButtonText('Change URL').onClick(() => {
+          setEditing(true);
+          url.inputEl.focus();
+        });
+      });
+      subscription.addButton((button) => {
+        cancel = button;
+        button.setButtonText('Cancel').onClick(() => {
+          if (this.saving) return;
+          setEditing(false);
+          change.buttonEl.focus({ preventScroll: true });
+        });
+      });
+      setEditing(!hasSecret);
       this.scope.register([], 'Enter', () => {
         if (url.inputEl.ownerDocument.activeElement !== url.inputEl) return true;
         void submit();

@@ -275,3 +275,104 @@ test('placement follows unsaved note references and does not reread known task f
   ]);
   assert.equal(files.get('Project.md'), 'Old on-disk prose');
 });
+
+test('duplicate IDs elect one active task and preserve extra copies through updates', async () => {
+  const { plugin, files } = fixture();
+  const task = await plugin.createTask({ title: 'Selected', when: 'today' }, 'identity');
+  const copyPath = 'ThingsMD/a.md';
+  const copyText = files.get(task.file.path).replace('Selected', 'Offline draft');
+  files.set(copyPath, copyText);
+  files.set('Other project.md', `Prose\n![[${copyPath}]]\n`);
+  const selected = (await plugin.records()).find((r) => r.meta.id === 'identity');
+  assert.equal(selected.file.path, task.file.path);
+  assert.equal(selected.conflicts[0].body, task.body);
+  assert.deepEqual(Array.from(selected.conflicts[0].references), ['Other project.md']);
+  await plugin.patchTask(selected, { title: 'Updated' });
+  assert.equal(files.get(copyPath), copyText);
+  await assert.rejects(
+    plugin.patchTask(selected.conflicts[0], { title: 'Do not save' }),
+    /extra copy/,
+  );
+  await assert.rejects(plugin.deleteTask(copyPath), /extra copy/);
+  assert.equal(files.get(copyPath), copyText);
+  files.delete(copyPath);
+  assert.equal((await plugin.taskRecords())[0].conflicts, undefined);
+});
+
+test('a preferred copy arriving during a save preserves the losing draft and both files', async () => {
+  const { plugin, files } = fixture();
+  const original = await plugin.createTask({ title: 'Existing' }, 'arrival');
+  const copyPath = 'ThingsMD/Offline copy.md';
+  const text = files.get(original.file.path);
+  files.set(copyPath, text);
+  files.delete(original.file.path);
+  const task = (await plugin.taskRecords())[0];
+  const read = plugin.readTask;
+  let arrived = false;
+  plugin.readTask = async function (file) {
+    const current = await read.call(this, file);
+    if (!arrived) {
+      arrived = true;
+      files.set(original.file.path, text.replace('Existing', 'Remote'));
+    }
+    return current;
+  };
+  await assert.rejects(plugin.patchTask(task, { title: 'Unsaved local draft' }), /extra copy/);
+  assert.equal(files.get(copyPath), text);
+  assert.match(files.get(original.file.path), /Remote/);
+});
+
+test('creation cannot duplicate an identity whose only document has a different filename', async () => {
+  const { plugin, files } = fixture();
+  const task = await plugin.createTask({ title: 'Existing' }, 'renamed');
+  files.set('ThingsMD/Custom filename.md', files.get(task.file.path));
+  files.delete(task.file.path);
+  await assert.rejects(plugin.createTask({ title: 'Duplicate' }, 'renamed'), /already exists/);
+  assert.equal(files.size, 1);
+});
+
+test('recurrence follows the selected completed occurrence and leaves stale copies untouched', async () => {
+  const { plugin, files } = fixture();
+  plugin.settings = { timeZone: 'UTC', logbook: 'daily', trashRetention: 'never' };
+  require('../plugin/tasks/repeat-engine.cjs')(plugin);
+  const rule = {
+    mode: 'completion',
+    unit: 'day',
+    interval: 1,
+    anchor: '2026-11-05',
+    next: null,
+    waitingFor: 'previous',
+    lastCopy: 'previous',
+    on: [],
+    end: null,
+    deadline: false,
+    leadDays: 0,
+    epoch: 'epoch',
+    paused: false,
+  };
+  const template = await plugin.createTask({ title: 'Routine', repeat: rule }, 'routine');
+  const previous = await plugin.createTask(
+    {
+      title: 'Routine',
+      status: 'done',
+      when: '2026-11-05',
+      completed: '2026-11-05T12:00:00.000Z',
+      repeatSource: 'routine',
+    },
+    'previous',
+  );
+  const templateCopy = 'ThingsMD/Routine copy.md';
+  const previousCopy = 'ThingsMD/Previous copy.md';
+  files.set(templateCopy, files.get(template.file.path));
+  files.set(previousCopy, files.get(previous.file.path).replace('"done"', '"todo"'));
+  const before = [files.get(templateCopy), files.get(previousCopy)];
+  await plugin.repeating.tick(new Date('2026-11-06T12:00:00.000Z'));
+  const tasks = await plugin.taskRecords();
+  const next = tasks.filter((task) => task.meta.id === 'repeat-routine-epoch-2026-11-06');
+  assert.equal(next.length, 1);
+  assert.equal(
+    tasks.find((task) => task.meta.id === 'routine').meta.repeat.waitingFor,
+    next[0].meta.id,
+  );
+  assert.deepEqual([files.get(templateCopy), files.get(previousCopy)], before);
+});

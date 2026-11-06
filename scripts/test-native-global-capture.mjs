@@ -9,6 +9,9 @@ if (process.platform !== 'darwin') {
   process.exit(0);
 }
 const run = promisify(execFile);
+const { stdout: session } = await run('ioreg', ['-n', 'Root', '-d1']);
+if (/"CGSSessionScreenIsLocked"\s*=\s*Yes/.test(session))
+  throw new Error('Unlock the macOS desktop before running the native global-shortcut test.');
 const { browser, page } = await connectTestVault();
 page.setDefaultTimeout(6000);
 // Keep native automation separate from the user's usual capture shortcut.
@@ -28,6 +31,10 @@ async function pressFromFinder() {
     [
       '-e',
       'tell application "Finder" to activate',
+      '-e',
+      // Activation returns before macOS finishes switching applications. A
+      // keystroke sent during that transition can be consumed by the old app.
+      'tell application "System Events"\nrepeat 100 times\nif frontmost of process "Finder" then exit repeat\ndelay 0.05\nend repeat\nif not frontmost of process "Finder" then error "Finder did not become frontmost"\nend tell',
       '-e',
       'tell application "System Events" to key code 49 using {control down, command down, shift down}',
     ],

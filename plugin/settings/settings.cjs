@@ -6,6 +6,11 @@ module.exports = function installSettingsUI(plugin) {
       this.disposeHotkey?.();
     }
     display() {
+      // Rebuilding after a calendar dialog closes must keep the user's place,
+      // including settings hosted in a separate Obsidian window.
+      const scroll = [];
+      for (let el = this.containerEl; el; el = el.parentElement)
+        if (el.scrollTop) scroll.push([el, el.scrollTop]);
       this.disposeHotkey?.();
       this.containerEl.empty();
       new Setting(this.containerEl)
@@ -214,6 +219,7 @@ module.exports = function installSettingsUI(plugin) {
           });
         });
       require('../calendar/settings.cjs')(plugin, this.containerEl, () => this.display());
+      for (const [el, top] of scroll) el.scrollTop = top;
     }
   }
   const tab = new SettingsTab(plugin.app, plugin);

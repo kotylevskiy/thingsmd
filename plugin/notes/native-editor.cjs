@@ -58,7 +58,11 @@ module.exports = async function installNative(plugin) {
     clearTimeout(timer);
   });
   const lookup = (path) =>
-    records.find((r) => r.file.path === path && r.meta.type === 'thingsmd-task');
+    records.find(
+      (r) =>
+        r.meta.type === 'thingsmd-task' &&
+        (r.file.path === path || r.conflicts?.some((copy) => copy.file.path === path)),
+    );
   const isTaskPath = (path) =>
     !!lookup(path) ||
     (path.startsWith(plugin.settings.tasksFolder + '/') &&

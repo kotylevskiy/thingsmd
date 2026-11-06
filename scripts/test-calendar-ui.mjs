@@ -374,8 +374,24 @@ try {
   );
   await page.locator('.ot-calendar-event').first().waitFor();
   assert.equal(await settings.locator('input[type=color]').count(), 0);
-  await settings.getByRole('button', { name: 'Configure calendar', exact: true }).click();
+  await gear.scrollIntoViewIfNeeded();
+  const desktopScroll = await settings
+    .locator('.vertical-tab-content')
+    .evaluate((el) => el.scrollTop);
+  assert.ok(desktopScroll > 0, 'Settings are scrolled to calendars');
+  await gear.click();
   const configure = await calendarDialog('.ot-calendar-configure');
+  assert.equal(await configure.getByLabel('Subscription URL', { exact: true }).isVisible(), false);
+  await configure.getByRole('button', { name: 'Change URL', exact: true }).click();
+  await configure
+    .getByLabel('Subscription URL', { exact: true })
+    .fill('https://example.invalid/unsaved');
+  await configure.getByRole('button', { name: 'Cancel', exact: true }).click();
+  assert.equal(await configure.getByLabel('Subscription URL', { exact: true }).isVisible(), false);
+  assert.equal(
+    await page.evaluate(({ id, url }) => app.secretStorage.getSecret(id) === url, { id, url }),
+    true,
+  );
   const palette = configure;
   assert.equal(await palette.locator('.ot-calendar-swatch').count(), 12);
   assert.equal(await palette.locator('.ot-calendar-swatch.is-selected').count(), 0);
@@ -470,6 +486,10 @@ try {
   await configure.page().screenshot({ path: 'artifacts/calendar-popup-desktop.png' });
   await configure.getByRole('button', { name: 'Done', exact: true }).click();
   await configure.waitFor({ state: 'detached' });
+  await settings.waitForFunction(
+    (top) => Math.abs(document.querySelector('.vertical-tab-content').scrollTop - top) < 2,
+    desktopScroll,
+  );
   await settings
     .locator('.ot-calendar-settings-row')
     .filter({ hasText: 'Renamed calendar' })
@@ -578,7 +598,12 @@ try {
   await deviceUrl.fill(url);
   await deviceDialog.getByRole('button', { name: 'Save URL', exact: true }).click();
   await deviceDialog.getByText('The subscription URL is saved securely on this device.').waitFor();
-  assert.equal(await deviceUrl.inputValue(), '');
+  assert.equal(await deviceUrl.isVisible(), false);
+  assert.equal(
+    await deviceDialog.getByRole('button', { name: 'Save URL', exact: true }).isVisible(),
+    false,
+  );
+  await page.waitForFunction(() => !document.querySelector('.ot-calendar-status'));
   assert.equal(
     await page.evaluate(({ id, url }) => app.secretStorage.getSecret(id) === url, { id, url }),
     true,
@@ -593,6 +618,12 @@ try {
   );
   assert.equal(beforeSource.source.uid, 'ui-calendar');
   const sameCalendarUrl = url.replace('/calendar.ics', '/same-calendar.ics');
+  await deviceDialog.getByRole('button', { name: 'Done', exact: true }).click();
+  await deviceDialog.waitFor({ state: 'detached' });
+  await deviceSettings.getByRole('button', { name: 'Configure calendar', exact: true }).click();
+  await deviceDialog.getByRole('button', { name: 'Change URL', exact: true }).waitFor();
+  assert.equal(await deviceUrl.isVisible(), false);
+  await deviceDialog.getByRole('button', { name: 'Change URL', exact: true }).click();
   await deviceUrl.fill(sameCalendarUrl);
   await deviceDialog.getByRole('button', { name: 'Save URL', exact: true }).click();
   await waitForAsync(
@@ -607,6 +638,7 @@ try {
     0,
   );
   const otherUrl = url.replace('/calendar.ics', '/other-calendar.ics');
+  await deviceDialog.getByRole('button', { name: 'Change URL', exact: true }).click();
   await deviceUrl.fill(otherUrl);
   assert.equal(await deviceDialog.page().locator('.ot-calendar-source-warning').count(), 0);
   await deviceDialog.getByRole('button', { name: 'Save URL', exact: true }).click();
@@ -735,6 +767,10 @@ try {
   );
   assert.equal(await mobileRow.evaluate((el) => el.scrollWidth <= el.clientWidth + 1), true);
   await mobileSettings.screenshot({ path: 'artifacts/calendar-settings-rows-mobile.png' });
+  const mobileScroll = await mobileSettings
+    .locator('.vertical-tab-content')
+    .evaluate((el) => el.scrollTop);
+  assert.ok(mobileScroll > 0);
   await mobileSettings.getByRole('button', { name: 'Configure calendar', exact: true }).click();
   assert.equal(await mobileSettings.locator('input[type=color]').count(), 0);
   assert.equal(await mobileSettings.locator('.ot-calendar-swatch').count(), 12);
@@ -794,11 +830,13 @@ try {
   await mobileSettings
     .getByText('The subscription URL is saved securely on this device.')
     .waitFor();
-  assert.equal(await mobileUrl.inputValue(), '');
+  assert.equal(await mobileUrl.isVisible(), false);
+  await page.waitForFunction(() => !document.querySelector('.ot-calendar-status'));
   await page.evaluate(async (id) => {
     const folder = `${app.plugins.getPlugin('thingsmd').calendar.root}/${id}`;
     await app.vault.create(`${folder}/keep.md`, 'Unrelated note must survive cache cleanup.');
   }, id);
+  await mobileSettings.getByRole('button', { name: 'Change URL', exact: true }).click();
   await mobileUrl.fill(otherUrl);
   await mobileSettings.getByRole('button', { name: 'Save URL', exact: true }).click();
   const mobileWarning = await calendarDialog('.ot-calendar-source-warning');
@@ -890,6 +928,10 @@ try {
   );
   await mobileSettings.getByRole('button', { name: 'Done', exact: true }).click();
   await mobileSettings.locator('.ot-calendar-configure').waitFor({ state: 'detached' });
+  await mobileSettings.waitForFunction(
+    (top) => Math.abs(document.querySelector('.vertical-tab-content').scrollTop - top) < 2,
+    mobileScroll,
+  );
   await mobileSettings.setViewportSize(settingsViewport);
   await page.evaluate(() => app.setting.close());
   await emulateMobile(previousMobile);

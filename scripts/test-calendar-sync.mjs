@@ -205,6 +205,7 @@ try {
     await settings.bringToFront();
     await settings.getByRole('button', { name: 'Configure calendar', exact: true }).click();
     const dialog = settings.locator('.ot-calendar-configure');
+    await dialog.getByRole('button', { name: 'Change URL', exact: true }).click();
     await dialog.getByLabel('Subscription URL', { exact: true }).fill(`${base}/c`);
     await dialog.getByRole('button', { name: 'Save URL', exact: true }).click();
     await dialog.getByText('The subscription URL is saved securely on this device.').waitFor();

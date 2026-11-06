@@ -40,6 +40,7 @@ export default [
     files: [
       'plugin/tasks/model.cjs',
       'plugin/tasks/task-status.cjs',
+      'plugin/tasks/task-identity.cjs',
       'plugin/notes/task-reference-deletion.cjs',
       'plugin/settings/settings-model.cjs',
       'plugin/shared/markdown-document.cjs',

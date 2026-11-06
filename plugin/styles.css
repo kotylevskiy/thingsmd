@@ -37,6 +37,75 @@
   margin-bottom: 0;
   padding: 0;
 }
+.ot-task-conflict-notice {
+  margin: 0 0 var(--size-4-5);
+  padding: var(--size-4-3) var(--size-4-4);
+  border: 1px solid color-mix(in srgb, var(--text-warning) 28%, transparent);
+  border-radius: var(--radius-m);
+  background: color-mix(in srgb, var(--text-warning) 7%, var(--background-primary));
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  line-height: 1.5;
+  user-select: text;
+}
+.ot-task-conflict-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-3);
+}
+.ot-task-conflict-icon {
+  display: flex;
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--text-warning);
+}
+.ot-task-conflict-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.ot-task-conflict-text {
+  min-width: 0;
+}
+.ot-task-conflict-description {
+  margin-top: var(--size-4-1);
+  color: var(--text-muted);
+}
+.ot-task-conflict-details {
+  margin-top: var(--size-4-2);
+  padding-left: calc(18px + var(--size-4-3));
+}
+.ot-task-conflict-details > summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--text-normal);
+}
+.ot-task-conflict-details > summary:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-s);
+}
+.ot-task-conflict-group {
+  margin-top: var(--size-4-3);
+}
+.ot-task-conflict-title {
+  font-weight: var(--font-semibold);
+  overflow-wrap: anywhere;
+}
+.ot-task-conflict-file {
+  margin-top: var(--size-4-1);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--size-4-2);
+}
+.ot-task-conflict-label {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+.ot-task-conflict-file a {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .ot-paper > .ot-section > h2 {
   font-size: var(--font-ui-small);
   letter-spacing: -0.3px;

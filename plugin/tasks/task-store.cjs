@@ -6,6 +6,7 @@ const { noteAccess } = require('../shared/note-access.cjs');
 const { applySchedulePolicy } = require('./task-schedule.cjs');
 const { taskReferences } = require('../notes/task-references.cjs');
 const { canonicalType } = require('../legacy-identifiers.cjs');
+const { selectTaskVersions } = require('./task-identity.cjs');
 const uid = () => crypto.randomUUID();
 function decode(text) {
   const record = require('../shared/markdown-document.cjs').decode(text, parseYaml);
@@ -52,11 +53,12 @@ const methods = {
               };
         }),
     );
-    return records.filter((record) => record?.meta.type === 'thingsmd-task');
+    return selectTaskVersions(records.filter((record) => record?.meta.type === 'thingsmd-task'));
   },
   async records() {
     const tasks = await this.taskRecords();
-    const taskPaths = new Set(tasks.map((task) => task.file.path));
+    const versions = tasks.flatMap((task) => [task, ...(task.conflicts || [])]);
+    const taskPaths = new Set(versions.map((task) => task.file.path));
     const notesAccess = noteAccess(this.app);
     const notes = (
       await Promise.all(
@@ -91,8 +93,17 @@ const methods = {
         if (!references.has(path)) references.set(path, []);
         references.get(path).push(note.file.path);
       }
-    for (const task of tasks) task.references = references.get(task.file.path) || [];
+    for (const task of versions) task.references = references.get(task.file.path) || [];
     return [...notes, ...tasks];
+  },
+  async assertTaskAuthority(file, id) {
+    if (typeof id !== 'string' || !id.trim()) return;
+    const selected = (await this.taskRecords()).find((task) => task.meta.id === id);
+    const path = typeof file === 'string' ? file : file.path;
+    if (selected && selected.file.path !== path)
+      throw new Error(
+        `This is an extra copy of a task. ThingsMD uses ${selected.file.path}. Your draft was not saved.`,
+      );
   },
   async update(file, fn) {
     if (this.movingTasks) throw new Error('Task folder is changing. Please try again.');
@@ -100,8 +111,13 @@ const methods = {
       const indexed = this.app.vault.getAbstractFileByPath?.(file.path);
       const diskBefore = indexed ? await this.app.vault.read(indexed) : null;
       const current = await this.readTask(file);
-      const record = fn(decode(current));
+      const decoded = decode(current);
+      const id = decoded.meta.id;
+      const record = fn(decoded);
       const next = encode(record);
+      // A card can remain open while a preferred copy arrives from sync. Never
+      // save its stale draft into a document that is no longer selected.
+      await this.assertTaskAuthority(file, id);
       // Recheck before writing so externally changed data isn't silently replaced.
       if ((await this.readTask(file)) !== current)
         throw new Error('This task changed elsewhere. Please try again.');
@@ -117,6 +133,8 @@ const methods = {
     if (this.movingTasks) throw new Error('Task folder is changing. Please try again.');
     const path = typeof file === 'string' ? file : file.path;
     return this.taskQueue.run(path, async () => {
+      const current = decode(await this.readTask(path));
+      await this.assertTaskAuthority(path, current.meta.id);
       const indexed = this.app.vault.getAbstractFileByPath?.(path);
       if (indexed) await this.app.vault.delete(indexed);
       else await this.app.vault.adapter.remove(path);
@@ -145,6 +163,8 @@ const methods = {
     return this.taskQueue.run(path, async () => {
       if (this.movingTasks) throw new Error('Task folder is changing. Please try again.');
       if (await adapter.exists(path)) throw new Error('Task already exists');
+      if ((await this.taskRecords()).some((task) => task.meta.id === id))
+        throw new Error('Task already exists');
       const record = {
         meta: {
           title: '',

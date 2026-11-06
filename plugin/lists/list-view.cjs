@@ -96,7 +96,7 @@ class ThingsMDView extends ItemView {
           this.clearSelection();
           return;
         }
-        if (e.target.closest('input,textarea,select,button,.ot-date-picker')) return;
+        if (e.target.closest('input,textarea,select,button,a,summary,.ot-date-picker')) return;
         if (['Enter', 'ArrowUp', 'ArrowDown', 'Backspace', 'Delete'].includes(e.key)) {
           e.preventDefault();
           e.stopImmediatePropagation();
@@ -176,7 +176,7 @@ class ThingsMDView extends ItemView {
     const shell = this.contentEl.createDiv('ot-shell');
     const main = shell.createEl('main', { cls: 'ot-main' });
     const paper = main.createDiv('ot-paper');
-    let active = this.tasks.filter((t) =>
+    const matchesList = (t) =>
       inList(
         t,
         this.page,
@@ -185,8 +185,8 @@ class ThingsMDView extends ItemView {
         this.plugin.settings.captureDestination,
         this.plugin.settings.enableWaiting,
         this.plugin.settings.timeZone,
-      ),
-    );
+      );
+    let active = this.tasks.filter(matchesList);
     if (this.page === 'repeating')
       active.sort((a, b) =>
         String(
@@ -209,6 +209,11 @@ class ThingsMDView extends ItemView {
     });
     setIcon(headingIcon, PAGES.find(([key]) => key === this.page)?.[2] || 'inbox');
     top.createEl('h1', { text: this.getDisplayText(), cls: 'inline-title' });
+    require('./task-conflict-notice.cjs')(
+      paper,
+      require('../tasks/task-identity.cjs').conflictsMatching(this.tasks, matchesList),
+      this.plugin,
+    );
     if (this.page === 'today') paper.createEl('section', { cls: 'ot-calendar' });
     if (this.page === 'upcoming') paper.createDiv('ot-calendar-errors');
     require('./list-contents.cjs')(this, paper, active, progress);
