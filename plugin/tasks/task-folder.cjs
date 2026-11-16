@@ -24,6 +24,7 @@ async function moveTasks(plugin, from, to, commit = async () => {}) {
   const access = noteAccess(app);
   const adapter = app.vault.adapter;
   if (from === to) return commit();
+  if (plugin.conversionBusy) throw new Error('Task conversion is still finishing.');
   if (plugin.movingTasks) throw new Error('A task folder change is already running.');
   // Refuse to remount active card drafts. Users can close them normally first.
   const drafts = [...document.querySelectorAll('.ot-task.is-expanded')];

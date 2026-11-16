@@ -27,7 +27,7 @@ module.exports = async function installNative(plugin) {
     if (plugin.movingTasks) return;
     const current = ++version;
     const next = await plugin.records();
-    if (disposed || current !== version) return;
+    if (disposed || current !== version) return next;
     records = [
       ...next,
       ...records.filter(
@@ -36,6 +36,7 @@ module.exports = async function installNative(plugin) {
     ];
     for (const card of cards) card.render();
     for (const view of editors) view.dispatch({ effects: refresh.of(null) });
+    return next;
   };
   await reload();
   for (const event of ['modify', 'create', 'delete', 'rename'])
@@ -108,14 +109,32 @@ module.exports = async function installNative(plugin) {
     )
       return;
     readingDrag.section(element, context.getSectionInfo(element));
+    // Obsidian may replace embed elements while the task index is loading.
+    // Await once, then query and replace the live nodes without yielding between
+    // them. A newer refresh can supersede this one; its snapshot still proves
+    // these paths are tasks and lets their cards show loading placeholders.
+    const needsReload = [...element.querySelectorAll('.internal-embed')].some((embed) => {
+      const source = embed.getAttribute('src') || '';
+      const path = source.endsWith('.md') ? source : source + '.md';
+      return !lookup(path) && path.startsWith(plugin.settings.tasksFolder + '/');
+    });
+    const snapshot = needsReload ? await reload() : records;
+    if (disposed) return;
+    const knownPaths = new Set(
+      (snapshot || [])
+        .filter((record) => record.meta.type === 'thingsmd-task')
+        .flatMap((record) => [
+          record.file.path,
+          ...(record.conflicts || []).map((copy) => copy.file.path),
+        ]),
+    );
     const usedLines = new Set();
     for (const embed of element.querySelectorAll('.internal-embed')) {
       if (embed.closest('.ot-native')) continue;
       const source = embed.getAttribute('src') || '';
       if (/[#|]/.test(source)) continue;
       const path = source.endsWith('.md') ? source : source + '.md';
-      if (!lookup(path) && path.startsWith(plugin.settings.tasksFolder + '/')) await reload();
-      if (!isTaskPath(path)) continue;
+      if (!isTaskPath(path) && !knownPaths.has(path)) continue;
       const section = context.getSectionInfo(embed);
       if (!section) continue;
       const lines = section.text.split('\n');
@@ -130,6 +149,7 @@ module.exports = async function installNative(plugin) {
       // shared card refresh fills it in without reopening the note.
       const root = new TaskWidget(path, context.sourcePath).toDOM(null);
       root.classList.add('ot-reading-task');
+      root.dataset.sourceLine = String(lineNumber);
       embed.replaceWith(root);
       const child = new MarkdownRenderChild(root);
       let disposeDrag;

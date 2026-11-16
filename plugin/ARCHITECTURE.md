@@ -7,15 +7,16 @@ separation for the policy layer.
 
 ## Source layout
 
-| Location    | Responsibility                                                                     |
-| ----------- | ---------------------------------------------------------------------------------- |
-| `tasks/`    | Task logic, recurrence, capture, editing, folders, transfers and archives          |
-| `lists/`    | List views, membership, ordering, counts, rows and drag handling                   |
-| `notes/`    | Task-note controls, references, Live Preview and Reading-view integration          |
-| `calendar/` | Read-only calendar subscriptions, snapshots and event display                      |
-| `search/`   | Search UI and model                                                                |
-| `settings/` | Settings UI, validation, persistence and hotkey configuration                      |
-| `shared/`   | Checked note access, write queue, Markdown helpers, date utilities and reusable UI |
+| Location      | Responsibility                                                                       |
+| ------------- | ------------------------------------------------------------------------------------ |
+| `tasks/`      | Task logic, recurrence, capture, editing, folders, transfers and archives            |
+| `lists/`      | List views, membership, ordering, counts, rows and drag handling                     |
+| `notes/`      | Task-note controls, references, Live Preview and Reading-view integration            |
+| `conversion/` | Source syntax, reversible task conversion, contextual actions and vault confirmation |
+| `calendar/`   | Read-only calendar subscriptions, snapshots and event display                        |
+| `search/`     | Search UI and model                                                                  |
+| `settings/`   | Settings UI, validation, persistence and hotkey configuration                        |
+| `shared/`     | Checked note access, write queue, Markdown helpers, date utilities and reusable UI   |
 
 The root retains plugin composition, command routing, sidebar/navigation, identifier
 migrations, shared styles and this document. Feature-specific UI stays with its
@@ -115,3 +116,23 @@ Obsidian profile for `npm run test:all-ui`; its drivers run sequentially. Unit t
 cover policy/conflict behavior, real Obsidian suites cover host integration, and
 WebKit fixtures cover portable layout/interaction. Mobile emulation is not a test
 on a physical device.
+
+## Task format conversion
+
+`conversion/format` is host-independent: it identifies checkbox tasks, parses source
+fields, and patches only changed supported fields during restoration. Original
+syntax and the initial ThingsMD values travel with each task in conversion metadata.
+`conversion/service` plans against source snapshots, coordinates checked note writes,
+and restores every occurrence before deleting a converted task file. It uses the
+existing task queue, note access, and compensating rollback layers. Active task drafts
+and conflicting edits prevent destructive restoration.
+
+`conversion/settings` owns the vault-wide confirmation; `conversion/ui` owns note
+and selection actions. `conversion/references` guards links that cannot become
+standalone checkbox items. Shared labels and skip notices live in
+`conversion/presentation`.
+
+The conversion UI keeps only availability flags in its vault index. Reading-view
+selection uses weakly held render-section source positions; it does not guess offsets
+from displayed task titles. The settings section is last, and vault-wide confirmation
+executes the reviewed plan rather than silently expanding its scope.

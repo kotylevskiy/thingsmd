@@ -96,7 +96,10 @@
     "test:calendar-webkit": "node scripts/test-calendar-webkit.mjs",
     "test:calendar-http": "node scripts/test-calendar-http.mjs",
     "calendar:check-http": "node scripts/test-calendar-http.mjs",
-    "calendar:check-live": "node scripts/test-calendar-live.mjs"
+    "calendar:check-live": "node scripts/test-calendar-live.mjs",
+    "test:conversion": "node scripts/test-conversion.mjs",
+    "test:conversion-mobile": "node scripts/test-conversion.mjs --mobile",
+    "test:conversion-webkit": "node scripts/test-conversion-webkit.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

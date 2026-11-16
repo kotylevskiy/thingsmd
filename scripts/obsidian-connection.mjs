@@ -26,7 +26,19 @@ export async function connectTestVault({ settings = {} } = {}) {
     // Native Settings can retain focus between drivers. Start in the vault so
     // Obsidian creates later modals in the same window the driver is exercising.
     await page.evaluate(() => app.setting.close());
+    const settingsTitle = `Settings - ${expected.split('/').pop()} - Obsidian`;
+    for (const candidate of page.context().pages())
+      if (candidate !== page && (await candidate.title()).startsWith(settingsTitle))
+        await candidate.close();
     await page.bringToFront();
+    // Recent Obsidian versions retain a separate Settings window. CDP focus
+    // alone does not update the host's active document used by Modal.open().
+    await page.evaluate(() => {
+      require('@electron/remote').getCurrentWindow().focus();
+      window.focus();
+      document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+      document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
     const runtimeErrors = [];
     const onPageError = (error) => runtimeErrors.push(error.stack || error.message);
     const onConsole = (message) => {

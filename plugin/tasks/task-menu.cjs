@@ -150,6 +150,10 @@ module.exports = function installTaskMenu(plugin) {
           'repeat',
           () => plugin.showRepeat(ctx.id),
         );
+        if (ctx.sourcePath && task.meta.conversion?.version === 1)
+          item('Convert to Tasks Emoji / Dataview format', 'refresh-cw', (t) =>
+            plugin.convertTaskToInline(t, ctx.sourcePath),
+          );
         item(
           plugin.settings.trashRetention === 'immediately' ? 'Delete Permanently' : 'Move to Trash',
           'trash-2',

@@ -19,7 +19,7 @@ module.exports = class ThingsMDPlugin extends Plugin {
     require('./tasks/task-folder-explorer.cjs')(this);
     require('./notes/task-notes.cjs')(this);
     require('./notes/task-note-title.cjs')(this);
-    require('./tasks/archives.cjs')(this, (path) => {
+    this.hasTaskDraft = (path) => {
       const cards = [...document.querySelectorAll('.ot-native')].map((el) => el._thingsmdCard);
       cards.push(...this.app.workspace.getLeavesOfType(VIEW).map((leaf) => leaf.view));
       cards.push(...(this.taskNoteControllers || []));
@@ -27,7 +27,10 @@ module.exports = class ThingsMDPlugin extends Plugin {
         this.taskNoteTitleDrafts?.has(path) ||
         cards.some((card) => card?.taskDraft?.task.file.path === path)
       );
-    });
+    };
+    require('./tasks/archives.cjs')(this, this.hasTaskDraft);
+    require('./conversion/service.cjs')(this);
+    require('./conversion/ui.cjs')(this);
     require('./settings/settings.cjs')(this);
     require('./tasks/task-menu.cjs')(this);
     require('./tasks/daily-capture.cjs')(this);

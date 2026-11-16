@@ -21,7 +21,11 @@ try {
       .locator('.vertical-tab-content .setting-item-name')
       .evaluateAll(
         (els) =>
-          els.filter((el) => !el.closest('.ot-calendar-settings-section')).at(-1)?.textContent,
+          els
+            .filter(
+              (el) => !el.closest('.ot-calendar-settings-section,.ot-conversion-settings-section'),
+            )
+            .at(-1)?.textContent,
       ),
     'Vault time zone',
   );

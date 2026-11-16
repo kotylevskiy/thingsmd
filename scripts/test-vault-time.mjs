@@ -85,7 +85,10 @@ if (process.argv.includes('--webkit')) {
           (el) =>
             el.closest('.setting-item') ===
             [...el.closest('.vertical-tab-content').querySelectorAll('.setting-item')]
-              .filter((item) => !item.closest('.ot-calendar-settings-section'))
+              .filter(
+                (item) =>
+                  !item.closest('.ot-calendar-settings-section,.ot-conversion-settings-section'),
+              )
               .at(-1),
         ),
         true,
@@ -150,7 +153,7 @@ if (process.argv.includes('--webkit')) {
       loggedAt: '2099-10-21T00:00:00.000Z',
     });
     console.log(
-      'PASS real Obsidian desktop/mobile emulation: last setting, selection, persistence across reload, and planned timestamps through bundled task storage.',
+      'PASS real Obsidian desktop/mobile emulation: general settings order, selection, persistence across reload, and planned timestamps through bundled task storage.',
     );
   } finally {
     await page.evaluate(

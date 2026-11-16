@@ -219,6 +219,7 @@ module.exports = function installSettingsUI(plugin) {
           });
         });
       require('../calendar/settings.cjs')(plugin, this.containerEl, () => this.display());
+      require('../conversion/settings.cjs')(plugin, this.containerEl);
       for (const [el, top] of scroll) el.scrollTop = top;
     }
   }

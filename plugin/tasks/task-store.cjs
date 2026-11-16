@@ -32,6 +32,10 @@ const methods = {
     const indexed = this.app.vault.getAbstractFileByPath?.(path);
     return indexed ? noteAccess(this.app).read(indexed) : this.app.vault.adapter.read(path);
   },
+  async readTaskSnapshot(file) {
+    const raw = await this.readTask(file);
+    return { raw, ...decode(raw) };
+  },
   async taskRecords() {
     const TASKS = this.settings?.tasksFolder || DEFAULT_FOLDER;
     const adapter = this.app.vault.adapter;

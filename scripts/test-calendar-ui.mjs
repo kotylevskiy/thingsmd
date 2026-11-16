@@ -188,7 +188,7 @@ try {
   assert.equal(await cached(), 1);
   const persisted = await page.evaluate(() => app.plugins.getPlugin('thingsmd').loadData());
   assert.ok(!JSON.stringify(persisted).includes(url));
-  // Calendar controls sit at the end, with subscription setup in the dialog.
+  // Calendar controls precede Conversion, with subscription setup in the dialog.
   await page.evaluate(() => {
     app.setting.open();
     app.setting.openTabById('thingsmd');
@@ -199,7 +199,11 @@ try {
   assert.equal(
     await settings
       .locator('.ot-calendar-settings-section')
-      .evaluate((el) => el === el.parentElement.lastElementChild),
+      .evaluate(
+        (el) =>
+          el.nextElementSibling?.classList.contains('ot-conversion-settings-section') &&
+          el.nextElementSibling === el.parentElement.lastElementChild,
+      ),
     true,
   );
   assert.equal(await settings.locator('.ot-calendar-settings-row input[type=password]').count(), 0);

@@ -60,7 +60,7 @@ module.exports = function installArchives(plugin, hasOpenDraft) {
     maintenance = (async () => {
       const tasks = await plugin.taskRecords();
       for (const t of tasks) {
-        if (disposed) return;
+        if (disposed || plugin.conversionBusy) return;
         if (
           !t.meta.deleted &&
           !t.meta.loggedAt &&

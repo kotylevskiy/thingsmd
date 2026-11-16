@@ -39,6 +39,8 @@ export default [
   {
     files: [
       'plugin/tasks/model.cjs',
+      'plugin/conversion/format.cjs',
+      'plugin/conversion/references.cjs',
       'plugin/tasks/task-status.cjs',
       'plugin/tasks/task-identity.cjs',
       'plugin/notes/task-reference-deletion.cjs',
