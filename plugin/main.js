@@ -54,10 +54,10 @@ module.exports = class ThingsMDPlugin extends Plugin {
       this.newTaskHere().catch((error) => new Notice(error.message)),
     );
     require('./commands.cjs')(this);
+    require('./tasks/capture-uri.cjs')(this);
     require('./tasks/global-capture.cjs')(this);
     require('./mobile-navigation.cjs')(this);
     this.register(() => this.captureModal?.close());
-    this.addCommand({ id: 'open', name: 'Open task lists', callback: () => this.open() });
   }
   async open() {
     await this.openList('inbox');
@@ -76,12 +76,12 @@ module.exports = class ThingsMDPlugin extends Plugin {
     this.app.workspace.setActiveLeaf(leaf, { focus: true });
     this.mountListLinks();
   }
-  capture(fields = {}) {
+  capture(fields = {}, body) {
     if (this.captureModal) {
       this.captureModal.contentEl.querySelector('.ot-title-input')?.focus();
       return;
     }
-    this.captureModal = new TaskCapture(this, fields);
+    this.captureModal = new TaskCapture(this, fields, body);
     this.captureModal.open();
   }
   tasksChanged() {

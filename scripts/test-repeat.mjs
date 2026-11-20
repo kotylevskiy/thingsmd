@@ -118,10 +118,17 @@ try {
   await active
     .getByRole('button', { name: 'This is a copy of a repeating to-do', exact: true })
     .waitFor();
-  assert.equal(
-    await active.locator('.ot-task-notes-preview').innerText(),
-    'Future copies use these notes',
+  assert.deepEqual(
+    await page.evaluate(() => [
+      app.commands.commands['thingsmd:repeat-task'].checkCallback(true),
+      app.commands.commands['thingsmd:show-repeat-template'].checkCallback(true),
+    ]),
+    [false, true],
   );
+  await active
+    .locator('.ot-task-notes-preview')
+    .getByText('Future copies use these notes', { exact: true })
+    .waitFor();
   await active
     .getByRole('button', { name: 'This is a copy of a repeating to-do', exact: true })
     .click();

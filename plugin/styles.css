@@ -2152,6 +2152,10 @@ input.ot-task-marker[type='checkbox']::after,
 .ot-task-notes-placeholder {
   color: var(--text-faint);
 }
+.ot-capture-notes-input {
+  width: 100%;
+  resize: vertical;
+}
 .ot-task-notes-preview > :first-child {
   margin-top: 0;
 }

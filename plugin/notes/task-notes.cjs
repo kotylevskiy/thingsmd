@@ -35,6 +35,16 @@ module.exports = (plugin) => {
     }
   };
   plugin.renderTaskNotes = (editor, fields, task, title) => {
+    // Keep shared Markdown editable without activating its code blocks or embeds.
+    if (editor.setCaptureDescription) {
+      const input = fields.createEl('textarea', {
+        cls: 'ot-task-notes-preview ot-capture-notes-input',
+        attr: { 'aria-label': 'Task description', placeholder: 'Notes', rows: '3' },
+      });
+      input.value = task.body;
+      input.oninput = () => editor.setCaptureDescription(input.value);
+      return input;
+    }
     const preview = fields.createDiv({
       cls: 'ot-task-notes-preview markdown-rendered',
       attr: {

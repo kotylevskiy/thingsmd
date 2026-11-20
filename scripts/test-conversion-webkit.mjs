@@ -30,12 +30,15 @@ try {
         return this;
       }
       showAtMouseEvent() {}
+      showAtPosition() {}
     };
     window.source =
       '- [ ] Parent\n    - [ ] Child [onCompletion:: delete]\n    - [ ] Invalid [due:: nonsense]\n';
     const file = { path: 'Note.md' };
+    const view = { file, getMode: () => 'preview', containerEl: document.body };
     window.disposers = [];
     window.calls = [];
+    const commands = new Map();
     const plugin = {
       settings: { tasksFolder: 'ThingsMD' },
       app: {
@@ -45,7 +48,7 @@ try {
           getAbstractFileByPath: () => file,
           on() {},
         },
-        workspace: { getLeavesOfType: () => [], on() {} },
+        workspace: { getLeavesOfType: () => [], getActiveViewOfType: () => view, on() {} },
       },
       taskRecords: async () => [],
       planConversion: async (args) => args,
@@ -55,7 +58,7 @@ try {
       },
       register: (fn) => window.disposers.push(fn),
       registerEvent() {},
-      addCommand() {},
+      addCommand: (command) => commands.set(command.id, command),
       registerDomEvent: (target, type, fn, options) => {
         target.addEventListener(type, fn, options);
         window.disposers.push(() => target.removeEventListener(type, fn, options));
@@ -73,12 +76,20 @@ try {
       getSectionInfo: () => ({ text: window.source, lineStart: 0, lineEnd: 2 }),
     });
     const child = preview.querySelectorAll('li')[1];
-    const range = document.createRange();
-    range.setStart(child.firstChild, 1);
-    range.setEnd(child.firstChild, 3);
-    const selection = document.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
+    const selectChild = () => {
+      const range = document.createRange();
+      range.setStart(child.firstChild, 1);
+      range.setEnd(child.firstChild, 3);
+      const selection = document.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    };
+    window.runSelectionCommand = () => {
+      document.querySelector('.menu')?.remove();
+      selectChild();
+      return commands.get('convert-selected-tasks').checkCallback(false);
+    };
+    selectChild();
     child.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
   });
   await page.getByRole('button', { name: 'Convert to ThingsMD format', exact: true }).click();
@@ -87,6 +98,9 @@ try {
   assert.equal(calls[0].ranges.length, 1, 'Selecting a nested child does not convert its parent');
   assert.equal(calls[0].ranges[0].from, 13);
   assert.equal(calls[0].direction, 'thingsmd');
+  assert.equal(await page.evaluate(() => window.runSelectionCommand()), true);
+  await page.getByRole('button', { name: 'Convert to ThingsMD format', exact: true }).tap();
+  assert.deepEqual(await page.evaluate(() => window.calls), [calls[0], calls[0]]);
   assert.deepEqual(await page.evaluate(() => window.notices), []);
   assert.equal(
     await page.evaluate(() => {

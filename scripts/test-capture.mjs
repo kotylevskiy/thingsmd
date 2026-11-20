@@ -1,11 +1,25 @@
 import assert from 'node:assert/strict';
 import { connectTestVault } from './obsidian-connection.mjs';
 import { waitForAsync } from './wait-for-async.mjs';
-const { browser, page } = await connectTestVault();
+const { browser, page } = await connectTestVault({ settings: { captureDestination: 'inbox' } });
 page.setDefaultTimeout(8000);
 const prefix = `Capture test ${Date.now()}`;
 const note = prefix + '.md';
 const modal = page.locator('.ot-capture-modal');
+const openUri = (params) =>
+  page.evaluate((params) => {
+    const query = Object.entries({ vault: app.vault.getName(), ...params })
+      .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+      .join('&');
+    const remote = require('@electron/remote');
+    // Route through Obsidian's actual Electron URL listener in this test profile.
+    remote
+      .require('node:vm')
+      .compileFunction("app.emit('open-url', { preventDefault() {} }, uri)", ['app', 'uri'])(
+      remote.app,
+      `obsidian://thingsmd?${query}`,
+    );
+  }, params);
 try {
   assert.equal(
     await page.evaluate(() => {
@@ -153,8 +167,75 @@ try {
     },
     prefix,
   );
+  const uriTitle = prefix + ' + & %20 café';
+  const uriDescription =
+    '---\nMetadata-like text\n---\n\n**Notes**\n[Source](https://example.com/?a=1&b=2)';
+  await openUri({ command: 'unknown', title: uriTitle });
+  await page.getByText('ThingsMD URL requires command=capture.', { exact: true }).waitFor();
+  assert.equal(await modal.isVisible(), false);
+  for (const mode of ['list', 'source', 'preview']) {
+    await page.evaluate(
+      async ({ mode, note }) => {
+        const plugin = app.plugins.getPlugin('thingsmd');
+        if (mode === 'list') return plugin.openList('today');
+        await plugin.mainWorkspaceLeaf().setViewState({
+          type: 'markdown',
+          state: { file: note, mode, source: false },
+          active: true,
+        });
+      },
+      { mode, note },
+    );
+    const draftTitle = `${uriTitle} ${mode}`;
+    await openUri({ command: 'capture', title: draftTitle, description: uriDescription });
+    const description = modal.getByLabel('Task description', { exact: true });
+    await description.waitFor();
+    assert.equal(await title.inputValue(), draftTitle);
+    assert.equal(await description.inputValue(), uriDescription);
+    await title.press('Tab');
+    assert.equal(await description.evaluate((el) => el === document.activeElement), true);
+    const edited = uriDescription + '\n\nEdited before saving.';
+    await description.fill(edited);
+    await openUri({
+      command: 'capture',
+      title: prefix + ' should not replace',
+      description: 'Other',
+    });
+    await page
+      .getByText('Finish or cancel the open task draft, then reopen the ThingsMD URL.', {
+        exact: true,
+      })
+      .first()
+      .waitFor();
+    assert.equal(await title.inputValue(), draftTitle);
+    assert.equal(await description.inputValue(), edited);
+    assert.equal(
+      await page.evaluate(
+        async (draftTitle) =>
+          (await app.plugins.getPlugin('thingsmd').taskRecords()).some(
+            (t) => t.meta.title === draftTitle,
+          ),
+        draftTitle,
+      ),
+      false,
+    );
+    if (mode === 'preview')
+      await modal.getByRole('button', { name: 'Cancel', exact: true }).click();
+    else {
+      await modal.getByRole('button', { name: 'Save', exact: true }).click();
+      await waitForAsync(
+        page,
+        async ({ draftTitle, edited }) =>
+          (await app.plugins.getPlugin('thingsmd').taskRecords()).some(
+            (task) => task.meta.title === draftTitle && task.body === edited && !task.meta.project,
+          ),
+        { draftTitle, edited },
+      );
+    }
+    await modal.waitFor({ state: 'hidden' });
+  }
   console.log(
-    'PASS: task-shaped list capture, title focus, Tab to notes, deadline, Enter save, Today destination, ribbon capture into the active project without navigation, Escape discards, and outside-click draft retention.',
+    'PASS: list and project capture, keyboard focus and save, draft retention, and URL capture with encoded fields from lists, Live Preview, and Reading view.',
   );
 } finally {
   await page.evaluate(

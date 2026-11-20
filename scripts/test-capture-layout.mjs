@@ -42,11 +42,18 @@ try {
           window.captureSaved.push(task);
           return task;
         },
-        capture: (fields) => {
-          window.capturePlugin.captureModal = new Capture(window.capturePlugin, fields);
+        capture: (fields, body) => {
+          window.capturePlugin.captureModal = new Capture(window.capturePlugin, fields, body);
           window.capturePlugin.captureModal.open();
         },
       };
+      const plugin = window.capturePlugin;
+      window.loadPluginModule('./notes/task-notes.cjs')(plugin);
+      const renderTaskNotes = plugin.renderTaskNotes;
+      plugin.renderTaskNotes = (editor, ...args) =>
+        editor.setCaptureDescription
+          ? renderTaskNotes(editor, ...args)
+          : window.renderTaskNotesFixture(editor, ...args);
     });
   } else {
     if (!wasMobile) await page.evaluate(() => app.emulateMobile(true));
@@ -268,6 +275,38 @@ try {
     assert.equal(saved[0].meta.is_waiting, true);
     console.log('PASS capture keyboard:', size);
   }
+  const sharedTitle = prefix + ' shared description';
+  const sharedBody = '**Shared Markdown**\n\nhttps://example.com/';
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(
+    ({ fixture, title, body }) => {
+      const { viewport, keyboard } = window.captureViewportTest;
+      viewport.height = 400;
+      viewport.offsetTop = 0;
+      keyboard.style.top = '400px';
+      const plugin = fixture ? window.capturePlugin : app.plugins.getPlugin('thingsmd');
+      plugin.capture({ title }, body);
+    },
+    { fixture, title: sharedTitle, body: sharedBody },
+  );
+  const description = capture.getByLabel('Task description', { exact: true });
+  assert.equal(await description.inputValue(), sharedBody);
+  await description.fill(sharedBody + '\n\nEdited on mobile.');
+  await capture.getByRole('button', { name: 'Save', exact: true }).click();
+  await capture.waitFor({ state: 'hidden' });
+  assert.equal(
+    await page.evaluate(
+      async ({ fixture, title }) => {
+        const tasks = fixture
+          ? window.captureSaved
+          : await app.plugins.getPlugin('thingsmd').taskRecords();
+        return tasks.find((task) => task.meta.title === title)?.body;
+      },
+      { fixture, title: sharedTitle },
+    ),
+    sharedBody + '\n\nEdited on mobile.',
+  );
+  console.log('PASS: shared Markdown can be edited and saved while the mobile keyboard is up.');
   if (!fixture) {
     await page.evaluate((title) => {
       const { viewport, keyboard } = window.captureViewportTest;

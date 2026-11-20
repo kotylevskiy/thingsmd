@@ -30,6 +30,8 @@ module.exports = function nativeTaskCard(
     card.signature = null;
     await card.render();
   });
+  card.referenceLine = () =>
+    view ? view.state.doc.lineAt(view.posAtDOM(root)).number - 1 : Number(root.dataset.sourceLine);
   card.measure = () => view?.requestMeasure();
   card.render = async () => {
     card.refreshSettings();

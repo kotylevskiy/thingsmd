@@ -1,7 +1,11 @@
 const { rollbackNotes, recoveryError } = require('../shared/note-rollback.cjs');
 const { normalizeSchedule } = require('./task-schedule.cjs');
 const { DEFAULT_FOLDER } = require('./task-folder-policy.cjs');
-const { removeReferences, insertReference } = require('../notes/task-references.cjs');
+const {
+  referenceRanges,
+  removeReferences,
+  insertReference,
+} = require('../notes/task-references.cjs');
 
 // Coordinates task metadata and note placement, with compensating rollback.
 // Clipboard and drag adapters supply success feedback; this service has no DOM.
@@ -18,8 +22,10 @@ module.exports = function installTransferService(plugin, { onTransferred, onCopy
     destination,
     offset,
     copy = false,
+    duplicate = false,
     snapshot,
     sourcePath,
+    sourceLine,
     list,
     moveClipboard = false,
     scheduledWhen,
@@ -53,6 +59,10 @@ module.exports = function installTransferService(plugin, { onTransferred, onCopy
         (t) => t.meta.type === 'thingsmd-task' && (t.meta.id === id || t.file.path === path),
       );
       if (!task || task.meta.deleted) throw new Error('This task is unavailable.');
+      if (duplicate) {
+        copy = true;
+        destination = sourcePath || task.references?.[0];
+      }
       const original = task;
       let saved = task;
       const file = destination ? app.vault.getAbstractFileByPath(destination) : null;
@@ -63,8 +73,22 @@ module.exports = function installTransferService(plugin, { onTransferred, onCopy
           destination.startsWith((plugin.settings?.tasksFolder || DEFAULT_FOLDER) + '/'))
       )
         throw new Error('Drop onto a Markdown note.');
-      if (!file && !['inbox', 'today', 'upcoming', 'anytime', 'someday', 'waiting'].includes(list))
+      if (
+        !file &&
+        !duplicate &&
+        !['inbox', 'today', 'upcoming', 'anytime', 'someday', 'waiting'].includes(list)
+      )
         throw new Error('Choose a note or task list as the destination.');
+      let duplicateText;
+      if (duplicate && file) {
+        duplicateText = await read(file);
+        const reference = referenceRanges(duplicateText, task.file.path).find(
+          ({ from }) =>
+            !sourcePath || duplicateText.slice(0, from).split('\n').length - 1 === sourceLine,
+        );
+        if (!reference) throw new Error('The task reference moved. Try again.');
+        offset = reference.to;
+      }
       sourcePath = sourcePath || task.references?.[0] || task.meta.project;
       const source =
         app.vault.getAbstractFileByPath(sourcePath || '') ||
@@ -86,7 +110,10 @@ module.exports = function installTransferService(plugin, { onTransferred, onCopy
         delete values.repeatEpoch;
         values.project = file?.path || null;
         values.order = Date.now();
-        if (!file) {
+        if (duplicate) {
+          values.status = 'todo';
+          delete values.listOrder;
+        } else if (!file) {
           if (list === 'waiting') values.is_waiting = true;
           else {
             Object.assign(
@@ -100,7 +127,7 @@ module.exports = function installTransferService(plugin, { onTransferred, onCopy
         created = task = await plugin.createTask(values, undefined, (snapshot || task).body);
       }
       if (file) {
-        const before = await read(file);
+        const before = duplicateText ?? (await read(file));
         const after = insertReference(
           before,
           task.file.path,

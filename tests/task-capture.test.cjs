@@ -26,7 +26,7 @@ vm.runInNewContext(fs.readFileSync(filename, 'utf8'), {
         ? {}
         : localRequire(name),
 });
-function fixture() {
+function fixture(body = '') {
   const writes = [];
   const plugin = {
     app: { workspace: {} },
@@ -37,11 +37,10 @@ function fixture() {
       return task;
     },
   };
-  const modal = new stub.exports(plugin, {});
+  const modal = new stub.exports(plugin, {}, body);
   modal.card = {
     taskDraft: {
       values: { title: 'Captured', is_waiting: true, when: 'today', checklist: [] },
-      body: 'Notes',
     },
   };
   return { modal, writes };
@@ -51,6 +50,16 @@ test('dismissing a populated capture discards it without writing a task', () => 
   assert.equal(modal.close(), true);
   assert.equal(modal.closed, true);
   assert.equal(writes.length, 0);
+});
+test('a description-only capture saves the exact Markdown body separately from metadata', async () => {
+  const body = 'From **another app**.\n\n[Source](https://example.com/?a=1&b=2)';
+  const { modal, writes } = fixture(body);
+  modal.card.taskDraft.values.title = '';
+  await modal.save();
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].meta.title, '');
+  assert.equal(writes[0].meta.description, undefined);
+  assert.equal(writes[0].body, body);
 });
 test('explicit save preserves capture fields and prevents duplicate concurrent writes', async () => {
   const { modal, writes } = fixture();
@@ -64,7 +73,6 @@ test('explicit save preserves capture fields and prevents duplicate concurrent w
 test('saving an empty capture leaves no task behind', async () => {
   const { modal, writes } = fixture();
   modal.card.taskDraft.values.title = '';
-  modal.card.taskDraft.body = '';
   await modal.save();
   assert.equal(writes.length, 0);
   assert.equal(modal.closed, true);
@@ -83,7 +91,6 @@ test('checklist-only capture saves an empty title without inventing replacement 
 test('opening notes creates exactly one file even before a title is entered', async () => {
   const { modal, writes } = fixture();
   modal.card.taskDraft.values.title = '';
-  modal.card.taskDraft.body = '';
   await Promise.all([modal.save({ forNotes: true }), modal.save({ forNotes: true })]);
   assert.equal(writes.length, 1);
   assert.equal(writes[0].meta.title, '');

@@ -1,12 +1,14 @@
 const { isFinished } = require('./tasks/task-status.cjs');
-const { dayAfter } = require('./shared/local-date.cjs');
+const { addDays, dayAfter, today, validDate } = require('./shared/local-date.cjs');
 const { LISTS, isListAvailable } = require('./lists/lists.cjs');
 const { Notice } = require('obsidian');
 const { referenceRanges } = require('./notes/task-references.cjs');
 const { noteAccess } = require('./shared/note-access.cjs');
+const { WriteQueue } = require('./shared/write-queue.cjs');
 module.exports = function (plugin) {
   const app = plugin.app;
   const notes = noteAccess(app);
+  const dateChanges = new WriteQueue();
   let last = null;
   const remember = (e) => {
     const row = e.target.closest?.('.ot-task[data-task-id]');
@@ -51,8 +53,8 @@ module.exports = function (plugin) {
     const row = candidates.find((r) => r.dataset.occurrence === occurrence) || candidates[0];
     if (!row) return null;
     const card = require('./tasks/task-controller.cjs')(row, view);
-    const task =
-      card.taskDraft?.task || card.currentTask || view.tasks?.find((t) => t.meta.id === id);
+    const draft = card.taskDraft?.task.meta.id === id ? card.taskDraft : null;
+    const task = draft?.task || card.currentTask || view.tasks?.find((t) => t.meta.id === id);
     return {
       id,
       occurrence: row.dataset.occurrence,
@@ -60,6 +62,7 @@ module.exports = function (plugin) {
       card,
       view,
       task,
+      draft,
       checklist: last?.id === id ? last.checklist : -1,
     };
   };
@@ -83,6 +86,8 @@ module.exports = function (plugin) {
       },
     });
   const editable = (c) => !c.task?.meta.deleted && !['trash', 'logbook'].includes(c.view.page);
+  const isTaskNote = (c) => !!c.row.closest('.ot-task-note-controls');
+  const embeddedInNote = (c) => !!c.row.closest('.ot-native');
   const refocus = async (c) => {
     const allowed = () =>
       app.workspace.activeLeaf?.view === c.view && !document.querySelector('.modal-container');
@@ -130,8 +135,8 @@ module.exports = function (plugin) {
       valid,
     );
   const openEditor = async (c) => {
-    if (c.card.taskDraft) return;
-    if (c.view.getViewType() === 'thingsmd-project-view') await c.view.openTask(c.id);
+    if (c.view.getViewType() === 'thingsmd-project-view') await c.view.openTask(c.id, c.occurrence);
+    else if (c.draft) return;
     else c.row.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
   };
   for (const [key, name] of LISTS)
@@ -247,16 +252,90 @@ module.exports = function (plugin) {
       name,
       async (c) => {
         await openEditor(c);
-        c.card.taskControl(kind);
+        if (c.card.taskDraft?.task.meta.id === c.id) c.card.taskControl(kind);
       },
       (c) => editable(c) && (kind !== 'deadline' || !c.task?.meta.repeat),
     );
-  patch('remove-deadline', 'Remove task deadline', { deadline: null });
+  const shiftedDate = (value, kind, offset) => {
+    const base = kind === 'when' && ['today', 'evening'].includes(value) ? today() : value;
+    if (!validDate(base)) return null;
+    const next = addDays(base, offset);
+    return validDate(next) ? next : null;
+  };
+  for (const [kind, name] of [
+    ['when', 'start date'],
+    ['deadline', 'deadline'],
+  ]) {
+    for (const [offset, direction] of [
+      [-1, 'earlier'],
+      [1, 'later'],
+    ])
+      register(
+        `task-${kind}-${direction}`,
+        `Move task ${name} one day ${direction}`,
+        (c) =>
+          dateChanges.run(c.id, async () => {
+            const task = await fresh(c);
+            if (!task || task.meta.deleted || (kind === 'deadline' && task.meta.repeat)) return;
+            const next = shiftedDate(task.meta[kind], kind, offset);
+            if (!next) return;
+            await plugin.patchTask(task, { [kind]: next });
+            await refocus(c);
+          }),
+        (c) =>
+          editable(c) &&
+          (kind !== 'deadline' || !c.task?.meta.repeat) &&
+          !!shiftedDate(c.draft ? c.draft.values[kind] : c.task?.meta[kind], kind, offset),
+      );
+  }
+  patch(
+    'remove-deadline',
+    'Remove task deadline',
+    { deadline: null },
+    (c) => editable(c) && !!(c.draft ? c.draft.values.deadline : c.task?.meta.deadline),
+  );
   register('move-task', 'Move task…', (c) => plugin.openTaskMove(c.row), editable);
+  register(
+    'duplicate-task',
+    'Duplicate task',
+    async (c) => {
+      const sourcePath = embeddedInNote(c) ? c.view.file?.path : undefined;
+      const sourceLine = sourcePath ? c.card.referenceLine() : undefined;
+      const task = await fresh(c);
+      if (task) {
+        await plugin.transferTask({ id: task.meta.id, duplicate: true, sourcePath, sourceLine });
+        await refocus(c);
+      }
+    },
+    (c) =>
+      !!c.task?.file &&
+      !c.task.meta.deleted &&
+      (!embeddedInNote(c) ||
+        (c.view.file && !c.view.file.path.startsWith(plugin.settings.tasksFolder + '/'))),
+  );
   register('task-context-menu', 'Show task context menu', (c) => {
     const r = c.row.getBoundingClientRect();
     return plugin.showTaskMenu(c.row, { clientX: r.left, clientY: r.bottom });
   });
+  register(
+    'edit-task',
+    'Edit selected task',
+    async (c) => {
+      await openEditor(c);
+      if (c.card.taskDraft?.task.meta.id === c.id)
+        c.card.contentEl.querySelector('.ot-title-input')?.focus();
+    },
+    (c) => !!c.task && editable(c) && !isTaskNote(c),
+  );
+  register(
+    'open-task-note',
+    'Open task note',
+    async (c) => {
+      const task = await fresh(c);
+      if (task) await plugin.openTaskNotes(task);
+    },
+    (c) => !!c.task?.file && !isTaskNote(c),
+  );
   register(
     'save-task',
     'Save and close task',
@@ -268,22 +347,29 @@ module.exports = function (plugin) {
     'Add checklist item',
     async (c) => {
       await openEditor(c);
-      c.card.contentEl.querySelector('button[aria-label="Checklist"]')?.click();
+      if (c.card.taskDraft?.task.meta.id === c.id)
+        c.card.contentEl.querySelector('button[aria-label="Checklist"]')?.click();
     },
     editable,
   );
-  register(
-    'trash-task',
-    'Move task to Trash',
-    async (c) => {
-      const t = await fresh(c);
-      if (t) {
-        await plugin.trashTask(t);
-        await refocus(c);
-      }
-    },
-    (c) => c.view.page !== 'trash',
-  );
+  for (const [id, name, permanent] of [
+    ['trash-task', 'Move task to Trash', false],
+    ['delete-task-permanently', 'Delete task permanently', true],
+  ]) {
+    const matchesRetention = () => (plugin.settings.trashRetention === 'immediately') === permanent;
+    register(
+      id,
+      name,
+      async (c) => {
+        const t = await fresh(c);
+        if (t && !t.meta.deleted && matchesRetention()) {
+          await plugin.trashTask(t);
+          await refocus(c);
+        }
+      },
+      (c) => !!c.task && !c.task.meta.deleted && c.view.page !== 'trash' && matchesRetention(),
+    );
+  }
   register(
     'restore-task',
     'Restore task',
@@ -310,9 +396,9 @@ module.exports = function (plugin) {
     'Create or edit repeating rule',
     async (c) => {
       const t = await fresh(c);
-      if (t) await plugin.showRepeat(t.meta.id);
+      if (t && !t.meta.repeatSource) await plugin.showRepeat(t.meta.id);
     },
-    editable,
+    (c) => editable(c) && !c.task?.meta.repeatSource,
   );
   register(
     'toggle-repeat',
@@ -356,16 +442,47 @@ module.exports = function (plugin) {
     (c) => plugin.showRepeatingTask(c.task.meta.repeat.lastCopy),
     (c) => !!c.task?.meta.repeat?.lastCopy,
   );
-  register('open-project', 'Open containing project', async (c) => {
-    const t = (await plugin.records()).find((t) => t.meta.id === c.id);
-    const path = t?.references?.[0] || t?.meta.project;
-    const file = app.vault.getAbstractFileByPath(path || '');
-    if (file) {
-      const leaf = plugin.mainWorkspaceLeaf();
-      await leaf.openFile(file);
-      app.workspace.setActiveLeaf(leaf, { focus: true });
-    } else new Notice('This task has no containing project.');
-  });
+  register(
+    'open-project',
+    'Show in Project',
+    async (c) => {
+      const task = await fresh(c);
+      if (task) await require('./tasks/project-navigation.cjs').show(plugin, task);
+    },
+    (c) => !!c.task && !c.task.meta.deleted && c.task.references?.length !== 0,
+  );
+  const groupEdge = (c, bottom) => {
+    const row = c.row;
+    const group = row.closest('.ot-group');
+    const rows = group?.querySelectorAll(':scope > .ot-task');
+    const target = rows?.[bottom ? rows.length - 1 : 0];
+    return target && target !== row ? { group, target } : null;
+  };
+  for (const [edge, bottom] of [
+    ['top', false],
+    ['bottom', true],
+  ])
+    register(
+      `move-task-to-${edge}`,
+      `Move task to ${edge} of group`,
+      (c) => {
+        if (!c.row.isConnected) return;
+        const placement = groupEdge(c, bottom);
+        if (placement)
+          return c.view.reorderInGroup(
+            c.id,
+            placement.group,
+            placement.target.dataset.taskId,
+            bottom,
+          );
+      },
+      (c) =>
+        editable(c) &&
+        !c.card.taskDraft &&
+        c.view.getViewType() === 'thingsmd-project-view' &&
+        c.view.page !== 'repeating' &&
+        !!groupEdge(c, bottom),
+    );
   for (const [direction, label] of [
     [-1, 'up'],
     [1, 'down'],

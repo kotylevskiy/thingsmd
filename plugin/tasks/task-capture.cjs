@@ -3,13 +3,14 @@ const TaskEditor = require('./task-editor.cjs');
 const { inInbox } = require('./model.cjs');
 const { button, removeModalCloseButton, closePopover } = require('../shared/dom.cjs');
 class TaskCapture extends Modal {
-  constructor(plugin, fields) {
+  constructor(plugin, fields, body) {
     super(plugin.app);
     // The host's first-input focus picks the completion checkbox. Capture owns
     // initial focus so a quick Enter always reaches the title's save handler.
     this.hasInitialInputFocus = false;
     this.plugin = plugin;
     this.fields = { project: null, order: Date.now(), ...fields };
+    this.body = body;
     this.returnFocus = document.activeElement;
     const view = this.app.workspace.activeLeaf?.view;
     if (view?.page === 'inbox' && !this.fields.is_waiting && inInbox({ meta: this.fields })) {
@@ -65,6 +66,10 @@ class TaskCapture extends Modal {
       card.taskDraft.dirty = true;
     };
     card.finishTask = () => this.save();
+    if (this.body !== undefined)
+      card.setCaptureDescription = (body) => {
+        this.body = body;
+      };
     card.openNotes = async (task, newTab = false) => {
       if ((await this.save({ forNotes: true })) && this.createdTask)
         await this.plugin.openTaskNotes(this.createdTask, newTab);
@@ -73,7 +78,7 @@ class TaskCapture extends Modal {
       if ((await this.save()) && this.createdTask)
         await this.plugin.showRepeat(this.createdTask.meta.id);
     };
-    card.taskEditor(row, line, { meta: { title: '', ...this.fields }, body: '' });
+    card.taskEditor(row, line, { meta: { title: '', ...this.fields }, body: this.body ?? '' });
     line.querySelector('.ot-title-input').setAttribute('enterkeyhint', 'done');
     this.scope.register([], 'Enter', (event) => {
       if (
@@ -131,7 +136,9 @@ class TaskCapture extends Modal {
       return true;
     }
     const values = JSON.parse(JSON.stringify(draft.values));
-    const hasContent = values.title.trim() || values.checklist.some((item) => item.text.trim());
+    const body = this.body ?? '';
+    const hasContent =
+      values.title.trim() || body.trim() || values.checklist.some((item) => item.text.trim());
     if (!hasContent && !forNotes) {
       super.close();
       return true;
@@ -153,8 +160,12 @@ class TaskCapture extends Modal {
         };
         // Retain the task on placement failure; retry must never duplicate it.
         if (this.createdTask)
-          this.createdTask = await this.plugin.patchTask(this.createdTask, fields);
-        else this.createdTask = await this.plugin.createTask(fields);
+          this.createdTask = await this.plugin.patchTask(
+            this.createdTask,
+            fields,
+            body === this.createdTask.body ? undefined : body,
+          );
+        else this.createdTask = await this.plugin.createTask(fields, undefined, body);
         if (destination) {
           await this.plugin.transferTask({ id: this.createdTask.meta.id, destination });
           this.createdTask =

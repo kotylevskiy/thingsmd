@@ -127,6 +127,81 @@ test('choosing a date after copying to Upcoming copies without rescheduling the 
   assert.equal((await plugin.records())[0].meta.when, undefined);
   assert.equal(notices.length, 0);
 });
+test('duplicate keeps the date, checklist and notes, with a fresh identity and status', async () => {
+  const { plugin, notes, copies, notices } = fixture();
+  const original = await plugin.records().then(([task]) => task);
+  const checklist = [{ text: 'A step', done: true }];
+  const body = 'Notes to keep';
+  plugin.records = async () => [
+    {
+      ...original,
+      body,
+      meta: {
+        ...original.meta,
+        status: 'done',
+        completed: '2026-11-20',
+        when: '2099-01-01',
+        deadline: '2099-01-03',
+        checklist,
+        listOrder: { upcoming: 123 },
+        repeatSource: 'template',
+      },
+    },
+  ];
+  notes.set(
+    'To.md',
+    'Before\r\n![[.thingsmd-storage/a.md]]\r\nBetween\r\n![[.thingsmd-storage/a]]\r\nAfter',
+  );
+  const copy = await plugin.transferTask({
+    id: 'a',
+    duplicate: true,
+    sourcePath: 'To.md',
+    sourceLine: 3,
+  });
+  assert.equal(copy.meta.id, 'copy');
+  assert.equal(copy.meta.status, 'todo');
+  assert.equal(copy.meta.project, 'To.md');
+  assert.equal(copy.meta.when, '2099-01-01');
+  assert.equal(copy.meta.deadline, '2099-01-03');
+  assert.deepEqual(copy.meta.checklist, checklist);
+  assert.equal(copy.body, body);
+  for (const field of ['completed', 'listOrder', 'repeatSource'])
+    assert.equal(copy.meta[field], undefined, field);
+  assert.equal(
+    notes.get('To.md'),
+    'Before\r\n![[.thingsmd-storage/a.md]]\r\nBetween\r\n![[.thingsmd-storage/a]]\r\n![[.thingsmd-storage/copy]]\r\nAfter',
+  );
+  assert.equal(notes.get('From.md'), 'Before\n![[.thingsmd-storage/a.md]]\nAfter\n');
+  await assert.rejects(
+    plugin.transferTask({ id: 'a', duplicate: true, sourcePath: 'To.md', sourceLine: 2 }),
+    /task reference moved/,
+  );
+  assert.equal(copies.length, 1);
+  assert.equal(notices.length, 0);
+});
+test('duplicating an unfiled task preserves its schedule without requiring a destination', async () => {
+  const { plugin, notes } = fixture();
+  notes.delete('From.md');
+  await plugin.patchTask((await plugin.records())[0], { project: null, when: 'someday' });
+  const before = [...notes];
+  const copy = await plugin.transferTask({ id: 'a', duplicate: true });
+  assert.equal(copy.meta.when, 'someday');
+  assert.equal(copy.meta.project, null);
+  assert.deepEqual([...notes], before);
+});
+test('duplicate preserves intervening note edits and keeps the recoverable copy', async () => {
+  const { plugin, notes, copies } = fixture();
+  const edited = notes.get('From.md') + 'Concurrent edit\n';
+  const createTask = plugin.createTask;
+  plugin.createTask = async (...args) => {
+    const copy = await createTask(...args);
+    notes.set('From.md', edited);
+    return copy;
+  };
+  await assert.rejects(plugin.transferTask({ id: 'a', duplicate: true }), /changed/i);
+  assert.equal(notes.get('From.md'), edited);
+  assert.equal(copies.length, 1);
+});
 test('confirmed Upcoming moves return the saved record', async () => {
   const { plugin } = fixture();
   let request;

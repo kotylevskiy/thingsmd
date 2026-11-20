@@ -33,6 +33,26 @@ async function open(mode) {
     { path, leafId, mode },
   );
 }
+async function findSelectionCommand() {
+  assert.equal(
+    await page.evaluate(() => app.commands.executeCommandById('command-palette:open')),
+    true,
+  );
+  const prompt = page.locator('.prompt');
+  const input = prompt.locator('.prompt-input');
+  await input.fill('Convert selected tasks');
+  const result = prompt.locator('.suggestion-item').filter({
+    hasText: /ThingsMD\s*Convert selected tasks/,
+  });
+  await result.waitFor();
+  return { result, input };
+}
+async function convertFromPalette(format, { mouse = false } = {}) {
+  const { result, input } = await findSelectionCommand();
+  if (mouse) await result.click();
+  else await input.press('Enter');
+  await page.locator('.menu').getByText(`Convert to ${format}`, { exact: true }).click();
+}
 try {
   if (process.argv.includes('--mobile') && !originalMobile) await mobile(true);
   await page.setViewportSize(
@@ -48,30 +68,42 @@ try {
   await open('preview');
   const active = page.locator('.workspace-leaf.mod-active');
   await active.locator('li.task-list-item').nth(2).waitFor();
+  assert.equal(
+    await page.evaluate(() =>
+      app.commands.commands['thingsmd:convert-selected-tasks'].checkCallback(true),
+    ),
+    false,
+  );
   // A partial text selection must convert exactly the first item.
-  await active
-    .locator('li.task-list-item')
-    .first()
-    .evaluate((el) => {
-      const text = [...el.childNodes].find(
-        (node) => node.nodeType === Node.TEXT_NODE && node.textContent.includes('Prepare'),
-      );
-      const range = document.createRange();
-      range.setStart(text, 2);
-      range.setEnd(text, 8);
-      const selection = document.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
-      el.dispatchEvent(
-        new MouseEvent('contextmenu', {
-          bubbles: true,
-          cancelable: true,
-          clientX: 180,
-          clientY: 240,
-        }),
-      );
-    });
-  await page.locator('.menu').getByText('Convert to ThingsMD format', { exact: true }).click();
+  const selectFirstTask = () =>
+    active
+      .locator('li.task-list-item')
+      .first()
+      .evaluate((el) => {
+        const text = [...el.childNodes].find(
+          (node) => node.nodeType === Node.TEXT_NODE && node.textContent.includes('Prepare'),
+        );
+        const range = document.createRange();
+        range.setStart(text, 2);
+        range.setEnd(text, 8);
+        const selection = document.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      });
+  await selectFirstTask();
+  await findSelectionCommand();
+  await page.keyboard.press('Escape');
+  await page.locator('.prompt').waitFor({ state: 'detached' });
+  assert.equal(
+    await page.evaluate(() => {
+      document.getSelection().removeAllRanges();
+      return app.commands.commands['thingsmd:convert-selected-tasks'].checkCallback(true);
+    }),
+    false,
+    'Closing the palette releases its Reading view selection',
+  );
+  await selectFirstTask();
+  await convertFromPalette('ThingsMD format');
   await waitForAsync(
     page,
     async (path) =>
@@ -133,19 +165,8 @@ try {
       const selection = document.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
-      el.dispatchEvent(
-        new MouseEvent('contextmenu', {
-          bubbles: true,
-          cancelable: true,
-          clientX: 180,
-          clientY: 240,
-        }),
-      );
     });
-  await page
-    .locator('.menu')
-    .getByText('Convert to Tasks Emoji / Dataview format', { exact: true })
-    .click();
+  await convertFromPalette('Tasks Emoji / Dataview format', { mouse: true });
   await waitForAsync(
     page,
     async (firstPath) => !(await app.vault.adapter.exists(firstPath)),
@@ -167,46 +188,14 @@ try {
   const restored = await page.evaluate((path) => app.vault.adapter.read(path), path);
   assert.ok(restored.includes('[dependsOn:: dcf64c,0h17ye] [onCompletion:: delete]'));
   assert.ok(restored.includes('(scheduled:: 2099-11-18) (due:: 2099-11-21)'));
-  // Exercise the Live Preview selection adapter with the actual Obsidian Editor.
+  // A backward selection uses Live Preview's editor offsets.
   await open('source');
-  await page.evaluate(async () => {
-    const view = app.workspace.activeLeaf.view,
-      editor = view.editor;
+  await page.evaluate(() => {
+    const editor = app.workspace.activeLeaf.view.editor;
     const from = editor.getValue().indexOf('Review dependencies');
-    editor.setSelection(editor.offsetToPos(from + 2), editor.offsetToPos(from + 8));
-    const actions = [];
-    const menu = {
-      addSeparator() {
-        return this;
-      },
-      addItem(callback) {
-        const action = {};
-        const item = {
-          setTitle: (title) => {
-            action.title = title;
-            return item;
-          },
-          setIcon: () => item,
-          setSection: () => item,
-          setDisabled: () => item,
-          setChecked: () => item,
-          setWarning: () => item,
-          onClick: (callback) => {
-            action.callback = callback;
-            return item;
-          },
-        };
-        callback(item);
-        actions.push(action);
-        return this;
-      },
-    };
-    app.workspace.trigger('editor-menu', menu, editor, view);
-    const action = actions.find((item) => item.title === 'Convert to ThingsMD format');
-    if (!action) throw Error('Live Preview selection action is missing');
-    await action.callback();
-    editor.setCursor({ line: 0, ch: 0 });
+    editor.setSelection(editor.offsetToPos(from + 8), editor.offsetToPos(from + 2));
   });
+  await convertFromPalette('ThingsMD format', { mouse: true });
   await active.locator('.ot-native:visible .ot-task').waitFor();
   await active.locator('.ot-native:visible .ot-task').click({ button: 'right' });
   await page
@@ -248,7 +237,7 @@ try {
   await settings.waitForTimeout(200);
   await settings.screenshot({ path: `artifacts/conversion-settings${tag}.png` });
   console.log(
-    'PASS: Reading selection, note commands, Live Preview, list rendering, shared references, descriptions, exact preserved fields, settings ordering and vault confirmation.',
+    'PASS: palette selection in Reading view and Live Preview, note commands, list rendering, shared references, descriptions, exact preserved fields, settings ordering and vault confirmation.',
   );
 } catch (error) {
   await page.screenshot({
@@ -269,6 +258,7 @@ try {
   );
   throw error;
 } finally {
+  if (await page.locator('.prompt-input').isVisible()) await page.keyboard.press('Escape');
   await page.evaluate(() => {
     for (const modal of document.querySelectorAll('.modal-content'))
       if (modal.querySelector('h2')?.textContent.startsWith('Convert vault to'))
