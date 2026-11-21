@@ -1,0 +1,18 @@
+<figure>
+  <picture>
+    <source
+      data-light-screenshot
+      media="(prefers-color-scheme: light)"
+      srcset="{{ include.name | append: '-light.png' | prepend: '/assets/' | relative_url }}"
+      width="{{ include.light_width | default: include.width }}"
+      height="{{ include.light_height | default: include.height }}"
+    >
+    <img
+      src="{{ include.name | append: '.png' | prepend: '/assets/' | relative_url }}"
+      width="{{ include.width }}"
+      height="{{ include.height }}"
+      alt="{{ include.alt | escape }}"
+      loading="lazy"
+    >
+  </picture>
+</figure>

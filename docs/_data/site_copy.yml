@@ -1,0 +1,116 @@
+metadata:
+  title: ThingsMD — Personal task management for Obsidian
+  description: Manage tasks in Obsidian, see calendar events beside your plans, and follow Getting Things Done. Includes provider setup, scheduling, capture, hotkeys, and sync.
+
+accessibility:
+  language: en
+  skip_to_content: Skip to content
+
+cover:
+  eyebrow: A GTD-based task management plugin
+  title: ThingsMD for Obsidian
+  lead: Keep your notes and tasks together.
+  install: Install
+  documentation: Documentation
+
+appearance:
+  light: Switch to light appearance
+  dark: Switch to dark appearance
+  system: Follow system appearance
+
+github:
+  repository: kotylevskiy/thingsmd
+  fallback_release: '0.0.1'
+  release_label: Release
+  fallback_stars: 0
+  fallback_forks: 0
+  star: star
+  stars: stars
+  fork: fork
+  forks: forks
+
+features:
+  label: ThingsMD features
+  quick_capture:
+    title: Quick Capture
+    description: Use a global desktop shortcut to capture a task from another app.
+  tasks_in_notes:
+    title: Tasks in any note
+    description: In Live Preview, type **+** and press **Space** on a blank line to create a task.
+  task_details:
+    title: Dates and task details
+    description: Set start dates and deadlines. Add descriptions and checklists.
+  gtd_lists:
+    title: GTD lists
+    description: Capture in Inbox, plan in Today and Upcoming, and save ideas in Someday.
+  drag_and_drop:
+    title: Drag and drop
+    description: Reorder tasks in a note or drag them to another day in Upcoming.
+  calendars:
+    title: Calendar subscriptions
+    description: See appointments alongside tasks in Today and Upcoming.
+  repeats:
+    title: Repeating tasks
+    description: Repeat tasks on a schedule or after completion.
+  sync:
+    title: Private sync and conflicts
+    description: Sync your vault privately with Syncthing or Resilio Sync. ThingsMD flags conflicting task copies for review.
+  devices:
+    title: Desktop and mobile
+    description: Create, edit, and complete tasks in Obsidian on desktop computers, phones, and tablets.
+
+video:
+  label: ThingsMD feature walkthrough
+  chapters_label: Walkthrough chapters
+  poster_description: ThingsMD’s Today list in Obsidian
+  transcript_link: Transcript
+  transcript_title: Video transcript
+  close_transcript: Close
+  transcript:
+    - id: create
+      title: Turn a line into a task
+      description: Open any Markdown note in Live Preview. Type **+** and press **Space** on a blank line to open a task card inside that note. Enter a title, then press **Tab** to write a description. Each task has its own Markdown file, and the card stays in the note where you created it.
+
+    - id: dates
+      title: Set a start date and deadline
+      description: Use **When** for your start date and **Deadline** for the due date. Add notes and a checklist to the same task.
+
+    - id: drag
+      title: Reorder tasks by dragging
+      description: Drag a task above or below another in the same note or list group.
+
+    - id: finish
+      title: Finish, cancel, or reschedule
+      description: Check off finished work, cancel what you’re dropping, or postpone a task by dragging it to another day in Upcoming.
+
+    - id: workspace
+      title: Tasks and notes in one workspace
+      description: Open ThingsMD lists and ordinary Markdown notes from the same Obsidian sidebar.
+
+    - id: lists
+      title: Navigate the task lists
+      description: 'See what belongs in Today, Inbox, Upcoming, Anytime, Waiting For, Someday, Logbook, and Trash. Use **ThingsMD: Show Repeating** in the command palette to review repeat rules.'
+
+    - id: global-capture
+      title: Capture from another desktop app
+      description: Set a global desktop shortcut to open a draft while another app is active and your vault is open.
+
+    - id: calendar
+      title: See appointments beside tasks
+      description: Add an [ICS calendar subscription](#calendars). Its read-only events appear in Today and Upcoming.
+
+    - id: conversion
+      title: Convert selected tasks or a whole note
+      description: Select a few checkboxes and run **Convert selected tasks…**, or run **Convert all tasks to ThingsMD format** to convert every eligible task in the note. Start dates and deadlines from Tasks Emoji and Dataview carry over to the cards. [Export restores the original Markdown fields](#import-and-export).
+
+contents:
+  title: Documentation contents
+  desktop_label: Table of contents
+  mobile_label: Mobile table of contents
+
+footer:
+  label: Project links
+  home: ThingsMD
+  github: GitHub
+  releases: Release notes
+  feedback: Feedback and issues

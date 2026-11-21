@@ -1,0 +1,36 @@
+<div class="hero-demo" id="features">
+  <video
+    width="1280"
+    height="720"
+    muted
+    playsinline
+    controls
+    loop
+    preload="none"
+    data-light-poster="{{ '/assets/cover-screencast-light.jpg' | relative_url }}"
+    data-dark-poster="{{ '/assets/cover-screencast.jpg' | relative_url }}"
+    aria-label="{{ copy.video.label | escape }}"
+  >
+    <source src="{{ '/assets/cover-screencast.webm' | relative_url }}" data-light-src="{{ '/assets/cover-screencast-light.webm' | relative_url }}" type='video/webm; codecs="vp9"'>
+    <source src="{{ '/assets/cover-screencast.mp4' | relative_url }}" data-light-src="{{ '/assets/cover-screencast-light.mp4' | relative_url }}" type="video/mp4">
+    <track kind="chapters" src="{{ '/assets/cover-chapters.vtt' | relative_url }}" srclang="{{ copy.accessibility.language | escape }}" label="{{ copy.video.chapters_label | escape }}" default>
+    <img src="{{ '/assets/cover-screencast.jpg' | relative_url }}" width="1280" height="720" alt="{{ copy.video.poster_description | escape }}">
+  </video>
+  <button class="hero-transcript-link" type="button" aria-haspopup="dialog" aria-controls="video-transcript">{{ copy.video.transcript_link | escape }}</button>
+  <dialog class="hero-transcript" id="video-transcript" aria-labelledby="video-transcript-title">
+    <header class="transcript-header">
+      <h2 id="video-transcript-title">{{ copy.video.transcript_title | escape }}</h2>
+      <form method="dialog">
+        <button class="hero-button" autofocus>{{ copy.video.close_transcript | escape }}</button>
+      </form>
+    </header>
+    <ol class="transcript-steps">
+      {% for demo in copy.video.transcript %}
+      <li>
+        <strong>{{ demo.title | escape }}</strong>
+        {{ demo.description | markdownify }}
+      </li>
+      {% endfor %}
+    </ol>
+  </dialog>
+</div>

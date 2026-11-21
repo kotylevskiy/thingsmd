@@ -1,0 +1,15 @@
+<aside class="doc-admonition{% if include.type == "warning" %} doc-admonition-warning{% endif %}"{% if include.id %} id="{{ include.id | escape }}"{% endif %} aria-label="{% if include.type == "warning" %}Warning{% else %}Tip{% endif %}">
+  <p class="doc-admonition-title">
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      {% if include.type == "warning" %}
+      <path d="M10.3 4.5 2.4 18a1.8 1.8 0 0 0 1.6 2.7h16a1.8 1.8 0 0 0 1.6-2.7L13.7 4.5a2 2 0 0 0-3.4 0Z"/>
+      <path d="M12 9v4m0 3h.01"/>
+      {% else %}
+      <path d="M12 22c4.4 0 7-3 7-6.5 0-3.3-1.8-5.9-4.5-8-.1 1.8-.8 3-2 3.5.2-3.2-1.5-6.2-4-8-.1 4-3.5 6.5-3.5 11.5C5 19 8 22 12 22Z"/>
+      <path d="M12 22c-1.7 0-3-1.2-3-2.8 0-1.3.9-2.6 3-4.2 2.1 1.6 3 2.9 3 4.2 0 1.6-1.3 2.8-3 2.8Z"/>
+      {% endif %}
+    </svg>
+    <strong>{{ include.title | escape }}</strong>
+  </p>
+  {{ include.body | markdownify }}
+</aside>
