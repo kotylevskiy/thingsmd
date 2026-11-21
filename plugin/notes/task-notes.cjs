@@ -121,7 +121,11 @@ module.exports = (plugin) => {
     };
     const render = async () => {
       const current = ++version;
-      const text = task.file ? await plugin.readTask(task.file) : task.body || '';
+      // Live Preview opens a new card before its Markdown file is written.
+      const text =
+        task.file && !editor.isTaskCreationPending?.()
+          ? await plugin.readTask(task.file)
+          : task.body || '';
       const range = require('../shared/markdown-document.cjs').frontmatter(text);
       const body = range ? text.slice(range.body) : text;
       if (disposed || current !== version) return;

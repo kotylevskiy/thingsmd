@@ -197,6 +197,15 @@ try {
   });
   await convertFromPalette('ThingsMD format', { mouse: true });
   await active.locator('.ot-native:visible .ot-task').waitFor();
+  assert.deepEqual(
+    await page.evaluate(() =>
+      app.workspace.activeLeaf.view.editor.listSelections().map(({ anchor, head }) => ({
+        collapsed: anchor.line === head.line && anchor.ch === head.ch,
+      })),
+    ),
+    [{ collapsed: true }],
+    'Conversion consumes the selection and leaves one caret',
+  );
   await active.locator('.ot-native:visible .ot-task').click({ button: 'right' });
   await page
     .locator('.menu')

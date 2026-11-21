@@ -77,14 +77,30 @@ module.exports = function installConversionUI(plugin) {
     if (!supported(file)) return {};
     return text === undefined ? cache.get(file.path) || {} : available(text, ranges);
   }
-  function addItems(menu, file, text, ranges, choices = choicesFor(file, text, ranges)) {
+  function addItems(menu, file, text, ranges, choices = choicesFor(file, text, ranges), view) {
     for (const direction of ['thingsmd', 'inline'])
       if (choices[direction])
         menu.addItem((item) =>
           item
             .setTitle(`${ranges ? 'Convert to' : 'Convert all tasks to'} ${labels[direction]}`)
             .setIcon('refresh-cw')
-            .onClick(() => run(direction, file.path, text, ranges)),
+            .onClick(() => {
+              if (view?.file?.path === file.path && view.getMode() === 'source') {
+                const editor = view.editor;
+                const current = editorRanges(editor);
+                if (
+                  editor.getValue() === text &&
+                  current.length === ranges.length &&
+                  current.every(
+                    ({ from, to }, index) => from === ranges[index].from && to === ranges[index].to,
+                  )
+                ) {
+                  // Consume the selection before its endpoints map around the new task embeds.
+                  editor.setCursor(editor.offsetToPos(ranges[0].from));
+                }
+              }
+              return run(direction, file.path, text, ranges);
+            }),
         );
     return choices.thingsmd || choices.inline;
   }
@@ -100,7 +116,7 @@ module.exports = function installConversionUI(plugin) {
   plugin.registerEvent(
     app.workspace.on('editor-menu', (menu, editor, view) => {
       const ranges = editorRanges(editor);
-      if (ranges.length) addItems(menu, view.file, editor.getValue(), ranges);
+      if (ranges.length) addItems(menu, view.file, editor.getValue(), ranges, undefined, view);
     }),
   );
   for (const direction of ['thingsmd', 'inline'])
@@ -246,7 +262,7 @@ module.exports = function installConversionUI(plugin) {
         promptObserver.disconnect();
         const menu = new Menu();
         menu.setUseNativeMenu(false);
-        addItems(menu, file, text, ranges, choices);
+        addItems(menu, file, text, ranges, choices, view);
         menu.showAtPosition({ x: innerWidth / 2, y: innerHeight / 2 });
       }
       return true;

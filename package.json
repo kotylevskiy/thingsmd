@@ -8,6 +8,7 @@
     "dev:open": "node scripts/open-prototype.mjs",
     "test": "node --test --test-concurrency=4 tests/*.test.cjs",
     "test:empty-title": "node scripts/test-empty-title.mjs",
+    "test:provisional-task-preview": "node scripts/test-provisional-task-preview.mjs",
     "test:live-session": "node scripts/test-live-session.mjs",
     "test:session-ui": "node scripts/test-session-ui.mjs",
     "test:inbox-today": "node scripts/test-inbox-today-parity.mjs",
