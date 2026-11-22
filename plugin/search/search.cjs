@@ -105,7 +105,9 @@ module.exports = function install(plugin) {
           cls: 'ot-search-result',
           attr: { role: 'option', id: 'ot-find-' + i, 'aria-selected': 'false' },
         });
-        setIcon(row.createSpan({ cls: 'ot-search-icon' }), r.icon);
+        const icon = row.createSpan({ cls: 'ot-search-icon' });
+        icon.classList.toggle('is-waiting', r.icon === 'thingsmd-paper-plane');
+        setIcon(icon, r.icon);
         const text = row.createDiv('ot-search-text');
         text.createDiv({ text: r.title, cls: 'ot-search-title' });
         text.createDiv({ text: r.context, cls: 'ot-search-context' });

@@ -20,6 +20,7 @@ test('waiting badge follows details, survives completion and is omitted in Waiti
   for (const status of ['todo', 'done', 'canceled']) {
     const children = ['checkbox', 'title', 'notes'];
     const line = {
+      classList: new Set(),
       createSpan: (options) => {
         children.push(options);
         return options;
@@ -27,6 +28,7 @@ test('waiting badge follows details, survives completion and is omitted in Waiti
     };
     mod.exports.waitingIndicator(line, { is_waiting: true, status }, 'logbook');
     assert.equal(children.length, 4);
+    assert.equal(line.classList.has('has-waiting-marker'), true);
     assert.equal(children[3].icon, 'thingsmd-paper-plane');
     assert.equal(children[3].cls.includes('is-completed'), status !== 'todo');
     assert.equal(children[3].attr['aria-label'], 'Waiting For');

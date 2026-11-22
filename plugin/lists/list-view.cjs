@@ -426,8 +426,10 @@ class ThingsMDView extends ItemView {
           p.meta.id === task.meta.project ||
           p.file.path === task.meta.project,
       );
-      if (!['anytime', 'someday', 'waiting', 'repeating'].includes(this.page) && project)
+      if (!['anytime', 'someday', 'waiting', 'repeating'].includes(this.page) && project) {
+        row.classList.add('has-project-badge');
         row.createDiv({ cls: 'ot-project-badge', text: project.meta.title });
+      }
     }
   }
   get taskDraft() {

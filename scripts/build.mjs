@@ -1,4 +1,4 @@
-import { mkdir, copyFile, writeFile, readFile } from 'node:fs/promises';
+import { mkdir, copyFile, readFile, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 const root = new URL('../', import.meta.url);
@@ -26,13 +26,11 @@ await build({
   target: 'es2022',
   external: ['obsidian', 'electron', '@electron/remote', '@codemirror/*'],
   legalComments: 'inline',
-  banner: { js: `/* Third-party licenses\n${notices}\n*/` },
+  banner: {
+    js: `/* Third-party licenses\nIANA time zone data is in the public domain.\n${notices}\n*/`,
+  },
 });
 await copyFile(new URL('plugin/styles.css', root), new URL('styles.css', output));
 await copyFile(new URL('manifest.json', root), new URL('manifest.json', output));
-await writeFile(
-  new URL('THIRD_PARTY_NOTICES.md', output),
-  'Sources: https://github.com/kewisch/ical.js and https://momentjs.com/. IANA timezone data is public domain. Versions are pinned in package-lock.json.\n\n' +
-    notices,
-);
+await rm(new URL('THIRD_PARTY_NOTICES.md', output), { force: true });
 console.log(`Built ${fileURLToPath(output)}`);

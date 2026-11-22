@@ -29,21 +29,25 @@ try {
     ${css}
     </style><div class="ot-root"><div class="ot-shell"><main class="ot-main"><div class="ot-paper">
     <div class="ot-list-heading"><h1 class="inline-title">Anytime</h1></div>
-    ${['', 'today', 'repeat']
+    ${[
+      ['', ''],
+      ['today', 'has-today-marker'],
+      ['repeat', 'has-repeat-indicator'],
+    ]
       .map(
-        (marker) => `
-    <div class="ot-task is-selected"><div class="ot-task-line">
+        ([marker, markerClass]) => `
+    <div class="ot-task is-selected ${markerClass}"><div class="ot-task-line has-waiting-marker has-task-details has-row-indicators">
     <input type="checkbox">${marker === 'today' ? '<span class="ot-today-marker">★</span>' : ''}<span class="ot-task-title">${title}</span>
     <span class="ot-task-details"><span class="ot-note-icon">▤</span></span>${marker === 'repeat' ? '<span class="ot-repeat-indicator">↻</span>' : ''}
     <span class="ot-waiting-marker">➜</span><span class="ot-row-indicators"><span class="ot-row-date ot-row-deadline">⚑ Oct 20</span></span>
     </div></div>`,
       )
       .join('')}
-    <div class="ot-task"><div class="ot-task-line"><input type="checkbox">
+    <div class="ot-task"><div class="ot-task-line has-task-details"><input type="checkbox">
       <span class="ot-task-title">Short task</span><span class="ot-task-details"><span class="ot-note-icon">▤</span></span>
 
     </div></div>
-    <div class="ot-task"><div class="ot-task-line"><input type="checkbox">
+    <div class="ot-task"><div class="ot-task-line has-row-indicators"><input type="checkbox">
       <span class="ot-task-title">${title}</span><span class="ot-row-indicators"><span class="ot-row-date ot-row-deadline">⚑ 3 days left</span></span>
     </div></div>
     </div></main></div></div>`;

@@ -150,7 +150,7 @@ try {
     }
     renderUpcomingCalendar(root, service);
     const group = root.querySelector('.ot-section').createDiv('ot-group');
-    const task = group.createDiv('ot-task').createDiv('ot-task-line');
+    const task = group.createDiv('ot-task has-project-badge').createDiv('ot-task-line');
     task.createEl('input', { attr: { type: 'checkbox' } });
     task.createSpan({ cls: 'ot-task-title', text: 'Task after calendar events' });
     task.parentElement.createDiv({ cls: 'ot-project-badge', text: 'Project label' });

@@ -8,9 +8,13 @@ class Element {
     this.text = options.text || '';
     this.attr = options.attr || {};
     this.children = [];
+    this.classList = new Set();
+    this.classList.toggle = (name, on) =>
+      on ? this.classList.add(name) : this.classList.delete(name);
   }
   createSpan(options) {
     const child = new Element(options);
+    child.parentElement = this;
     this.children.push(child);
     return child;
   }
@@ -48,7 +52,7 @@ vm.runInNewContext(fs.readFileSync('plugin/tasks/task-indicators.cjs', 'utf8'), 
   Date,
 });
 const render = (meta, page = 'upcoming') => {
-  const line = new Element();
+  const line = new Element().createSpan('ot-task-line');
   line.createSpan('ot-task-title');
   mod.exports.taskIndicators(line, { meta, body: '' }, page);
   return line;
@@ -86,13 +90,16 @@ test('repeating templates show the nominal deadline while placement remains on t
 });
 
 test('repeat marker follows details and immediately precedes Waiting', () => {
-  const line = new Element();
+  const line = new Element().createSpan('ot-task-line');
   line.createSpan('ot-task-title');
   mod.exports.taskIndicators(line, {
     meta: { repeatSource: 'template', is_waiting: true },
     body: 'Notes',
   });
   const classes = line.children.map((child) => child.cls);
+  assert.equal(line.parentElement.classList.has('has-repeat-indicator'), true);
+  assert.equal(line.classList.has('has-waiting-marker'), true);
+  assert.equal(line.classList.has('has-task-details'), true);
   assert.deepEqual(classes.slice(0, 4), [
     'ot-task-title',
     'ot-task-details',

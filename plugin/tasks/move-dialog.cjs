@@ -39,7 +39,7 @@ class MoveDialog extends Modal {
     const counts = new Map();
     for (const o of options) counts.set(o.label, (counts.get(o.label) || 0) + 1);
     const position = () => {
-      if (!this.modalEl.isConnected || innerWidth <= 600) return;
+      if (!this.modalEl.isConnected) return;
       const r = this.ctx.anchor || {
         left: innerWidth / 2 - 150,
         top: innerHeight / 2,
@@ -47,8 +47,14 @@ class MoveDialog extends Modal {
       };
       const h = this.modalEl.offsetHeight,
         w = this.modalEl.offsetWidth;
-      this.modalEl.style.left = `${Math.max(12, Math.min(r.left, innerWidth - w - 12))}px`;
-      this.modalEl.style.top = `${Math.max(12, Math.min(r.top >= h + 20 ? r.top - h - 8 : r.bottom + 8, innerHeight - h - 12))}px`;
+      this.modalEl.style.setProperty(
+        '--ot-move-left',
+        `${Math.max(12, Math.min(r.left, innerWidth - w - 12))}px`,
+      );
+      this.modalEl.style.setProperty(
+        '--ot-move-top',
+        `${Math.max(12, Math.min(r.top >= h + 20 ? r.top - h - 8 : r.bottom + 8, innerHeight - h - 12))}px`,
+      );
     };
     this.reposition = position;
     window.addEventListener('resize', position);

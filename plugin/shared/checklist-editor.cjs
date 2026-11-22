@@ -15,6 +15,7 @@ module.exports = function checklistEditor(parent, items, { disabled, onChange, f
   };
   const renderChecklist = () => {
     cancelDrag?.();
+    parent.classList.toggle('has-checklist', items.length > 0);
     checklist.empty();
     for (const [index, item] of items.entries()) {
       const itemRow = checklist.createDiv('ot-checklist-row');

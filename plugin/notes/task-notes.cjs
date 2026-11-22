@@ -143,6 +143,7 @@ module.exports = (plugin) => {
           child,
         );
       if (disposed || current !== version) return;
+      preview.classList.toggle('is-empty', !body.trim());
       for (const checkbox of output.querySelectorAll('input[type="checkbox"]'))
         checkbox.disabled = true;
       preview.replaceChildren(output);

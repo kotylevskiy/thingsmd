@@ -136,6 +136,12 @@ try {
       const header = page.locator(
         '.workspace-leaf.mod-active .view-header-title.ot-task-note-title',
       );
+      assert.equal(
+        await page
+          .locator('.workspace-leaf.mod-active .ot-task-note-original-title:visible')
+          .count(),
+        0,
+      );
       const blurTarget = emulate ? heading() : header;
       await blurTarget.fill(value + ' blur');
       await blurTarget.press('Tab');

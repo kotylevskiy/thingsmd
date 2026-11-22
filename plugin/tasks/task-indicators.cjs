@@ -5,6 +5,7 @@ const { inToday, inEvening, isTodayWhen } = require('./model.cjs');
 // Keep waiting separate from completion, including archived tasks.
 function waitingIndicator(line, meta, page, enableWaiting = true) {
   if (!enableWaiting || meta.is_waiting !== true || page === 'waiting') return;
+  line.classList.add('has-waiting-marker');
   const marker = line.createSpan({
     cls: 'ot-waiting-marker' + (isFinished(meta) ? ' is-completed' : ''),
     attr: { role: 'img', 'aria-label': 'Waiting For', title: 'Waiting For' },
@@ -12,9 +13,12 @@ function waitingIndicator(line, meta, page, enableWaiting = true) {
   setIcon(marker, 'thingsmd-paper-plane');
 }
 function taskIndicators(line, task, page, enableWaiting = true) {
-  const details =
-    task.meta.checklist?.length || task.body.trim() ? line.createSpan('ot-task-details') : null;
-  if (task.meta.checklist?.length) {
+  const hasChecklist = !!task.meta.checklist?.length;
+  const hasNotes = !!task.body.trim();
+  const details = hasChecklist || hasNotes ? line.createSpan('ot-task-details') : null;
+  line.classList.toggle('has-task-details', !!details);
+  line.classList.toggle('has-both-task-details', hasChecklist && hasNotes);
+  if (hasChecklist) {
     const indicator = details.createSpan({
       cls: 'ot-checklist-indicator',
       attr: {
@@ -25,13 +29,14 @@ function taskIndicators(line, task, page, enableWaiting = true) {
     indicator.title = indicator.getAttribute('aria-label');
     setIcon(indicator, 'list-checks');
   }
-  if (task.body.trim()) {
+  if (hasNotes) {
     const note = details.createSpan('ot-note-icon');
     const icon = note.createSpan({ attr: { 'aria-hidden': 'true' } });
     setIcon(icon, 'file-text');
     note.createSpan({ cls: 'ot-sr-only', text: 'Has notes' });
   }
   if (task.meta.repeat || task.meta.repeatSource) {
+    line.parentElement.classList.add('has-repeat-indicator');
     const repeat = line.createSpan({
       cls: 'ot-repeat-indicator' + (task.meta.repeat ? ' is-template' : ''),
       attr: { 'aria-label': task.meta.repeat ? 'Repeating template' : 'Repeating copy' },
@@ -40,6 +45,7 @@ function taskIndicators(line, task, page, enableWaiting = true) {
   }
   waitingIndicator(line, task.meta, page, enableWaiting);
   if (page !== 'today' && inToday(task.meta, today())) {
+    line.parentElement.classList.add('has-today-marker');
     const evening = inEvening(task.meta, today());
     const star = line.createSpan({ cls: 'ot-today-marker' + (evening ? ' is-evening' : '') });
     const icon = star.createSpan({ attr: { 'aria-hidden': 'true' } });
@@ -57,6 +63,7 @@ function taskIndicators(line, task, page, enableWaiting = true) {
   )
     return;
   const dates = line.createSpan('ot-row-indicators');
+  line.classList.add('has-row-indicators');
   const current = today();
   const tomorrowKey = dayAfter(1);
   const label = (value) => {
