@@ -9,7 +9,7 @@ function fixture(reply = async () => ({ status: 200, text: body() })) {
   const salt = 'test-salt-000000000';
   const calendar = {
     id: 'test',
-    secretName: 'existing-secret',
+    secretName: 'thingsmd-calendar-test',
     name: 'Work',
     color: '#123456',
     source: {
@@ -67,7 +67,7 @@ async function replacementExpected(f) {
 test('a new device can validate and save a URL for an existing calendar without duplicating it', async () => {
   const f = fixture();
   await saveSubscription(f.plugin, f.calendar, 'webcal://example.com/feed');
-  assert.equal(f.secrets.get('existing-secret'), 'https://example.com/feed');
+  assert.equal(f.secrets.get('thingsmd-calendar-test'), 'https://example.com/feed');
   assert.deepEqual(f.plugin.settings.calendars, [f.calendar]);
   assert.ok(!JSON.stringify(f.plugin.settings).includes('example.com'));
   assert.equal(f.refreshes.length, 1);
@@ -86,13 +86,13 @@ test('invalid feeds, network failures and timeouts preserve the saved secret and
     () => new Promise(() => {}),
   ]) {
     const f = fixture(reply);
-    f.secrets.set('existing-secret', 'https://example.com/old');
+    f.secrets.set('thingsmd-calendar-test', 'https://example.com/old');
     const state = f.plugin.calendar.states.get('test');
     await assert.rejects(
       saveSubscription(f.plugin, f.calendar, 'https://example.com/new', { timeoutMs: 5 }),
       /Unable to load a valid ICS/,
     );
-    assert.equal(f.secrets.get('existing-secret'), 'https://example.com/old');
+    assert.equal(f.secrets.get('thingsmd-calendar-test'), 'https://example.com/old');
     assert.equal(f.plugin.calendar.states.get('test'), state);
     assert.equal(f.refreshes.length, 0);
   }
@@ -105,7 +105,7 @@ test('a different URL with the same calendar UID is accepted without replacing t
   }));
   f.calendar.source = await newSource('https://example.com/original', 'calendar-a');
   await saveSubscription(f.plugin, f.calendar, 'https://example.com/rotated');
-  assert.equal(f.secrets.get('existing-secret'), 'https://example.com/rotated');
+  assert.equal(f.secrets.get('thingsmd-calendar-test'), 'https://example.com/rotated');
   assert.deepEqual(f.plugin.settings.calendars[0].source, f.calendar.source);
 });
 
@@ -124,13 +124,13 @@ test('hash mismatch with a missing or different UID warns without changing the s
       ),
     }));
     f.calendar.source = await newSource('https://example.com/original', expectedUid);
-    f.secrets.set('existing-secret', 'https://example.com/original');
+    f.secrets.set('thingsmd-calendar-test', 'https://example.com/original');
     const original = JSON.stringify(f.plugin.settings);
     await assert.rejects(
       saveSubscription(f.plugin, f.calendar, 'https://example.com/other'),
       SubscriptionMismatch,
     );
-    assert.equal(f.secrets.get('existing-secret'), 'https://example.com/original');
+    assert.equal(f.secrets.get('thingsmd-calendar-test'), 'https://example.com/original');
     assert.equal(JSON.stringify(f.plugin.settings), original);
     assert.equal(f.refreshes.length, 0);
   }
@@ -138,7 +138,7 @@ test('hash mismatch with a missing or different UID warns without changing the s
 
 test('a confirmed replacement preserves presentation and starts a fresh cache generation', async () => {
   const f = fixture();
-  f.secrets.set('existing-secret', 'https://example.com/feed');
+  f.secrets.set('thingsmd-calendar-test', 'https://example.com/feed');
   let warning;
   try {
     await saveSubscription(f.plugin, f.calendar, 'https://example.com/new');
@@ -160,7 +160,7 @@ test('a confirmed replacement preserves presentation and starts a fresh cache ge
   assert.deepEqual(saved.source.retiredGenerations, ['']);
   assert.equal(await sameUrl(saved.source, 'https://example.com/new'), true);
   assert.equal(f.plugin.calendar.states.get('test').snapshot, undefined);
-  assert.equal(f.secrets.get('existing-secret'), 'https://example.com/new');
+  assert.equal(f.secrets.get('thingsmd-calendar-test'), 'https://example.com/new');
 });
 
 test('replacement refuses a stale confirmation after source or local secret changes', async () => {
@@ -168,7 +168,7 @@ test('replacement refuses a stale confirmation after source or local secret chan
     const f = fixture();
     const expected = await replacementExpected(f);
     if (target === 'source') f.calendar.source = await newSource('https://example.com/external');
-    else f.secrets.set('existing-secret', 'https://example.com/external');
+    else f.secrets.set('thingsmd-calendar-test', 'https://example.com/external');
     await assert.rejects(
       saveSubscription(f.plugin, f.calendar, 'https://example.com/new', {
         replace: true,
@@ -176,13 +176,13 @@ test('replacement refuses a stale confirmation after source or local secret chan
       }),
       /source changed/,
     );
-    assert.notEqual(f.secrets.get('existing-secret'), 'https://example.com/new');
+    assert.notEqual(f.secrets.get('thingsmd-calendar-test'), 'https://example.com/new');
   }
 });
 
 test('a failed replacement settings write restores the previous secret and cache', async () => {
   const f = fixture();
-  f.secrets.set('existing-secret', 'https://example.com/feed');
+  f.secrets.set('thingsmd-calendar-test', 'https://example.com/feed');
   const oldState = f.plugin.calendar.states.get('test');
   f.plugin.saveData = async () => {
     throw new Error('disk unavailable');
@@ -195,7 +195,7 @@ test('a failed replacement settings write restores the previous secret and cache
     }),
     /disk unavailable/,
   );
-  assert.equal(f.secrets.get('existing-secret'), 'https://example.com/feed');
+  assert.equal(f.secrets.get('thingsmd-calendar-test'), 'https://example.com/feed');
   assert.equal(f.plugin.settings.calendars[0], f.calendar);
   assert.equal(f.plugin.calendar.states.get('test'), oldState);
 });
@@ -216,7 +216,7 @@ test('a legacy cached UID takes precedence over an unverified local secret', asy
     text: body().replace('VERSION:2.0', 'VERSION:2.0\r\nUID:wrong-calendar'),
   }));
   delete f.calendar.source;
-  f.secrets.set('existing-secret', 'https://example.com/feed');
+  f.secrets.set('thingsmd-calendar-test', 'https://example.com/feed');
   f.plugin.calendar.states.get('test').snapshot.parsed = { uid: 'expected-calendar' };
   await assert.rejects(
     saveSubscription(f.plugin, f.calendar, 'https://example.com/feed'),
@@ -234,7 +234,7 @@ test('cancellation, unload, removal and concurrent secret edits reject late vali
       f.plugin.settings.calendars = [];
     },
     (f) => {
-      f.secrets.set('existing-secret', 'external URL');
+      f.secrets.set('thingsmd-calendar-test', 'external URL');
     },
     () => {},
   ];
@@ -248,7 +248,7 @@ test('cancellation, unload, removal and concurrent secret edits reject late vali
         cancelled: () => index === 3,
       }),
     );
-    assert.notEqual(f.secrets.get('existing-secret'), 'https://example.com/feed');
+    assert.notEqual(f.secrets.get('thingsmd-calendar-test'), 'https://example.com/feed');
     assert.equal(f.refreshes.length, 0);
   }
 });
@@ -258,7 +258,7 @@ test('an in-flight download from the previous URL cannot publish after the new U
   const f = fixture();
   const files = new Map();
   let release;
-  f.secrets.set('existing-secret', 'https://example.com/old');
+  f.secrets.set('thingsmd-calendar-test', 'https://example.com/old');
   f.calendar.source = await newSource('https://example.com/old', 'shared-calendar');
   const feed = (title) => body(title).replace('VERSION:2.0', 'VERSION:2.0\r\nUID:shared-calendar');
   const service = (f.plugin.calendar = new CalendarService({
@@ -280,7 +280,7 @@ test('an in-flight download from the previous URL cannot publish after the new U
   const previous = service.refreshAll(true);
   while (!release) await new Promise((resolve) => setImmediate(resolve));
   const saved = saveSubscription(f.plugin, f.calendar, 'https://example.com/new');
-  while (f.secrets.get('existing-secret').endsWith('/old'))
+  while (f.secrets.get('thingsmd-calendar-test').endsWith('/old'))
     await new Promise((resolve) => setImmediate(resolve));
   release({ status: 200, text: feed('Old subscription') });
   await Promise.all([previous, saved]);

@@ -95,9 +95,11 @@ try {
   taskId = await page.evaluate(
     async ({ id, url, date }) => {
       const p = app.plugins.getPlugin('thingsmd');
-      app.secretStorage.setSecret(id, url);
+      app.secretStorage.setSecret(`thingsmd-calendar-${id}`, url);
       await p.updateSettings({
-        calendars: [{ id, name: 'Upcoming test', secretName: id, enabled: true }],
+        calendars: [
+          { id, name: 'Upcoming test', secretName: `thingsmd-calendar-${id}`, enabled: true },
+        ],
       });
       await p.calendar.refreshAll(true);
       const task = await p.createTask({ title: 'Upcoming calendar task', when: date });
@@ -236,7 +238,7 @@ try {
       if (previous) await p.updateSettings({ calendars: previous });
       const task = (await p.taskRecords()).find((t) => t.meta.id === taskId);
       if (task) await p.deleteTask(task.file);
-      app.secretStorage.deleteSecret(id);
+      app.secretStorage.deleteSecret(`thingsmd-calendar-${id}`);
       const folder = app.vault.getAbstractFileByPath(
         `${app.plugins.getPlugin('thingsmd').settings.tasksFolder}/Calendars/${id}`,
       );

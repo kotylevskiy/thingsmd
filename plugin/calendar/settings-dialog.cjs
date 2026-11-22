@@ -1,4 +1,5 @@
 const { Modal, Setting, Notice } = require('obsidian');
+const { calendarSecretName } = require('./model.cjs');
 const { defaultColor } = require('./color.cjs');
 const { colorSwatches } = require('./color-swatches.cjs');
 const { quietLabel } = require('../shared/quiet-label.cjs');
@@ -77,8 +78,9 @@ module.exports = class CalendarSettingsDialog extends Modal {
         }
       });
     });
-    if (plugin.app.secretStorage && calendar.secretName) {
-      const hasSecret = !!plugin.app.secretStorage.getSecret(calendar.secretName);
+    const secretName = calendarSecretName(calendar.id);
+    if (plugin.app.secretStorage && secretName) {
+      const hasSecret = !!plugin.app.secretStorage.getSecret(secretName);
       let url, apply, change, cancel;
       const subscription = new Setting(group)
         .setName('Subscription URL')
@@ -103,7 +105,7 @@ module.exports = class CalendarSettingsDialog extends Modal {
       });
       const error = group.createDiv({ attr: { role: 'alert' } });
       const setEditing = (editing) => {
-        const saved = !!plugin.app.secretStorage.getSecret(calendar.secretName);
+        const saved = !!plugin.app.secretStorage.getSecret(secretName);
         url.inputEl.style.display = editing ? '' : 'none';
         apply.buttonEl.style.display = editing ? '' : 'none';
         change.buttonEl.style.display = editing ? 'none' : '';

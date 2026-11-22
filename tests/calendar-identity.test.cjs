@@ -72,15 +72,16 @@ test('replacement metadata retains known retired generations without retiring th
 test('legacy calendars bootstrap identity from established secrets or cached calendar UID', async () => {
   const bootstrap = require('../plugin/calendar/identity-bootstrap.cjs');
   const calendars = [
-    { id: 'secret', secretName: 'secret' },
-    { id: 'cache', secretName: 'missing' },
+    { id: 'secret', secretName: 'thingsmd-calendar-secret' },
+    { id: 'cache', secretName: 'thingsmd-calendar-cache' },
     { id: 'unknown' },
   ];
   const plugin = {
     settings: { calendars },
     app: {
       secretStorage: {
-        getSecret: (name) => (name === 'secret' ? 'https://example.com/trusted' : null),
+        getSecret: (name) =>
+          name === 'thingsmd-calendar-secret' ? 'https://example.com/trusted' : null,
       },
     },
     calendar: {

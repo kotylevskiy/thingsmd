@@ -99,9 +99,16 @@ Subscribe to a calendar feed to see events in **Today** and the next seven days 
 | **Synology Calendar** | Synology documents public web sharing, ICS file export, and CalDAV sync. A direct ICS subscription URL from **Public Share** is unverified. To subscribe in ThingsMD, provide a separate HTTPS ICS feed. [Synology Calendar guide](https://kb.synology.com/index.php/en-ca/DSM/help/Calendar/calendar_creating_calendars?version=7) |
 {: .provider-table }
 
-For security, ThingsMD stores subscription URLs in Obsidian’s device-local secret storage. Vault sync does not carry these links to your other devices. To refresh a calendar on another device, open its gear menu and paste the same link into **Subscription URL**.
+ThingsMD stores subscription URLs in Obsidian’s device-local Secret Storage. Enter the URL on each device that should refresh the calendar. On Linux, desktop encryption requires a supported system keyring. [Obsidian’s Secret Storage requirements](https://obsidian.md/changelog/2026-01-20-desktop-v1.11.5/)
 
 {% include admonition.html type="warning" id="calendar-device-setup" title="Keep your iCal links private" body="Anyone with the link can access the past and future events it shares. Replace the link if it leaks." %}
+
+### What sync shares and removal keeps
+{: #calendar-cache-privacy }
+
+ThingsMD saves the full calendar feed as `.ics` files in `ThingsMD/Calendars/` by default. Vault sync can copy those files to other devices. Depending on the feed, they may include attendees, descriptions, locations, and meeting links.
+
+**Remove calendar** stops refreshes and removes the calendar from ThingsMD’s lists. Its saved URL and cached files remain until deleted separately.
 
 ### If events are missing or stale
 

@@ -73,9 +73,7 @@ async function rememberSource(plugin, config, normalizedUrl, parsed) {
       );
   await plugin.persistSettings((settings) => ({
     calendars: settings.calendars.map((current) =>
-      current.id === config.id &&
-      current.secretName === config.secretName &&
-      sourceKey(current.source) === expected
+      current.id === config.id && sourceKey(current.source) === expected
         ? { ...current, source: next }
         : current,
     ),

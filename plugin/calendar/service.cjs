@@ -1,6 +1,6 @@
 const { parseCalendar, eventsOnDay, eventsInRange, CalendarError } = require('./parser.cjs');
 const { dayKey } = require('../shared/local-date.cjs');
-const { calendars, subscriptionUrl, retryDelay } = require('./model.cjs');
+const { calendars, calendarSecretName, subscriptionUrl, retryDelay } = require('./model.cjs');
 const { defaultColor } = require('./color.cjs');
 const { generation, matchesSource, sourceKey } = require('./identity.cjs');
 const { SNAPSHOT, stamp } = require('./snapshot.cjs');
@@ -42,12 +42,7 @@ class CalendarService {
     this.config = calendars(value);
     for (const [id, state] of this.states) {
       const config = this.config.find((c) => c.id === id);
-      if (
-        !config ||
-        config.secretName !== state.secretName ||
-        generation(config) !== state.generation
-      )
-        this.states.delete(id);
+      if (!config || generation(config) !== state.generation) this.states.delete(id);
     }
     this.changed();
   }
@@ -55,23 +50,12 @@ class CalendarService {
     const current = this.config.find((c) => c.id === config.id);
     const existing = this.states.get(config.id);
     const next = () => ({
-      secretName: config.secretName,
       generation: generation(config),
       next: 0,
       failures: 0,
     });
-    if (
-      !current ||
-      current.secretName !== config.secretName ||
-      generation(current) !== generation(config)
-    )
-      return next();
-    if (
-      !existing ||
-      existing.secretName !== config.secretName ||
-      existing.generation !== generation(config)
-    )
-      this.states.set(config.id, next());
+    if (!current || generation(current) !== generation(config)) return next();
+    if (!existing || existing.generation !== generation(config)) this.states.set(config.id, next());
     return this.states.get(config.id);
   }
   async current(config, state, root) {
@@ -93,11 +77,7 @@ class CalendarService {
       !!state &&
       this.states.get(config.id) === state &&
       this.config.some(
-        (c) =>
-          c.id === config.id &&
-          c.enabled &&
-          c.secretName === config.secretName &&
-          generation(c) === generation(config),
+        (c) => c.id === config.id && c.enabled && generation(c) === generation(config),
       )
     );
   }
@@ -240,12 +220,7 @@ class CalendarService {
       const root = this.root;
       await this.refresh(config, force);
       const current = this.config.find((c) => c.id === config.id && c.enabled);
-      if (
-        current &&
-        (generation(current) !== generation(config) ||
-          current.secretName !== config.secretName ||
-          root !== this.root)
-      )
+      if (current && (generation(current) !== generation(config) || root !== this.root))
         await this.refresh(current, force);
     }
   }
@@ -270,7 +245,8 @@ class CalendarService {
       if (!(await this.current(config, state, root))) return;
       await this.load(config, state);
       if (!(await this.current(config, state, root))) return;
-      const value = await this.secret(config.secretName);
+      const secretName = calendarSecretName(config.id);
+      const value = secretName && (await this.secret(secretName));
       if (!value) {
         state.error = 'Add the subscription URL in Calendar settings on this device to refresh.';
         state.next = this.now() + 60000;
@@ -300,7 +276,7 @@ class CalendarService {
       ]);
       clearTimeout(timer);
       if (!(await this.current(config, state, root))) return;
-      if (subscriptionUrl(await this.secret(config.secretName)) !== url)
+      if (subscriptionUrl(await this.secret(secretName)) !== url)
         throw new CalendarError('The subscription URL changed during refresh. Refresh again.');
       const responseHeaders = Object.fromEntries(
         Object.entries(response.headers || {}).map(([key, val]) => [key.toLowerCase(), val]),

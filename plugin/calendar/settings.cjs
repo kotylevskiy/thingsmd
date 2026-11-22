@@ -11,10 +11,12 @@ module.exports = function calendarSettings(plugin, container, redisplay) {
     .setClass('ot-calendar-settings-header')
     .setName('Calendars')
     .setHeading()
-    .setDesc('Sync your calendars to the vault to view them in Today and Upcoming.');
+    .setDesc(
+      'See events in Today and Upcoming. Vault sync can copy full calendar feeds. Removing a calendar keeps its cached files and saved URL.',
+    );
   if (!supported)
     section.createEl('p', {
-      text: 'Obsidian 1.11.4 or newer is required to add calendars. Synced snapshots remain available.',
+      text: 'Secret Storage is unavailable on this device. Synced calendar snapshots remain available.',
     });
   for (const calendar of plugin.settings.calendars) {
     const row = new Setting(section).setClass('ot-calendar-settings-row').setName(calendar.name);

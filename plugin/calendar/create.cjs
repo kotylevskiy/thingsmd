@@ -1,3 +1,4 @@
+const { calendarSecretName } = require('./model.cjs');
 const { validateSubscription } = require('./subscription.cjs');
 const { newSource } = require('./identity.cjs');
 
@@ -10,7 +11,7 @@ async function createCalendar(
   const isCancelled = () => cancelled() || plugin.calendar.disposed;
   if (isCancelled()) throw new Error('Calendar creation cancelled.');
   const id = crypto.randomUUID();
-  const secretName = `thingsmd-calendar-${id}`;
+  const secretName = calendarSecretName(id);
   const calendar = {
     id,
     name: parsed.name,

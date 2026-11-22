@@ -1,6 +1,13 @@
 const { normalizeColor } = require('./color.cjs');
 const { sourceIdentity } = require('./identity.cjs');
 const ID = /^[a-zA-Z0-9_-]{1,80}$/;
+
+function calendarSecretName(id) {
+  // Secret Storage only accepts lowercase alphanumeric IDs with optional dashes.
+  // Preserve cache-only access for IDs valid as paths but unsuitable as secret keys.
+  return typeof id === 'string' && /^[a-z0-9-]{1,80}$/.test(id) ? `thingsmd-calendar-${id}` : '';
+}
+
 function calendars(value) {
   const seen = new Set();
   return (Array.isArray(value) ? value : [])
@@ -15,7 +22,8 @@ function calendars(value) {
       return {
         id: entry.id,
         name: String(entry.name || 'Calendar').slice(0, 100),
-        secretName: typeof entry.secretName === 'string' ? entry.secretName : '',
+        // Write the canonical name for compatibility with older ThingsMD versions.
+        secretName: calendarSecretName(entry.id),
         enabled: entry.enabled !== false,
         color: normalizeColor(entry.color),
         refreshMinutes: Math.max(5, Math.min(10080, Number(entry.refreshMinutes) || 15)),
@@ -50,4 +58,4 @@ function retryDelay(value, now) {
   const date = Date.parse(value);
   return Number.isFinite(date) ? Math.max(0, date - now) : 0;
 }
-module.exports = { calendars, subscriptionUrl, retryDelay };
+module.exports = { calendars, calendarSecretName, subscriptionUrl, retryDelay };

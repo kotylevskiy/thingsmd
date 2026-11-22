@@ -187,7 +187,7 @@ try {
     const secret = new Map();
     const calendar = {
       id: 'webkit',
-      secretName: 'webkit-secret',
+      secretName: 'thingsmd-calendar-webkit',
       source: await window
         .loadPluginModule('./calendar/identity.cjs')
         .newSource('https://example.com/feed', 'webkit-calendar'),

@@ -48,7 +48,7 @@ below; findings are based on documentation/source inspection, not live accounts.
 
 Use Obsidian's [SecretStorage](https://docs.obsidian.md/plugins/guides/secret-storage).
 
-- Store the entire subscription URL as a named secret; settings contain only its name.
+- Store the entire subscription URL in the device’s Secret Storage under a key derived from the calendar ID. Keep the canonical name in settings for older clients. ThingsMD derives the key again when accessing Secret Storage.
 - Creation asks only for the URL. Use the first non-empty calendar-level `NAME`, then `X-WR-CALNAME`, then “Calendar”; trim whitespace and limit the name to 100 characters. Renaming remains available in the settings popup; refreshes do not overwrite it.
 - Enter the URL once in Add calendar. Download and validate the ICS before storing a secret or calendar configuration. Failed validation or cancellation creates nothing.
 - Calendar settings show a saved confirmation and **Change URL** once a device has a subscription. The masked URL field appears for device setup or explicit replacement; successful saves return to the saved state. Failed validation, cancellation, or a concurrent secret change leaves the saved URL intact. Closing calendar settings preserves the parent settings panel's scroll position.
@@ -57,7 +57,7 @@ Use Obsidian's [SecretStorage](https://docs.obsidian.md/plugins/guides/secret-st
 - Existing calendars learn identity from cached calendar UIDs and established local secrets. A cached UID is checked before an existing URL is trusted. A new device without either baseline must confirm replacement; its first pasted URL is never silently trusted.
 - On other devices, open Calendar settings and paste the subscription URL to enable downloads. URLs are validated before being saved in secret storage; the same field can replace a saved URL.
 - Devices without the secret can display synchronized snapshots but cannot refresh them.
-- SecretStorage requires Obsidian 1.11.4+; desktop encryption at rest starts in [1.11.5](https://obsidian.md/changelog/2026-01-20-desktop-v1.11.5/). Do not fall back to storing URLs in plain settings.
+- ThingsMD requires Obsidian 1.11.5 or later for desktop Secret Storage encryption. Encryption on Linux requires a supported system keyring. [Obsidian 1.11.5 release notes](https://obsidian.md/changelog/2026-01-20-desktop-v1.11.5/)
 
 ## Parsing
 

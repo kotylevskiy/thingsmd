@@ -11,7 +11,7 @@ async function fixture({ legacy = false } = {}) {
   const a = {
     id: 'shared',
     name: 'Work',
-    secretName: 'local-url',
+    secretName: 'thingsmd-calendar-shared',
     enabled: true,
     source: await newSource('https://example.com/a', 'calendar-a', 'source-a'),
   };
@@ -22,7 +22,7 @@ async function fixture({ legacy = false } = {}) {
   if (legacy) delete a.source;
   let disk = { timeZone: 'UTC', tasksFolder: 'ThingsMD', calendars: [a] };
   const files = new Map(),
-    secrets = new Map([['local-url', 'https://example.com/a']]),
+    secrets = new Map([['thingsmd-calendar-shared', 'https://example.com/a']]),
     requests = [],
     writes = [];
   const plugin = {
@@ -78,6 +78,16 @@ async function fixture({ legacy = false } = {}) {
   };
 }
 
+test('synced calendar settings keep the locally derived secret key', async () => {
+  const f = await fixture();
+  f.receive({ ...f.a, secretName: 'stale-key-label' });
+  await f.service.refreshAll(true);
+
+  assert.equal(f.plugin.settings.calendars[0].secretName, 'thingsmd-calendar-shared');
+  assert.deepEqual(f.requests, ['https://example.com/a']);
+  assert.equal(f.service.today().events[0].title, 'calendar-a');
+});
+
 test('a running device adopts the synced source before refreshing and rejects its old local URL', async () => {
   const f = await fixture();
   await f.service.refreshAll();
@@ -87,9 +97,9 @@ test('a running device adopts the synced source before refreshing and rejects it
   assert.equal(f.service.config[0].source.uid, 'calendar-b');
   assert.equal(f.service.today().events.length, 0);
   assert.match(f.service.today().statuses[0].error, /does not match/);
-  assert.equal(f.secrets.get('local-url'), 'https://example.com/a');
+  assert.equal(f.secrets.get('thingsmd-calendar-shared'), 'https://example.com/a');
   assert.ok([...f.files.keys()].every((path) => path.endsWith('_s-source-a.ics')));
-  f.secrets.set('local-url', 'https://example.com/b');
+  f.secrets.set('thingsmd-calendar-shared', 'https://example.com/b');
   await f.service.refreshAll(true);
   assert.equal(f.service.today().events[0].title, 'calendar-b');
   assert.ok([...f.files.keys()].every((path) => path.endsWith('_s-source-b.ics')));
@@ -121,7 +131,7 @@ test('a source update while reading the secret is checked before the HTTP reques
   f.service.secret = async () => {
     f.service.secret = secret;
     f.receive(f.b);
-    f.secrets.set('local-url', 'https://example.com/b');
+    f.secrets.set('thingsmd-calendar-shared', 'https://example.com/b');
     return 'https://example.com/a';
   };
   await f.service.refreshAll(true);
@@ -246,7 +256,7 @@ test('synced calendar removal stops requests and a synced home change redirects 
   assert.equal(f.requests.length, 0);
   assert.equal(f.service.config.length, 0);
   f.receive(f.b, { tasksFolder: 'Synced home' });
-  f.secrets.set('local-url', 'https://example.com/b');
+  f.secrets.set('thingsmd-calendar-shared', 'https://example.com/b');
   await f.service.refreshAll(true);
   assert.equal(f.plugin.settings.tasksFolder, 'Synced home');
   assert.equal(f.service.root, 'Synced home/Calendars');

@@ -7,7 +7,7 @@ const { event } = require('./helpers/calendar.cjs');
 const config = {
   id: 'test',
   name: 'Calendar',
-  secretName: 'calendar-url',
+  secretName: 'thingsmd-calendar-test',
   refreshMinutes: 15,
   enabled: true,
 };

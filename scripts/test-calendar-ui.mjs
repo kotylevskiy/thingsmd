@@ -29,6 +29,7 @@ const text = () =>
     'DURATION:PT1H',
     `SUMMARY:Timed fixture ${version}`,
     'LOCATION:Test room',
+    'DESCRIPTION:Fixture meeting details',
     'END:VEVENT',
     'END:VCALENDAR',
     '',
@@ -104,10 +105,18 @@ try {
   previous = await page.evaluate(() => app.plugins.getPlugin('thingsmd').settings.calendars);
   await page.evaluate(
     async ({ id, url }) => {
-      app.secretStorage.setSecret(id, url);
+      app.secretStorage.setSecret(`thingsmd-calendar-${id}`, url);
       const plugin = app.plugins.getPlugin('thingsmd');
       await plugin.updateSettings({
-        calendars: [{ id, name: 'UI calendar', secretName: id, enabled: true, refreshMinutes: 15 }],
+        calendars: [
+          {
+            id,
+            name: 'UI calendar',
+            secretName: `thingsmd-calendar-${id}`,
+            enabled: true,
+            refreshMinutes: 15,
+          },
+        ],
       });
       await plugin.calendar.refreshAll(true);
       await plugin.openList('today');
@@ -212,6 +221,11 @@ try {
     1,
   );
   const addCalendar = settings.getByRole('button', { name: 'Add calendar', exact: true });
+  const calendarDescription = settings.locator(
+    '.ot-calendar-settings-header .setting-item-description',
+  );
+  assert.match(await calendarDescription.innerText(), /Vault sync can copy full calendar feeds/);
+  assert.match(await calendarDescription.innerText(), /keeps its cached files and saved URL/);
   assert.equal(await addCalendar.innerText(), 'Add calendar');
   assert.equal(await addCalendar.locator('svg').count(), 0);
   assert.equal(
@@ -276,6 +290,18 @@ try {
     app.plugins.getPlugin('thingsmd').settings.calendars.find((c) => c.name === 'Created calendar'),
   );
   assert.ok(created);
+  await waitForAsync(
+    page,
+    async (calendar) => {
+      const plugin = app.plugins.getPlugin('thingsmd');
+      const paths = await plugin.calendar.snapshots(calendar);
+      return (
+        paths.length > 0 &&
+        (await app.vault.adapter.read(paths[0])).includes('DESCRIPTION:Fixture meeting details')
+      );
+    },
+    created,
+  );
   assert.equal(
     await page.evaluate(
       ({ created, url }) => app.secretStorage.getSecret(created.secretName) === url,
@@ -298,6 +324,20 @@ try {
   await settings.waitForFunction(
     () => document.querySelectorAll('.ot-calendar-settings-row').length === 1,
   );
+  const retained = await page.evaluate(async (calendar) => {
+    const plugin = app.plugins.getPlugin('thingsmd');
+    const paths = await plugin.calendar.snapshots(calendar);
+    return {
+      files: paths.length,
+      description:
+        paths.length > 0 &&
+        (await app.vault.adapter.read(paths[0])).includes('DESCRIPTION:Fixture meeting details'),
+      url: app.secretStorage.getSecret(calendar.secretName),
+    };
+  }, created);
+  assert.ok(retained.files > 0);
+  assert.equal(retained.description, true);
+  assert.equal(retained.url, url);
   const calendarRow = settings.locator('.ot-calendar-settings-row');
   const centered = (el) => {
     const centers = [
@@ -393,7 +433,10 @@ try {
   await configure.getByRole('button', { name: 'Cancel', exact: true }).click();
   assert.equal(await configure.getByLabel('Subscription URL', { exact: true }).isVisible(), false);
   assert.equal(
-    await page.evaluate(({ id, url }) => app.secretStorage.getSecret(id) === url, { id, url }),
+    await page.evaluate(
+      ({ id, url }) => app.secretStorage.getSecret(`thingsmd-calendar-${id}`) === url,
+      { id, url },
+    ),
     true,
   );
   const palette = configure;
@@ -568,7 +611,7 @@ try {
   // A synced-device configuration without the secret still displays its cache.
   {
     await page.evaluate(async (id) => {
-      app.secretStorage.deleteSecret(id);
+      app.secretStorage.deleteSecret(`thingsmd-calendar-${id}`);
       await app.plugins.getPlugin('thingsmd').calendar.refreshAll(true);
     }, id);
   }
@@ -598,7 +641,10 @@ try {
   await deviceUrl.fill(url.replace('/calendar.ics', '/not-calendar'));
   await deviceDialog.getByRole('button', { name: 'Save URL', exact: true }).click();
   await deviceDialog.getByRole('alert').filter({ hasText: 'Unable to load a valid ICS' }).waitFor();
-  assert.equal(await page.evaluate((id) => !!app.secretStorage.getSecret(id), id), false);
+  assert.equal(
+    await page.evaluate((id) => !!app.secretStorage.getSecret(`thingsmd-calendar-${id}`), id),
+    false,
+  );
   await deviceUrl.fill(url);
   await deviceDialog.getByRole('button', { name: 'Save URL', exact: true }).click();
   await deviceDialog.getByText('The subscription URL is saved securely on this device.').waitFor();
@@ -609,7 +655,10 @@ try {
   );
   await page.waitForFunction(() => !document.querySelector('.ot-calendar-status'));
   assert.equal(
-    await page.evaluate(({ id, url }) => app.secretStorage.getSecret(id) === url, { id, url }),
+    await page.evaluate(
+      ({ id, url }) => app.secretStorage.getSecret(`thingsmd-calendar-${id}`) === url,
+      { id, url },
+    ),
     true,
   );
   assert.ok(
@@ -632,7 +681,8 @@ try {
   await deviceDialog.getByRole('button', { name: 'Save URL', exact: true }).click();
   await waitForAsync(
     page,
-    ({ id, sameCalendarUrl }) => app.secretStorage.getSecret(id) === sameCalendarUrl,
+    ({ id, sameCalendarUrl }) =>
+      app.secretStorage.getSecret(`thingsmd-calendar-${id}`) === sameCalendarUrl,
     { id, sameCalendarUrl },
   );
   await page.waitForTimeout(100);
@@ -673,7 +723,8 @@ try {
   await desktopWarning.waitFor({ state: 'detached' });
   assert.equal(
     await page.evaluate(
-      ({ id, sameCalendarUrl }) => app.secretStorage.getSecret(id) === sameCalendarUrl,
+      ({ id, sameCalendarUrl }) =>
+        app.secretStorage.getSecret(`thingsmd-calendar-${id}`) === sameCalendarUrl,
       { id, sameCalendarUrl },
     ),
     true,
@@ -695,11 +746,15 @@ try {
   await desktopWarning.waitFor({ state: 'detached' });
   await deviceUrl.fill(url);
   await deviceDialog.getByRole('button', { name: 'Save URL', exact: true }).click();
-  await waitForAsync(page, ({ id, url }) => app.secretStorage.getSecret(id) === url, { id, url });
+  await waitForAsync(
+    page,
+    ({ id, url }) => app.secretStorage.getSecret(`thingsmd-calendar-${id}`) === url,
+    { id, url },
+  );
   await deviceDialog.getByRole('button', { name: 'Done', exact: true }).click();
   await page.evaluate(async (id) => {
     app.setting.close();
-    app.secretStorage.deleteSecret(id);
+    app.secretStorage.deleteSecret(`thingsmd-calendar-${id}`);
     await app.plugins.getPlugin('thingsmd').calendar.refreshAll(true);
   }, id);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -897,15 +952,18 @@ try {
     id,
   );
   assert.equal(
-    await page.evaluate(({ id, otherUrl }) => app.secretStorage.getSecret(id) === otherUrl, {
-      id,
-      otherUrl,
-    }),
+    await page.evaluate(
+      ({ id, otherUrl }) => app.secretStorage.getSecret(`thingsmd-calendar-${id}`) === otherUrl,
+      {
+        id,
+        otherUrl,
+      },
+    ),
     true,
   );
   await page.evaluate(
     async ({ id, url }) => {
-      app.secretStorage.setSecret(id, url);
+      app.secretStorage.setSecret(`thingsmd-calendar-${id}`, url);
       await app.plugins.getPlugin('thingsmd').calendar.refreshAll(true);
     },
     { id, url },
@@ -925,7 +983,7 @@ try {
   );
   await page.evaluate(
     async ({ id, otherUrl }) => {
-      app.secretStorage.setSecret(id, otherUrl);
+      app.secretStorage.setSecret(`thingsmd-calendar-${id}`, otherUrl);
       await app.plugins.getPlugin('thingsmd').calendar.refreshAll(true);
     },
     { id, otherUrl },
@@ -961,7 +1019,7 @@ try {
       app.setting.close();
       const plugin = app.plugins.getPlugin('thingsmd');
       await plugin.updateSettings({ calendars: previous || [] });
-      app.secretStorage.deleteSecret(id);
+      app.secretStorage.deleteSecret(`thingsmd-calendar-${id}`);
       if (created) app.secretStorage.deleteSecret(created.secretName);
       await plugin.openList('today');
       for (const path of [

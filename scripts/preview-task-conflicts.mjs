@@ -175,13 +175,13 @@ try {
   }
   await page.evaluate(async (url) => {
     const p = app.plugins.getPlugin('thingsmd');
-    app.secretStorage.setSecret('thingsmd-conflict-preview', url);
+    app.secretStorage.setSecret('thingsmd-calendar-conflict-preview', url);
     await p.updateSettings({
       calendars: [
         {
           id: 'conflict-preview',
           name: 'Preview meetings',
-          secretName: 'thingsmd-conflict-preview',
+          secretName: 'thingsmd-calendar-conflict-preview',
           enabled: true,
           refreshMinutes: 10080,
           color: '#7c6cdb',

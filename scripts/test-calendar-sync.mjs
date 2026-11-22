@@ -78,7 +78,7 @@ try {
     const a = {
       id,
       name: 'Calendar sync fixture',
-      secretName: id,
+      secretName: `thingsmd-calendar-${id}`,
       enabled: true,
       source: await newSource(`${base}/a`, 'calendar-a'),
     };
@@ -140,7 +140,10 @@ try {
     await page.evaluate(() => window.__thingsmdSyncRequest);
     await waitForAsync(page, () => !app.plugins.getPlugin('thingsmd').calendar.pending.size);
     await page.locator('.ot-calendar-title').filter({ hasText: 'Source B event' }).waitFor();
-    assert.equal(await page.evaluate((id) => app.secretStorage.getSecret(id), id), `${base}/a`);
+    assert.equal(
+      await page.evaluate((id) => app.secretStorage.getSecret(`thingsmd-calendar-${id}`), id),
+      `${base}/a`,
+    );
     assert.match(
       await page.evaluate(
         () => app.plugins.getPlugin('thingsmd').calendar.today().statuses[0].error,
@@ -222,7 +225,7 @@ try {
     await page.evaluate(async ({ id, task, root }) => {
       const p = app.plugins.getPlugin('thingsmd');
       await p.updateSettings({ calendars: [] });
-      app.secretStorage.deleteSecret(id);
+      app.secretStorage.deleteSecret(`thingsmd-calendar-${id}`);
       for (const path of [task, `${root}/${id}`]) {
         const file = app.vault.getAbstractFileByPath(path);
         if (file) await app.vault.delete(file, true);
@@ -243,7 +246,7 @@ try {
     for (const leaf of app.workspace.getLeavesOfType('thingsmd-project-view'))
       await leaf.view.finishTask?.();
     for (const { id, task, root } of entries) {
-      app.secretStorage.deleteSecret(id);
+      app.secretStorage.deleteSecret(`thingsmd-calendar-${id}`);
       for (const path of [task, root && `${root}/${id}`]) {
         const file = path && app.vault.getAbstractFileByPath(path);
         if (file) await app.vault.delete(file, true);

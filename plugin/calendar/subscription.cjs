@@ -1,4 +1,4 @@
-const { subscriptionUrl } = require('./model.cjs');
+const { calendarSecretName, subscriptionUrl } = require('./model.cjs');
 const { parseCalendar, eventsOnDay } = require('./parser.cjs');
 const {
   sourceKey,
@@ -52,26 +52,22 @@ async function saveSubscription(
   { cancelled = () => false, timeoutMs, replace = false, expected } = {},
 ) {
   const secrets = plugin.app.secretStorage;
-  if (!secrets || !calendar.secretName)
-    throw new Error('Secret storage is unavailable for this calendar.');
+  const secretName = calendarSecretName(calendar.id);
+  if (!secrets || !secretName) throw new Error('Secret storage is unavailable for this calendar.');
   const service = plugin.calendar;
   await plugin.syncCalendarSettings?.();
   if (service.moving)
     throw new Error('Finish changing the ThingsMD home folder before saving the link.');
   const originalRoot = service.root;
   const initial = plugin.settings.calendars.find((c) => c.id === calendar.id);
-  const previous = secrets.getSecret(calendar.secretName);
+  const previous = secrets.getSecret(secretName);
   const originalKey = sourceKey(initial?.source);
   const ensureCurrent = (settings = plugin.settings) => {
     if (cancelled() || service.disposed) throw new Error('Calendar setup cancelled.');
     const current = settings.calendars.find((c) => c.id === calendar.id);
-    if (
-      !current ||
-      current.secretName !== calendar.secretName ||
-      sourceKey(current.source) !== originalKey
-    )
+    if (!current || sourceKey(current.source) !== originalKey)
       throw new Error('Calendar source changed. Check the subscription URL again.');
-    if (secrets.getSecret(calendar.secretName) !== previous)
+    if (secrets.getSecret(secretName) !== previous)
       throw new Error('The subscription URL changed while checking this calendar. Try again.');
     return current;
   };
@@ -135,7 +131,7 @@ async function saveSubscription(
         if (service.moving)
           throw new Error('Finish changing the ThingsMD home folder before saving the link.');
         try {
-          secrets.setSecret(calendar.secretName, subscription);
+          secrets.setSecret(secretName, subscription);
         } catch {
           throw new Error('Unable to save the subscription URL on this device.');
         }
@@ -144,9 +140,9 @@ async function saveSubscription(
       },
       rollback: () => {
         // Do not overwrite a concurrent external secret edit while rolling back.
-        if (secrets.getSecret(calendar.secretName) === subscription) {
-          if (previous == null) secrets.deleteSecret(calendar.secretName);
-          else secrets.setSecret(calendar.secretName, previous);
+        if (secrets.getSecret(secretName) === subscription) {
+          if (previous == null) secrets.deleteSecret(secretName);
+          else secrets.setSecret(secretName, previous);
         }
         const current = plugin.settings.calendars.find((c) => c.id === calendar.id);
         if (
@@ -162,7 +158,6 @@ async function saveSubscription(
   service.configure(plugin.settings.calendars);
   const current = plugin.settings.calendars.find((c) => c.id === calendar.id);
   service.states.set(calendar.id, {
-    secretName: calendar.secretName,
     generation: generation(current),
     next: 0,
     failures: 0,
