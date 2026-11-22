@@ -4,9 +4,9 @@ layout: thingsmd
 
 <div class="section-block" id="reference" markdown="1">
 
-## Tasks
-
 {% include admonition.html id="recommended-theme" title="Recommended theme" body="In **Settings → Appearance → Themes → Manage**, search for [**Things**](https://community.obsidian.md/themes/things) by Colin Eckert and choose **Install and use**." %}
+
+## Tasks
 
 In any note, type `+` and press **Space** on a blank line in Live Preview to create a task. While editing the title, press **Tab** to edit the description.
 
@@ -175,6 +175,8 @@ URL-encode each value. Captures use your default destination. If a draft is alre
 ## Import and export
 
 Use conversion to bring existing inline tasks into ThingsMD without retyping them. ThingsMD accepts plain checkboxes, [Tasks Emoji format](https://github.com/obsidian-tasks-group/obsidian-tasks/blob/main/docs/Reference/Task%20Formats/Tasks%20Emoji%20Format.md) ([Tasks plugin](https://github.com/obsidian-tasks-group/obsidian-tasks)), and [Dataview format](https://blacksmithgu.github.io/obsidian-dataview/annotation/metadata-tasks/) ([Dataview plugin](https://community.obsidian.md/plugins/dataview)).
+
+If you’re switching from Things 3, direct import from its database is unavailable. You can convert tasks once they’re written as Markdown checkboxes in your Obsidian vault.
 
 - **Convert selected tasks only.**  
   Select the task lines in Live Preview or Reading view. Right-click the selection and choose **Convert to ThingsMD format**, or run **ThingsMD: Convert selected tasks…** from the command palette.

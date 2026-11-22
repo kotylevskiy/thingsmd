@@ -1,6 +1,17 @@
 metadata:
-  title: ThingsMD — Personal task management for Obsidian
-  description: Manage tasks in Obsidian, see calendar events beside your plans, and follow Getting Things Done. Includes provider setup, scheduling, capture, hotkeys, and sync.
+  url: https://kotylevskiy.github.io/thingsmd/
+  title: ThingsMD — A Things 3 alternative for Obsidian
+  description: ThingsMD is a free task manager for Obsidian inspired by Things 3. Plan with Inbox, Today, and Upcoming, set deadlines, and keep tasks in your Markdown vault.
+  image: assets/cover-screencast.jpg
+  image_alt: ThingsMD’s Today list shows calendar events, tasks, and the Obsidian file sidebar.
+  image_width: 1280
+  image_height: 720
+
+product:
+  name: ThingsMD
+  author: Arthur Kotylevskiy
+  min_obsidian_version: '1.11.5'
+  listing: https://community.obsidian.md/plugins/thingsmd
 
 accessibility:
   language: en
@@ -111,6 +122,7 @@ contents:
 
 footer:
   label: Project links
+  plain_text: Plain-text index
   home: ThingsMD
   github: GitHub
   releases: Release notes

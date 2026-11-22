@@ -1,0 +1,38 @@
+---
+layout: null
+---
+{%- assign copy = site.data.site_copy -%}
+{%- assign home = copy.metadata.url -%}
+# ThingsMD
+
+> {{ copy.metadata.description }}
+
+## What you can do with ThingsMD
+
+- **Turn any note into a project.** Type `+` followed by Space on a blank line in Live Preview to create a task right next to your plans and reference material. See project progress in the sidebar.
+- **Plan with familiar GTD lists.** Collect ideas in Inbox, choose what to work on in Today, set tasks aside for This Evening, and see what's ahead in Upcoming. Use Someday for ideas you haven't committed to yet.
+- **Organize work with task cards and drag and drop.** Add descriptions, checklists, start dates, deadlines, and repeat rules. Drag tasks to reorder them in a note or reschedule them in Upcoming.
+- **Capture an idea while it's fresh.** Use the Obsidian command palette or configure a global desktop shortcut to open Quick Capture while another app is active.
+- **Plan around your appointments.** Subscribe to calendars to see read-only events alongside tasks in Today and Upcoming.
+- **Carry your tasks across devices.** Use ThingsMD on desktop and mobile and sync with Obsidian Sync, Syncthing, or Resilio Sync. ThingsMD flags conflicting task copies for review.
+
+## Compatibility and data
+
+ThingsMD requires Obsidian {{ copy.product.min_obsidian_version }} or later. Each task is stored as a Markdown file in your vault. ThingsMD is an independent plugin inspired by Things 3 and is unaffiliated with Cultured Code.
+
+## Documentation
+
+- [ThingsMD overview and walkthrough]({{ home }}): Product overview, feature walkthrough, and documentation.
+- [Create and schedule tasks]({{ home }}#tasks): Inline task creation, capture, checklists, and repeating tasks.
+- [Use Obsidian notes as projects]({{ home }}#projects): Embed tasks and show project progress in the sidebar.
+- [Subscribe to calendars]({{ home }}#calendars): Supported ICS feeds, provider setup, and where calendar data is stored.
+- [Set up hotkeys]({{ home }}#hotkeys): Obsidian command shortcuts for Today, This Evening, and Duplicate.
+- [Sync tasks and resolve conflicts]({{ home }}#sync): Vault sync, task copies, and conflict resolution.
+- [Convert existing Markdown tasks]({{ home }}#import-and-export): Import and export plain checkboxes, Tasks Emoji, and Dataview formats. Direct Things 3 database import is unavailable.
+- [Task properties]({{ home }}#task-properties): Markdown frontmatter and scheduling fields.
+
+## Project links
+
+- [Obsidian Community Directory]({{ copy.product.listing }}): Install ThingsMD.
+- [Source code](https://github.com/{{ copy.github.repository }}): MIT-licensed repository.
+- [Release notes](https://github.com/{{ copy.github.repository }}/releases): Version history and downloads.

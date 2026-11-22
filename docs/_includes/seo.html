@@ -1,0 +1,36 @@
+{%- assign metadata = site.data.site_copy.metadata -%}
+{%- assign product = site.data.site_copy.product -%}
+{%- assign image = metadata.url | append: metadata.image -%}
+{%- assign repository = site.data.site_copy.github.repository | prepend: 'https://github.com/' -%}
+<title>{{ metadata.title | escape }}</title>
+<meta name="description" content="{{ metadata.description | escape }}">
+<link rel="canonical" href="{{ metadata.url | escape }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ product.name | escape }}">
+<meta property="og:url" content="{{ metadata.url | escape }}">
+<meta property="og:title" content="{{ metadata.title | escape }}">
+<meta property="og:description" content="{{ metadata.description | escape }}">
+<meta property="og:image" content="{{ image | escape }}">
+<meta property="og:image:alt" content="{{ metadata.image_alt | escape }}">
+<meta property="og:image:width" content="{{ metadata.image_width }}">
+<meta property="og:image:height" content="{{ metadata.image_height }}">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "@id": {{ metadata.url | append: '#thingsmd' | jsonify }},
+  "name": {{ product.name | jsonify }},
+  "url": {{ metadata.url | jsonify }},
+  "description": {{ metadata.description | jsonify }},
+  "image": {{ image | jsonify }},
+  "applicationCategory": "BusinessApplication",
+  "applicationSubCategory": "Task management",
+  "softwareRequirements": {{ product.min_obsidian_version | prepend: 'Obsidian ' | append: ' or later' | jsonify }},
+  "operatingSystem": "Windows, macOS, Linux, Android, iOS",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": 0, "priceCurrency": "USD", "url": {{ product.listing | jsonify }} },
+  "author": { "@type": "Person", "name": {{ product.author | jsonify }} },
+  "sameAs": [{{ repository | jsonify }}, {{ product.listing | jsonify }}]
+}
+</script>

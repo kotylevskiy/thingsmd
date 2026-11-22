@@ -7,8 +7,8 @@
     <meta name="color-scheme" content="light dark">
     <meta name="theme-color" content="#f2f5f7" data-appearance-color="light" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#242b33" data-appearance-color="dark" media="(prefers-color-scheme: dark)">
-    <meta name="description" content="{{ copy.metadata.description | escape }}">
-    <title>{{ copy.metadata.title | escape }}</title>
+    {% include seo.html %}
+    <link rel="icon" type="image/png" sizes="96x96" href="{{ '/assets/favicon.png' | relative_url }}">
     <script src="{{ '/assets/appearance.js' | relative_url }}"></script>
     <link rel="stylesheet" href="{{ '/assets/site.css' | relative_url }}">
     <script src="{{ '/assets/contents.js' | relative_url }}" defer></script>
@@ -72,6 +72,7 @@
     <footer class="site-footer">
       <nav class="site-width" aria-label="{{ copy.footer.label | escape }}">
         <a href="#overview">{{ copy.footer.home | escape }}</a>
+        <a href="{{ '/llms.txt' | relative_url }}">{{ copy.footer.plain_text | escape }}</a>
         <a href="https://github.com/{{ copy.github.repository | escape }}">{{ copy.footer.github | escape }}</a>
         <a href="https://github.com/{{ copy.github.repository | escape }}/releases">{{ copy.footer.releases | escape }}</a>
         <a href="https://github.com/{{ copy.github.repository | escape }}/issues">{{ copy.footer.feedback | escape }}</a>
