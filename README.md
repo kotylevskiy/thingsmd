@@ -1,31 +1,36 @@
-# ThingsMD
+<h1 align="center">ThingsMD for Obsidian</h1>
 
-ThingsMD is an Obsidian plugin for managing personal tasks. Plan your work in Today and Upcoming, and add interactive task cards directly to your notes. Each task is stored as a Markdown file in your vault.
+<p align="center"><strong>Keep your notes and tasks together.</strong></p>
 
-- Manage tasks in a thoughtfully designed interface with start dates, deadlines, repeating rules, and checklists.
-- Organize your tasks by using your notes as projects.
-- Capture tasks using the command palette, a global hotkey, or an automation link.
-- See read-only calendar events alongside tasks in Today and Upcoming.
-- Convert Markdown checkboxes in Tasks Emoji or Dataview format to ThingsMD tasks with a single command.
+<p align="center">
+  <a href="https://kotylevskiy.github.io/thingsmd/#install"><img src="https://img.shields.io/badge/Obsidian-1.11.5%2B-7c3aed?logo=obsidian" alt="Requires Obsidian 1.11.5 or later"></a>
+  <a href="https://github.com/kotylevskiy/thingsmd/releases/latest"><img src="https://img.shields.io/badge/Latest_release-0.8.2-086ddd?logo=github" alt="Latest release 0.8.2"></a>
+</p>
 
-![ThingsMD Today view in Obsidian showing task lists, scheduled tasks, and the This Evening section](docs/assets/today.png)
+![ThingsMD Today view beside Obsidian’s File Explorer, showing folders, regular notes, and project notes with task progress indicators](docs/assets/today.png)
 
-ThingsMD is inspired by [Things](https://culturedcode.com/things/), Cultured Code’s personal task manager for Apple devices. Things is one of the best apps for putting David Allen’s **Getting Things Done (GTD)** methodology into practice.
+<p align="center"><a href="https://kotylevskiy.github.io/thingsmd/"><img src="docs/assets/documentation-link.png" alt="ThingsMD Documentation →" width="272" height="44"></a></p>
 
-GTD is about capturing what’s on your mind, clarifying and organizing your next actions, and reviewing them regularly so you can decide what to do. ThingsMD brings that workflow into Obsidian.
+## Features
 
-<p align="center"><a href="docs/index.md"><img src="docs/assets/documentation-link.png" alt="ThingsMD Documentation →" width="272" height="44"></a></p>
+Turn any note into a project, capture tasks as they come up, and plan your day in Today and Upcoming. Every task is a Markdown file in your vault.
+
+- Keep tasks beside project notes.
+- Start dates, deadlines, recurring tasks and checklists.
+- Capture tasks from the command palette, with a global desktop shortcut.
+- See calendar events alongside tasks in Today and Upcoming.
+- Convert existing Markdown checkboxes, including Tasks Emoji and Dataview formats, into ThingsMD tasks.
 
 ## Feedback and contributions
 
-Ideas, bug reports, and feature requests are welcome in [GitHub Issues](https://github.com/kotylevskiy/thingsmd/issues).
+Ideas, bug reports, and feature requests are welcome in [GitHub Issues](https://github.com/kotylevskiy/thingsmd/issues). I maintain the code myself and don’t accept code contributions.
 
-For bug reports, include the versions of ThingsMD and Obsidian you’re using, your device or operating system, the steps to reproduce the issue, and what you expected to happen. For ideas or feature requests, describe the workflow you’d like to improve.
+For bug reports, include your ThingsMD and Obsidian versions, your operating system, and the steps to reproduce the issue.
 
 ## Thanks to Cultured Code
 
-ThingsMD is an independently developed plugin, unaffiliated with Cultured Code.
+ThingsMD is inspired by [Things](https://culturedcode.com/things/), Cultured Code’s personal task manager for Apple devices and one of my favorite ways to put GTD into practice. I brought ideas from their beautifully designed app into Obsidian, where I already keep my notes. If you enjoy ThingsMD, consider supporting the Cultured Code team by buying the original app.
 
-I have a lot of respect for the team at Cultured Code. They built a beautifully designed app that makes it easy to manage personal tasks. I borrowed their ideas to make my own life easier by bringing my favorite way to manage tasks into Obsidian, my favorite note-taking app.
+ThingsMD is an independently developed plugin, unaffiliated with Cultured Code.
 
 If you’d like to support my work on ThingsMD, please star this repository.

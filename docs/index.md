@@ -56,7 +56,7 @@ Any Markdown note can be a project. Create a task in it or use **ThingsMD: Move 
 
 Tasks you create in a project note stay there and can appear in lists such as **Today** or **Upcoming**. In any task list, choose **Show in Project** from the context menu to jump to the containing note.
 
-The progress pie is on by default. Toggle **Settings → ThingsMD → Show project progress** to show or hide it in the File Explorer, grouped list headings, and the Move picker.
+The **progress pie** is the small circle beside a project note in the File Explorer. Its filled portion shows the share of tasks that are finished, including completed and canceled tasks. Toggle **Settings → ThingsMD → Show project progress** to show or hide it.
 
 {% include screenshot.html name="project-note" width=1150 height=740 alt="Studio Launch project note with tasks below its planning notes and progress indicators in the File Explorer" %}
 
