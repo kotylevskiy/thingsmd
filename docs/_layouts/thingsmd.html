@@ -37,9 +37,11 @@
           <div class="hero-copy">
             <p class="hero-wordmark">{{ copy.cover.eyebrow | escape }}</p>
             <h1 id="intro">{{ copy.cover.title | escape }}</h1>
-            <p class="hero-lead">{{ copy.cover.lead | escape }}</p>
+            <p class="hero-lead">{{ copy.cover.lead | escape }}<br>
+              {{ copy.cover.sublead | escape }}
+            </p>
             <div class="hero-actions">
-              <a class="hero-button hero-button-primary" href="#install">{{ copy.cover.install | escape }}</a>
+              <a id="install" class="hero-button hero-button-primary" href="obsidian://show-plugin?id=thingsmd">{{ copy.cover.install | escape }}</a>
               <a class="hero-button" href="#documentation">{{ copy.cover.documentation | escape }}</a>
             </div>
           </div>

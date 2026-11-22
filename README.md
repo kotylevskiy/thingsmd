@@ -1,6 +1,7 @@
 <h1 align="center">ThingsMD for Obsidian</h1>
 
-<p align="center"><strong>Keep your notes and tasks together.</strong></p>
+<p align="center"><strong>A Things 3 alternative with familiar lists, task cards and behavior.<br>
+Keep your notes and tasks together.</strong></p>
 
 <p align="center">
   <a href="https://kotylevskiy.github.io/thingsmd/#install"><img src="https://img.shields.io/badge/Obsidian-1.11.5%2B-7c3aed?logo=obsidian" alt="Requires Obsidian 1.11.5 or later"></a>
@@ -36,7 +37,7 @@ For bug reports, include your ThingsMD and Obsidian versions, your operating sys
 
 ## Thanks to Cultured Code
 
-ThingsMD is inspired by [Things](https://culturedcode.com/things/), Cultured Code’s personal task manager for Apple devices and one of my favorite ways to put GTD into practice. I brought ideas from their beautifully designed app into Obsidian, where I already keep my notes. If you enjoy ThingsMD, consider supporting the Cultured Code team by buying the original app.
+ThingsMD is inspired by [Things](https://culturedcode.com/things/), Cultured Code’s personal task manager for Apple devices and one of my favorite ways to put GTD into practice. I brought ideas from their beautifully designed app into Obsidian, where I already keep my notes.
 
 ThingsMD is an independently developed plugin, unaffiliated with Cultured Code.
 

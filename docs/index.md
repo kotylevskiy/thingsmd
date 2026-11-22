@@ -4,19 +4,9 @@ layout: thingsmd
 
 <div class="section-block" id="reference" markdown="1">
 
-## Install
-
-1. Download `main.js`, `manifest.json`, and `styles.css` from **Assets** in the [latest release](https://github.com/kotylevskiy/thingsmd/releases/latest).
-2. Put them in `.obsidian/plugins/thingsmd/` inside your vault and reload Obsidian.
-3. In **Settings → Community plugins**, enable community plugins if prompted, then enable **ThingsMD**.
-
-To update manually, replace the same three files and reload Obsidian.
-
-Consider using the [BRAT plugin](https://github.com/TfTHacker/obsidian42-brat) for automatic installation and updates.
+## Tasks
 
 {% include admonition.html id="recommended-theme" title="Recommended theme" body="In **Settings → Appearance → Themes → Manage**, search for [**Things**](https://community.obsidian.md/themes/things) by Colin Eckert and choose **Install and use**." %}
-
-## Tasks
 
 In any note, type `+` and press **Space** on a blank line in Live Preview to create a task. While editing the title, press **Tab** to edit the description.
 

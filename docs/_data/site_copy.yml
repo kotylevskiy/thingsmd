@@ -9,7 +9,8 @@ accessibility:
 cover:
   eyebrow: A GTD-based task management plugin
   title: ThingsMD for Obsidian
-  lead: Keep your notes and tasks together.
+  lead: A Things 3 alternative with familiar lists, task cards and behavior.
+  sublead: Keep your notes and tasks together.
   install: Install
   documentation: Documentation
 
