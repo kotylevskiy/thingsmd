@@ -1,5 +1,4 @@
 const { quietLabel } = require('./quiet-label.cjs');
-const { systemLocale } = require('./system-locale.cjs');
 const { dayKey, date, addDays, parseDate } = require('./local-date.cjs');
 const { firstWeekday, calendarDays, dateSuggestions } = require('./date-picker-model.cjs');
 
@@ -7,6 +6,7 @@ function datePicker(
   pop,
   {
     kind,
+    weekStartsOn,
     value,
     onSelect,
     onClose,
@@ -25,8 +25,8 @@ function datePicker(
   const today = dayKey(now);
   const selected = value === 'today' || value === 'evening' ? today : parseDate(value || '');
   const initial = selected || today;
-  const locale = systemLocale();
-  const weekStart = firstWeekday(locale);
+  const locale = new Intl.DateTimeFormat().resolvedOptions().locale;
+  const weekStart = weekStartsOn ?? firstWeekday(locale);
   const weekdaysFormat = new Intl.DateTimeFormat(locale, { weekday: 'short' });
   const monthFormat = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' });
   const shortMonthFormat = new Intl.DateTimeFormat(locale, { month: 'short' });

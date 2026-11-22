@@ -313,6 +313,7 @@ class RepeatDialog extends Modal {
         calendar.dataset.field = label;
         require('../shared/date-picker.cjs').datePicker(calendar, {
           kind: 'date',
+          weekStartsOn: this.plugin.settings.weekStartsOn,
           value,
           setIcon,
           inline: true,

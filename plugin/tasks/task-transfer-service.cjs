@@ -27,7 +27,7 @@ module.exports = function installTransferService(plugin, { onTransferred, onCopy
     sourcePath,
     sourceLine,
     list,
-    moveClipboard = false,
+    clipboardEntry,
     scheduledWhen,
   }) => {
     if (list === 'waiting' && plugin.settings?.enableWaiting === false)
@@ -46,7 +46,7 @@ module.exports = function installTransferService(plugin, { onTransferred, onCopy
             snapshot,
             sourcePath,
             list,
-            moveClipboard,
+            clipboardEntry,
             scheduledWhen: when,
           }),
       });
@@ -161,7 +161,7 @@ module.exports = function installTransferService(plugin, { onTransferred, onCopy
         }
         saved = await plugin.patchTask(original, patch, undefined, { notify: false });
       }
-      if (moveClipboard) onTransferred(file?.path || null);
+      if (clipboardEntry) onTransferred(file?.path || null, clipboardEntry);
       plugin.tasksChanged();
       if (!copy) {
         const references = (original.references || []).filter(

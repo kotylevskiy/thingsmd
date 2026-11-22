@@ -33,13 +33,55 @@ const openNote = async (path) =>
     leaf.view.editor.focus();
   }, path);
 try {
+  // Use the real Obsidian keyboard and paste events without replacing the host clipboard.
+  await page.evaluate(() => {
+    let text = '';
+    window.transferClipboardWrites = 0;
+    const paste = (event) => {
+      if (!event.isTrusted) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const clipboardData = new DataTransfer();
+      clipboardData.setData('text/plain', text);
+      event.target.dispatchEvent(
+        new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }),
+      );
+    };
+    const clipboard = navigator.clipboard;
+    const write = Object.getOwnPropertyDescriptor(clipboard, 'write');
+    const readText = Object.getOwnPropertyDescriptor(clipboard, 'readText');
+    clipboard.write = async ([item]) => {
+      text = await (await item.getType('text/plain')).text();
+      window.transferClipboardWrites++;
+    };
+    clipboard.readText = async () => text;
+    window.setTransferClipboardText = (value) => (text = value);
+    const observePaste = (event) => {
+      if (!event.isTrusted && event.clipboardData?.getData('text/plain') === 'Unrelated text. ')
+        window.unrelatedPasteReachedEditor = !event.defaultPrevented;
+    };
+    window.addEventListener('paste', paste, true);
+    document.addEventListener('paste', observePaste, true);
+    window.restoreTransferClipboard = () => {
+      window.removeEventListener('paste', paste, true);
+      document.removeEventListener('paste', observePaste, true);
+      if (write) Object.defineProperty(clipboard, 'write', write);
+      else delete clipboard.write;
+      if (readText) Object.defineProperty(clipboard, 'readText', readText);
+      else delete clipboard.readText;
+      delete window.transferClipboardWrites;
+      delete window.setTransferClipboardText;
+      delete window.unrelatedPasteReachedEditor;
+      delete window.restoreTransferClipboard;
+    };
+  });
   ids = await page.evaluate(
     async ({ prefix, a, b }) => {
       const p = app.plugins.getPlugin('thingsmd');
       await app.vault.create(a, 'Before A\n\nAfter A\n');
       await app.vault.create(b, 'Before B\n\nAfter B\n');
       const tasks = [];
-      for (const title of ['Drag', 'Cut'])
+      for (const title of ['Drag', 'Cut', 'Destination'])
         tasks.push(
           (
             await p.createTask(
@@ -68,10 +110,7 @@ try {
   assert.equal((await record(ids[0])).body, 'Task notes');
   await listRow(ids[1]).click();
   await listRow(ids[1]).press('Meta+x');
-  await listRow(ids[1]).locator('..').waitFor();
-  await page.waitForFunction(() =>
-    require('electron').clipboard.readText().startsWith('![[ThingsMD/'),
-  );
+  await active.locator('.ot-cut-task').waitFor();
   assert.equal((await record(ids[1])).meta.project, undefined, 'Cut alone does not move or delete');
   await openNote(b);
   await page.evaluate(() => {
@@ -95,7 +134,7 @@ try {
     active.locator(`.ot-native[data-task-path="ThingsMD/${ids[1]}.md"] .ot-task:visible`);
   await native().click();
   await native().press('Meta+c');
-  await page.waitForTimeout(100);
+  await page.waitForFunction(() => window.transferClipboardWrites === 2);
   await openNote(a);
   await page.evaluate(() => {
     const e = app.workspace.activeLeaf.view.editor;
@@ -157,12 +196,48 @@ try {
   assert.ok(!(await read(b)).includes(ids[1]));
   assert.match(await read(a), new RegExp(ids[1]));
   assert.ok((await read(b)).includes('After B'));
+  await openNote(a);
+  await native().click();
+  await native().press('Meta+c');
+  await page.waitForFunction(() => window.transferClipboardWrites === 3);
+  await openNote(b);
+  await page.keyboard.press('Meta+Alt+v');
+  await waitForAsync(
+    page,
+    async ({ id, b }) =>
+      (await app.plugins.getPlugin('thingsmd').taskRecords()).find((t) => t.meta.id === id)?.meta
+        .project === b,
+    { id: ids[1], b },
+  );
+  assert.ok(!(await read(a)).includes(ids[1]));
+  assert.match(await read(b), new RegExp(ids[1]));
+  await native().click();
+  await native().press('Meta+c');
+  await page.waitForFunction(() => window.transferClipboardWrites === 4);
+  await page.evaluate(() => app.plugins.getPlugin('thingsmd').openList('inbox'));
+  await listRow(ids[2]).press('Meta+v');
+  await waitForAsync(
+    page,
+    async (title) =>
+      (await app.plugins.getPlugin('thingsmd').taskRecords()).filter(
+        (task) => task.meta.title === title,
+      ).length === 3,
+    prefix + ' Cut',
+  );
+  await openNote(b);
+  await page.evaluate(() => {
+    app.workspace.activeLeaf.view.editor.setCursor({ line: 0, ch: 0 });
+    window.setTransferClipboardText('Unrelated text. ');
+  });
+  await page.keyboard.press('Meta+v');
+  await page.waitForFunction(() => window.unrelatedPasteReachedEditor === true);
   console.log(
-    'PASS: Inbox drag to file tree, deferred cut, paste at cursor, independent copy with notes/checklist, and inline pointer drag between notes.',
+    'PASS: file-tree drag, deferred cut, task paste into notes and lists, ordinary text paste, inline drag, and Option+Paste to move.',
   );
 } finally {
   await page.evaluate(
     async ({ a, b, prefix }) => {
+      window.restoreTransferClipboard?.();
       for (const l of app.workspace.getLeavesOfType('markdown'))
         if ([a, b].includes(l.view.file?.path)) l.detach();
       for (const path of [a, b]) {

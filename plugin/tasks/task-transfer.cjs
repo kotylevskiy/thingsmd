@@ -7,6 +7,7 @@ function install(plugin) {
     doc = document,
     win = doc.defaultView;
   let clipboard = null,
+    copyRequest = 0,
     highlight = null;
   const textField = (el) =>
     el?.closest(
@@ -16,34 +17,41 @@ function install(plugin) {
   const markdownView = (el) =>
     app.workspace.getLeavesOfType('markdown').find((l) => l.view.containerEl.contains(el))?.view;
   require('./task-transfer-service.cjs')(plugin, {
-    onTransferred: (path) => {
-      if (!clipboard) return;
+    onTransferred: (path, entry) => {
+      if (clipboard !== entry) return;
       clipboard.cut = false;
       clipboard.sourcePath = path;
       doc.querySelectorAll('.ot-cut-task').forEach((el) => el.classList.remove('ot-cut-task'));
     },
     onCopyPlacementFailed: () => new Notice('The copied task is saved, but placement failed.'),
   });
-  const getClipboard = () => {
-    try {
-      return require('electron').clipboard;
-    } catch {
-      return null;
-    }
-  };
-  const copyRow = async (row, cut) => {
-    const task = (await plugin.taskRecords()).find((t) => t.meta.id === row.dataset.taskId);
-    if (!task || task.meta.deleted) return;
-    const entry = {
-      id: task.meta.id,
-      snapshot: JSON.parse(JSON.stringify(task)),
-      cut,
-      sourcePath: markdownView(row)?.file?.path,
-      text: `![[${task.file.path.replace(/\.md$/, '')}]]`,
-    };
-    const system = getClipboard();
-    if (system) system.writeText(entry.text);
-    else await navigator.clipboard.writeText(entry.text);
+  const copyFromEvent = async (event, cut) => {
+    const row = selectedRow(event.target);
+    if (!row || textField(event.target)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (!win.ClipboardItem || !win.navigator.clipboard?.write)
+      throw new Error('Clipboard access is unavailable.');
+    const request = ++copyRequest;
+    const sourcePath = markdownView(row)?.file?.path;
+    const pendingEntry = plugin.taskRecords().then((tasks) => {
+      const task = tasks.find((t) => t.meta.id === row.dataset.taskId);
+      if (!task || task.meta.deleted) throw new Error('This task is unavailable.');
+      return {
+        id: task.meta.id,
+        snapshot: JSON.parse(JSON.stringify(task)),
+        cut,
+        sourcePath,
+        text: `![[${task.file.path.replace(/\.md$/, '')}]]`,
+      };
+    });
+    // WebKit needs the write to start during the user gesture. The item can
+    // provide its text once the task has been read.
+    const item = new win.ClipboardItem({
+      'text/plain': pendingEntry.then(({ text }) => new win.Blob([text], { type: 'text/plain' })),
+    });
+    const [entry] = await Promise.all([pendingEntry, win.navigator.clipboard.write([item])]);
+    if (request !== copyRequest) return;
     clipboard = entry;
     doc.querySelectorAll('.ot-cut-task').forEach((el) => el.classList.remove('ot-cut-task'));
     if (cut) row.classList.add('ot-cut-task');
@@ -71,71 +79,78 @@ function install(plugin) {
     if (list) return { list: list.page };
     return null;
   };
-  const paste = (target, move) => {
-    const destination = destinationFor(target);
-    if (!destination) return false;
+  const paste = (destination, entry, move) => {
     plugin
       .transferTask({
         ...destination,
-        id: clipboard.id,
-        snapshot: clipboard.snapshot,
-        sourcePath: clipboard.sourcePath,
-        copy: !clipboard.cut && !move,
-        moveClipboard: clipboard.cut || move,
+        id: entry.id,
+        snapshot: entry.snapshot,
+        sourcePath: entry.sourcePath,
+        copy: !entry.cut && !move,
+        clipboardEntry: entry.cut || move ? entry : undefined,
       })
       .catch((error) => new Notice(error.message));
-    return true;
   };
   plugin.registerDomEvent(
     win,
     'keydown',
-    (event) => {
-      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || textField(event.target)) return;
-      const key = event.key.toLowerCase(),
-        row = selectedRow(event.target);
-      if (['c', 'x'].includes(key) && row) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        copyRow(row, key === 'x').catch((error) => new Notice(error.message));
-      } else if (key === 'v' && clipboard) {
-        const system = getClipboard();
-        if (system && system.readText() === clipboard.text && destinationFor(event.target)) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          paste(event.target, event.altKey);
-        }
+    async (event) => {
+      if (!(event.metaKey || event.ctrlKey) || event.shiftKey) return;
+      const key = event.key.toLowerCase();
+      // WebKit can omit copy/cut events when a focused task row has no text selection.
+      if (key === 'c' || key === 'x') {
+        await copyFromEvent(event, key === 'x').catch((error) => new Notice(error.message));
+        return;
+      }
+      const entry = clipboard;
+      const target = event.target;
+      if (!entry || !event.altKey || (key !== 'v' && event.code !== 'KeyV') || textField(target))
+        return;
+      const destination = destinationFor(target);
+      if (!destination) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      // Option/Alt+Paste has no native paste event. Read only on this gesture.
+      try {
+        const text = await win.navigator.clipboard.readText();
+        if (clipboard !== entry || text !== entry.text || doc.activeElement !== target) return;
+        const current = destinationFor(target);
+        if (
+          current &&
+          current.destination === destination.destination &&
+          current.offset === destination.offset &&
+          current.list === destination.list
+        )
+          paste(destination, entry, true);
+      } catch (error) {
+        new Notice(error.message);
       }
     },
     true,
   );
-  // Browser clipboard events also cover menu commands and non-Electron clients.
   for (const type of ['copy', 'cut'])
     plugin.registerDomEvent(
       doc,
       type,
-      (event) => {
-        const row = selectedRow(event.target);
-        if (!row || textField(event.target)) return;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        copyRow(row, type === 'cut').catch((error) => new Notice(error.message));
-      },
+      (event) => copyFromEvent(event, type === 'cut').catch((error) => new Notice(error.message)),
       true,
     );
   plugin.registerDomEvent(
     doc,
     'paste',
     (event) => {
+      const entry = clipboard;
       if (
-        !clipboard ||
+        !entry ||
         textField(event.target) ||
-        event.clipboardData?.getData('text/plain') !== clipboard.text ||
-        !destinationFor(event.target)
+        event.clipboardData?.getData('text/plain') !== entry.text
       )
         return;
+      const destination = destinationFor(event.target);
+      if (!destination) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      paste(event.target, false);
+      paste(destination, entry, false);
     },
     true,
   );
@@ -181,6 +196,8 @@ function install(plugin) {
   );
   plugin.registerDomEvent(doc, 'dragend', clearHighlight, true);
   plugin.register(() => {
+    copyRequest++;
+    clipboard = null;
     clearHighlight();
     doc.querySelectorAll('.ot-cut-task').forEach((el) => el.classList.remove('ot-cut-task'));
   });

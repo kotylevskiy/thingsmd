@@ -9,10 +9,9 @@ const { renderProgress } = require('../tasks/project-progress.cjs');
 module.exports = function renderListContents(view, paper, active, progress) {
   if (view.page === 'logbook') {
     const { logbookGroups } = require('./logbook-groups.cjs');
-    const { systemLocale } = require('../shared/system-locale.cjs');
     for (const { key, title, tasks } of logbookGroups(active, {
       timeZone: view.plugin.settings.timeZone,
-      locale: systemLocale(),
+      weekStartsOn: view.plugin.settings.weekStartsOn,
     })) {
       const section = paper.createEl('section', {
         cls: 'ot-section ot-logbook-section',

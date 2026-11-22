@@ -22,6 +22,7 @@ module.exports = class TaskDateDialog extends Modal {
     const error = this.contentEl.createDiv({ attr: { role: 'alert' } });
     datePicker(this.picker, {
       kind: this.kind,
+      weekStartsOn: this.plugin.settings?.weekStartsOn,
       value:
         this.kind === 'when' && inEvening(this.task.meta, today())
           ? 'evening'

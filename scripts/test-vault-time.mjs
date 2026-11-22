@@ -70,6 +70,7 @@ if (process.argv.includes('--webkit')) {
     original = await page.evaluate(() => ({ ...app.plugins.getPlugin('thingsmd').settings }));
     wasMobile = await page.evaluate(() => !!localStorage.getItem('EmulateMobile'));
     for (const mobile of [false, true]) {
+      const firstDay = mobile ? 6 : 5;
       if ((await page.evaluate(() => !!localStorage.getItem('EmulateMobile'))) !== mobile)
         await emulate(mobile);
       await page.setViewportSize({ width: mobile ? 390 : 1100, height: 844 });
@@ -80,6 +81,32 @@ if (process.argv.includes('--webkit')) {
       const settings = await settingsPage(page);
       const selector = settings.getByLabel('Vault time zone', { exact: true });
       await selector.scrollIntoViewIfNeeded();
+      const globalCapture = settings.getByText('Global capture shortcut', { exact: true });
+      if (mobile) await globalCapture.waitFor({ state: 'detached' });
+      else await globalCapture.waitFor({ state: 'visible' });
+      const weekStart = settings.getByLabel('First day of the week', { exact: true });
+      assert.deepEqual(
+        await weekStart
+          .locator('option')
+          .evaluateAll((options) => options.map(({ value }) => value)),
+        ['auto', '1', '0', '6', '5'],
+      );
+      assert.equal(
+        await selector.evaluate((el) =>
+          el
+            .closest('.setting-item')
+            .previousElementSibling.querySelector('select')
+            ?.getAttribute('aria-label'),
+        ),
+        'First day of the week',
+      );
+      await weekStart.selectOption(String(firstDay));
+      await waitForAsync(
+        page,
+        async (weekStartsOn) =>
+          (await app.plugins.getPlugin('thingsmd').loadData()).weekStartsOn === weekStartsOn,
+        firstDay,
+      );
       assert.equal(
         await selector.evaluate(
           (el) =>
@@ -114,6 +141,23 @@ if (process.argv.includes('--webkit')) {
         await page.evaluate(() => app.plugins.getPlugin('thingsmd').settings.timeZone),
         'UTC',
       );
+      assert.equal(
+        await page.evaluate(() => app.plugins.getPlugin('thingsmd').settings.weekStartsOn),
+        firstDay,
+      );
+      await page.evaluate(() => app.plugins.getPlugin('thingsmd').capture({}));
+      await page
+        .locator('.ot-capture-modal')
+        .getByRole('button', { name: 'When', exact: true })
+        .click();
+      const heading = page.locator('.ot-date-picker .ot-calendar-weekdays > :first-child');
+      const expected = await page.evaluate((day) => {
+        return new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(
+          new Date(2024, 0, 7 + day, 12),
+        );
+      }, firstDay);
+      assert.equal(await heading.textContent(), expected);
+      await page.evaluate(() => app.plugins.getPlugin('thingsmd').captureModal?.close());
     }
     // Exercise the actual bundled storage path with a delayed scheduler and archive run.
     const result = await page.evaluate(async (title) => {
@@ -160,6 +204,7 @@ if (process.argv.includes('--webkit')) {
       async ({ title, original }) => {
         app.setting.close();
         const p = app.plugins.getPlugin('thingsmd');
+        p.captureModal?.close();
         for (const task of await p.taskRecords())
           if (task.meta.title === title) await p.deleteTask(task.file);
         if (original) await p.updateSettings(original);

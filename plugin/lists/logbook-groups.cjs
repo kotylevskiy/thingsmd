@@ -10,10 +10,19 @@ function completionTime(task) {
   }
   return null;
 }
-function logbookGroups(tasks, { now = new Date(), timeZone, locale = 'en' } = {}) {
+function logbookGroups(
+  tasks,
+  {
+    now = new Date(),
+    timeZone,
+    locale = new Intl.DateTimeFormat().resolvedOptions().locale,
+    weekStartsOn,
+  } = {},
+) {
   const today = dayKey(now, timeZone);
   // Recent day sections stop at the locale’s calendar-week boundary.
-  const weekStart = addDays(today, -((date(today).getDay() - firstWeekday(locale) + 7) % 7));
+  const firstDay = weekStartsOn ?? firstWeekday(locale);
+  const weekStart = addDays(today, -((date(today).getDay() - firstDay + 7) % 7));
   const lastWeekStart = addDays(weekStart, -7);
   const groups = new Map();
   // Parse once per task, rather than on every sort comparison. Missing dates

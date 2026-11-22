@@ -16,9 +16,16 @@ test('archive settings default safely and validate saved values', () => {
     showWaitingInToday: true,
     enableWaiting: false,
     mobileTaskNavigation: false,
+    weekStartsOn: null,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
   assert.deepEqual(settings({ logbook: 'bad', trashRetention: 'bad' }), settings());
+});
+test('week start accepts regional defaults and falls back to automatic for unsupported days', () => {
+  for (const weekStartsOn of [0, 1, 5, 6])
+    assert.equal(settings({ weekStartsOn }).weekStartsOn, weekStartsOn);
+  for (const weekStartsOn of [undefined, null, '0', false, -1, 2, 3, 4, 7, 0.5])
+    assert.equal(settings({ weekStartsOn }).weekStartsOn, null);
 });
 test('mobile navigation overrides require explicit opt-in', () => {
   for (const value of [undefined, null, false, 'true', 1])

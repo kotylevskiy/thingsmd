@@ -69,6 +69,8 @@ Use **ThingsMD: Quick Find** to search list, project, and task titles. **Continu
 
 Check off a task to complete it or choose **Mark as Canceled** in the task menu. Both count as finished. The default **Daily** Logbook policy archives finished tasks at the next vault midnight. Adjust it in ThingsMD settings or run **ThingsMD: Log Completed**.
 
+**First day of the week** in ThingsMD settings controls the date picker grid and where the Logbook starts a new week. **Automatic** uses the browser locale.
+
 Deleting a selected card in Live Preview or Reading view supports Undo and Redo. Trash keeps tasks by default. A retention limit permanently removes expired files and embeds, and **Delete permanently** clears existing Trash and hides the list.
 
 **Restore** in the Logbook reopens a task. **Restore** in Trash recovers the task’s previous status and, where possible, its original positions in notes.

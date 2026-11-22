@@ -1,7 +1,7 @@
 {
   "id": "thingsmd",
   "name": "ThingsMD",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "minAppVersion": "1.11.5",
   "description": "Things-inspired personal task manager with native Markdown notes and inline task cards.",
   "author": "Arthur Kotylevskiy",

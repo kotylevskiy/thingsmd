@@ -91,6 +91,7 @@ class MoveDialog extends Modal {
             const calendar = results.createDiv('ot-move-calendar');
             datePicker(calendar, {
               kind: 'when',
+              weekStartsOn: plugin.settings.weekStartsOn,
               inline: true,
               dateOnly: true,
               setIcon,

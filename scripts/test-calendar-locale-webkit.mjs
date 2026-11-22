@@ -11,28 +11,38 @@ for (const [locale, firstDay] of [
     pageOptions: { locale, viewport: { width: 390, height: 844 }, hasTouch: true },
   });
   try {
-    const result = await page.evaluate(() => {
-      document.body.classList.add('is-mobile');
-      const pop = document.body.createDiv();
-      window.loadPluginModule('./shared/date-picker.cjs').datePicker(pop, {
-        kind: 'deadline',
-        value: '2026-10-19',
-        onSelect() {},
-        onClose() {},
-        setIcon() {},
-      });
-      const dates = [...pop.querySelectorAll('[data-date]')].map((el) => el.dataset.date);
-      return {
-        locale: window.loadPluginModule('./shared/system-locale.cjs').systemLocale(),
-        dates,
-        heading: pop.querySelector('.ot-calendar-weekdays').firstElementChild.textContent,
-        weekdays: Array.from({ length: 7 }, (_, day) =>
-          new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(
-            new Date(2024, 0, 7 + day, 12),
+    const result = await page.evaluate(
+      (firstDay) => {
+        document.body.classList.add('is-mobile');
+        let pop = document.body.createDiv();
+        const { datePicker } = window.loadPluginModule('./shared/date-picker.cjs');
+        const options = {
+          kind: 'deadline',
+          value: '2026-10-19',
+          onSelect() {},
+          onClose() {},
+          setIcon() {},
+        };
+        datePicker(pop, options);
+        const dates = [...pop.querySelectorAll('[data-date]')].map((el) => el.dataset.date);
+        const heading = pop.querySelector('.ot-calendar-weekdays').firstElementChild.textContent;
+        pop.close(false);
+        pop = document.body.createDiv();
+        datePicker(pop, { ...options, weekStartsOn: firstDay });
+        return {
+          locale: new Intl.DateTimeFormat().resolvedOptions().locale,
+          dates,
+          heading,
+          override: pop.querySelector('[data-date]').dataset.date,
+          weekdays: Array.from({ length: 7 }, (_, day) =>
+            new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(
+              new Date(2024, 0, 7 + day, 12),
+            ),
           ),
-        ),
-      };
-    });
+        };
+      },
+      (firstDay + 1) % 7,
+    );
     assert.equal(
       new Intl.Locale(result.locale).maximize().region,
       new Intl.Locale(locale).maximize().region,
@@ -43,6 +53,7 @@ for (const [locale, firstDay] of [
       result.weekdays[firstDay].toLocaleLowerCase(locale),
     );
     assert.equal(new Date(result.dates[0] + 'T12:00:00').getDay(), firstDay);
+    assert.equal(new Date(result.override + 'T12:00:00').getDay(), (firstDay + 1) % 7);
     console.log('PASS WebKit calendar regional week start', locale, firstDay);
   } finally {
     await browser.close();

@@ -184,6 +184,7 @@ class TaskEditor {
     if (kind === 'when' || kind === 'deadline') {
       require('../shared/date-picker.cjs').datePicker(pop, {
         kind,
+        weekStartsOn: this.plugin.settings?.weekStartsOn,
         value: kind === 'when' && inEvening(draft.values, today()) ? 'evening' : draft.values[kind],
         onSelect: (value) => change(kind, value),
         setIcon,

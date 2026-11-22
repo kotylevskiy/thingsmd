@@ -1,5 +1,6 @@
 // Persisted preferences are normalized here; UI and policies consume this shape.
 const LOG_MODES = ['immediately', 'daily', 'weekly', 'monthly', 'manually'];
+const WEEK_START_OPTIONS = [1, 0, 6, 5];
 const { validTimeZone, systemTimeZone } = require('../shared/vault-time.cjs');
 function settings(data = {}) {
   return {
@@ -30,7 +31,8 @@ function settings(data = {}) {
     ].includes(data?.trashRetention)
       ? data.trashRetention
       : 'never',
+    weekStartsOn: WEEK_START_OPTIONS.includes(data?.weekStartsOn) ? data.weekStartsOn : null,
     timeZone: validTimeZone(data?.timeZone) ? data.timeZone : systemTimeZone(),
   };
 }
-module.exports = { settings };
+module.exports = { settings, WEEK_START_OPTIONS };

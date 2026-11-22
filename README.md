@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://kotylevskiy.github.io/thingsmd/#install"><img src="https://img.shields.io/badge/Obsidian-1.11.5%2B-7c3aed?logo=obsidian" alt="Requires Obsidian 1.11.5 or later"></a>
-  <a href="https://github.com/kotylevskiy/thingsmd/releases/latest"><img src="https://img.shields.io/badge/Latest_release-0.8.2-086ddd?logo=github" alt="Latest release 0.8.2"></a>
+  <a href="https://github.com/kotylevskiy/thingsmd/releases/latest"><img src="https://img.shields.io/badge/Latest_release-0.8.3-086ddd?logo=github" alt="Latest release 0.8.3"></a>
 </p>
 
 ![ThingsMD Today view beside Obsidian’s File Explorer, showing folders, regular notes, and project notes with task progress indicators](docs/assets/today.png)
@@ -20,6 +20,10 @@ Turn any note into a project, capture tasks as they come up, and plan your day i
 - Capture tasks from the command palette, with a global desktop shortcut.
 - See calendar events alongside tasks in Today and Upcoming.
 - Convert existing Markdown checkboxes, including Tasks Emoji and Dataview formats, into ThingsMD tasks.
+
+## Network use
+
+ThingsMD works offline for task management. If you add a calendar subscription, it connects to the calendar provider or self-hosted server you configure to download and refresh the iCal feed. The subscription URL is stored in Obsidian’s device-local Secret Storage, and downloaded calendar data is cached in your vault.
 
 ## Feedback and contributions
 

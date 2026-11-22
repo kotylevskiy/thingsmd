@@ -79,8 +79,8 @@ imports. Live Preview intercepts deletion before CodeMirror edits the hidden
 reference and delegates to the same Trash action as list rows. It never replaces
 the note buffer. Source mode remains native Markdown editing.
 
-`system-locale` resolves the OS locale at the host boundary; the date-picker model
-contains pure week-start policy and the compatibility fallback. Project navigation
+The date picker and Logbook use the browser locale and the vault's optional week-start
+setting. The date-picker model contains the locale policy and compatibility fallback. Project navigation
 resolves actual note references again before opening, so stale menu destinations
 cannot silently open the wrong task location.
 

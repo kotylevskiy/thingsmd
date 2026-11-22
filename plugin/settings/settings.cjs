@@ -1,4 +1,5 @@
 const { PluginSettingTab, Setting, Notice, Platform } = require('obsidian');
+const { WEEK_START_OPTIONS } = require('./settings-model.cjs');
 
 module.exports = function installSettingsUI(plugin) {
   class SettingsTab extends PluginSettingTab {
@@ -25,7 +26,7 @@ module.exports = function installSettingsUI(plugin) {
             plugin.updateSettings({ captureDestination: v }).catch((e) => new Notice(e.message)),
           );
         });
-      if (Platform.isDesktopApp)
+      if (Platform.isDesktopApp && !Platform.isMobile)
         this.disposeHotkey = require('./global-hotkey-setting.cjs')(plugin, this.containerEl);
       new Setting(this.containerEl)
         .setName('Enable Waiting For')
@@ -196,6 +197,29 @@ module.exports = function installSettingsUI(plugin) {
         cls: 'flair ot-setting-badge',
         text: 'Experimental',
       });
+      new Setting(this.containerEl)
+        .setName('First day of the week')
+        .setDesc(
+          'Sets the week boundary in date pickers and the Logbook. Automatic uses the browser locale.',
+        )
+        .addDropdown((dropdown) => {
+          const format = new Intl.DateTimeFormat(undefined, { weekday: 'long' });
+          dropdown.addOption('auto', 'Automatic');
+          for (const day of WEEK_START_OPTIONS)
+            dropdown.addOption(String(day), format.format(new Date(2024, 0, 7 + day, 12)));
+          dropdown.selectEl.setAttribute('aria-label', 'First day of the week');
+          const selection = () => String(plugin.settings.weekStartsOn ?? 'auto');
+          dropdown.setValue(selection()).onChange(async (value) => {
+            try {
+              await plugin.updateSettings({
+                weekStartsOn: value === 'auto' ? null : Number(value),
+              });
+            } catch (error) {
+              dropdown.setValue(selection());
+              new Notice(error.message);
+            }
+          });
+        });
       new Setting(this.containerEl)
         .setName('Vault time zone')
         .setDesc(

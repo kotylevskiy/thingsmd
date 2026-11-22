@@ -3,6 +3,12 @@ const assert = require('node:assert/strict');
 const { logbookGroups } = require('../plugin/lists/logbook-groups.cjs');
 const task = (id, completed, fields = {}) => ({ meta: { id, completed, ...fields } });
 const options = { now: new Date('2026-10-26T12:00:00Z'), timeZone: 'UTC', locale: 'en-GB' };
+test('an explicit Sunday overrides the locale week boundary without changing task dates', () => {
+  const tasks = [task('sunday', '2026-10-25T12:00:00Z')];
+  assert.equal(logbookGroups(tasks, options)[0].title, 'Last Week');
+  assert.equal(logbookGroups(tasks, { ...options, weekStartsOn: 0 })[0].title, 'Yesterday');
+});
+
 test('Logbook uses recent daily sections then calendar months, newest first', () => {
   const tasks = [
     task('old', '2025-10-12'),
