@@ -1,7 +1,6 @@
 const { Menu, Notice, MarkdownView } = require('obsidian');
 const { scan } = require('./format.cjs');
 const { taskReferences } = require('../notes/task-references.cjs');
-const { noteAccess } = require('../shared/note-access.cjs');
 
 const { labels, report } = require('./presentation.cjs');
 
@@ -24,61 +23,41 @@ module.exports = function installConversionUI(plugin) {
         await plugin.planConversion({ direction: 'inline', path, taskPath: task.file.path }),
       ),
     );
-  const notes = noteAccess(app);
   const rendered = new WeakMap(),
     sections = new WeakMap();
   let cache = new Map(),
     eligible = new Set();
-  let timer,
-    disposed = false,
-    refreshing = false,
-    pending = false;
+  let disposed = false,
+    revision = 0;
   async function refresh() {
-    // Keep one scan in flight, with at most one follow-up for changes during it.
-    if (disposed || refreshing) return;
-    refreshing = true;
-    pending = false;
+    const current = ++revision;
     try {
-      const tasks = await plugin.taskRecords();
-      if (disposed) return;
-      const nextEligible = new Set();
-      for (const task of tasks)
-        if (task.meta.conversion?.version === 1 && !task.conflicts?.length && !task.meta.deleted)
-          nextEligible.add(task.file.path);
-      const nextCache = new Map();
-      for (const file of app.vault.getMarkdownFiles()) {
-        const path = file.path;
-        if (!supported(file)) continue;
-        const text = await notes.read(file);
-        if (disposed) return;
-        // Store availability as each read finishes so a scan can release note text.
-        nextCache.set(path, available(text, undefined, nextEligible));
-      }
-      cache = nextCache;
-      eligible = nextEligible;
+      const records = await plugin.records();
+      if (disposed || current !== revision) return;
+      cache = new Map(
+        records.filter((r) => r.meta.type === 'thingsmd-project').map((r) => [r.file.path, r]),
+      );
+      eligible = new Set(
+        records
+          .filter(
+            (r) =>
+              r.meta.type === 'thingsmd-task' &&
+              r.meta.conversion?.version === 1 &&
+              !r.conflicts?.length &&
+              !r.meta.deleted,
+          )
+          .map((r) => r.file.path),
+      );
     } catch (error) {
       if (!disposed) console.error(error);
-    } finally {
-      refreshing = false;
-      if (pending && timer === undefined) void refresh();
     }
   }
-  const schedule = () => {
-    pending = true;
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      timer = undefined;
-      void refresh();
-    }, 100);
-  };
-  for (const event of ['create', 'modify', 'delete', 'rename'])
-    plugin.registerEvent(app.vault.on(event, schedule));
-  plugin.registerEvent(app.workspace.on('thingsmd-tasks-changed', schedule));
-  const available = (text, ranges, restorable = eligible) => {
+  plugin.registerEvent(app.workspace.on('thingsmd-tasks-changed', refresh));
+  const available = (text, ranges) => {
     const touches = (item) => !ranges || ranges.some((r) => item.from < r.to && item.to > r.from);
     return {
       thingsmd: scan(text).tasks.some(touches),
-      inline: taskReferences(text).some((ref) => restorable.has(ref.path) && touches(ref)),
+      inline: taskReferences(text).some((ref) => eligible.has(ref.path) && touches(ref)),
     };
   };
   const run = async (direction, path, text, ranges) => {
@@ -96,7 +75,14 @@ module.exports = function installConversionUI(plugin) {
   void refresh();
   function choicesFor(file, text, ranges) {
     if (!supported(file)) return {};
-    return text === undefined ? cache.get(file.path) || {} : available(text, ranges);
+    if (text !== undefined) return available(text, ranges);
+    const record = cache.get(file.path);
+    return record
+      ? {
+          thingsmd: record.hasInlineTasks,
+          inline: record.referencePaths.some((path) => eligible.has(path)),
+        }
+      : {};
   }
   function addItems(menu, file, text, ranges, choices = choicesFor(file, text, ranges), view) {
     for (const direction of ['thingsmd', 'inline'])
@@ -294,7 +280,6 @@ module.exports = function installConversionUI(plugin) {
   plugin.register(() => {
     disposed = true;
     delete plugin.convertTaskToInline;
-    clearTimeout(timer);
     promptObserver.disconnect();
     cache.clear();
     eligible.clear();

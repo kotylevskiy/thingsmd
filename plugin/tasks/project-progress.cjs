@@ -1,25 +1,14 @@
 const { isFinished } = require('./task-status.cjs');
-const { taskReferences } = require('../notes/task-references.cjs');
 function projectProgress(records) {
   const result = new Map();
-  const tasks = new Map(
-    records
-      .filter(
-        (task) => task.meta.type === 'thingsmd-task' && !task.meta.deleted && !task.meta.repeat,
-      )
-      .map((task) => [task.file.path, task]),
-  );
-  for (const note of records.filter((record) => record.meta.type === 'thingsmd-project')) {
-    const paths = new Set(taskReferences(note.body || '').map((reference) => reference.path));
-    let total = 0,
-      done = 0;
-    for (const path of paths) {
-      const task = tasks.get(path);
-      if (!task) continue;
-      total++;
-      if (isFinished(task.meta)) done++;
+  for (const task of records) {
+    if (task.meta.type !== 'thingsmd-task' || task.meta.deleted || task.meta.repeat) continue;
+    for (const path of task.references || []) {
+      if (!result.has(path)) result.set(path, { total: 0, done: 0 });
+      const progress = result.get(path);
+      progress.total++;
+      if (isFinished(task.meta)) progress.done++;
     }
-    if (total) result.set(note.file.path, { total, done });
   }
   return result;
 }
@@ -134,8 +123,6 @@ function install(plugin) {
   };
   plugin.registerEvent(plugin.app.workspace.on('thingsmd-tasks-changed', schedule));
   plugin.registerEvent(plugin.app.workspace.on('layout-change', attach));
-  for (const event of ['create', 'modify', 'delete', 'rename'])
-    plugin.registerEvent(plugin.app.vault.on(event, schedule));
   plugin.app.workspace.onLayoutReady(() => {
     if (!disposed) {
       attach();

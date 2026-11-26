@@ -64,9 +64,6 @@ function install(plugin) {
     timer = setTimeout(refresh, 100);
   };
   plugin.registerEvent(plugin.app.workspace.on('thingsmd-tasks-changed', schedule));
-  for (const event of ['create', 'modify', 'delete', 'rename']) {
-    plugin.registerEvent(plugin.app.vault.on(event, schedule));
-  }
   plugin.register(() => {
     disposed = true;
     clearTimeout(timer);

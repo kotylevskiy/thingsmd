@@ -25,7 +25,7 @@ Turn any note into a project, capture tasks as they come up, and plan your day i
 ## System access and network use
 
 - **Network use.** ThingsMD works offline for task management. If you add a calendar subscription, it connects to the calendar provider or self-hosted server you configure to download and refresh the iCal feed. Obsidian’s device-local Secret Storage holds the subscription URL, and ThingsMD caches downloaded calendar data in your vault.
-- **Vault access.** ThingsMD reads and writes Markdown files in the active vault. It scans notes to find task embeds and project associations and to convert checkboxes when you run vault-wide conversion.
+- **Vault access.** ThingsMD reads and writes Markdown files in the active vault. It reads notes locally to find task embeds, identify which notes contain tasks, and check which Markdown checkboxes can be converted.
 - **Clipboard access.** Cutting or copying a task writes its Markdown embed to the clipboard. ThingsMD checks the text supplied by a paste event to handle task transfers. Option/Alt+Paste reads the clipboard to verify that it still contains the copied task before moving it. Clipboard text stays on the device.
 - **Electron IPC.** The optional desktop global capture shortcut uses inter-process communication (IPC). When you press the shortcut, Electron focuses Obsidian and sends a signal to open Quick Capture. The signal carries no task data.
 

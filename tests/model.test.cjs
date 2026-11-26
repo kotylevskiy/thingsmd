@@ -87,17 +87,25 @@ test('Evening belongs to Today and Anytime, and rolls into regular Today tomorro
   }
 });
 test('Upcoming exposes seven calendar days plus later populated dates', () => {
-  const { upcomingDays } = require('../plugin/tasks/model.cjs');
-  assert.deepEqual(upcomingDays([{ meta: { when: '2027-02-01' } }], '2026-12-29'), [
-    '2026-12-30',
-    '2026-12-31',
-    '2027-01-01',
-    '2027-01-02',
-    '2027-01-03',
-    '2027-01-04',
-    '2027-01-05',
-    '2027-02-01',
-  ]);
+  const { upcomingGroups } = require('../plugin/tasks/model.cjs');
+  const scheduled = { meta: { when: '2027-02-01', deadline: '2027-02-02' } };
+  const deadline = { meta: { deadline: '2027-02-01' } };
+  const groups = upcomingGroups([scheduled, deadline], '2026-12-29');
+  assert.deepEqual(
+    groups.map(([date]) => date),
+    [
+      '2026-12-30',
+      '2026-12-31',
+      '2027-01-01',
+      '2027-01-02',
+      '2027-01-03',
+      '2027-01-04',
+      '2027-01-05',
+      '2027-02-01',
+    ],
+  );
+  assert.deepEqual(groups.at(-1)[1], [scheduled, deadline]);
+  assert.ok(groups.slice(0, 7).every(([, tasks]) => tasks.length === 0));
 });
 test('start dates and deadlines remain independent at list boundaries', () => {
   const { inList } = require('../plugin/tasks/model.cjs'),

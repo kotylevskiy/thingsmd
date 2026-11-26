@@ -40,11 +40,11 @@ function shouldLog(meta, today, mode = 'daily', timeZone) {
   const end = loggingDay(meta, mode, timeZone);
   return !end || end <= today;
 }
-function trashExpired(meta, retention, now = new Date()) {
-  if (!meta.deleted || retention === 'never') return false;
-  if (retention === 'immediately') return true;
+function trashExpiresAt(meta, retention) {
+  if (!meta.deleted || retention === 'never') return Infinity;
+  if (retention === 'immediately') return -Infinity;
   const deleted = new Date(meta.deletedAt);
-  if (!meta.deletedAt || Number.isNaN(deleted.getTime())) return false;
+  if (!meta.deletedAt || Number.isNaN(deleted.getTime())) return Infinity;
   const expires = new Date(deleted);
   if (retention === '1-week') expires.setDate(expires.getDate() + 7);
   else if (RETENTION_MONTHS[retention]) {
@@ -54,7 +54,8 @@ function trashExpired(meta, retention, now = new Date()) {
     expires.setDate(
       Math.min(day, new Date(expires.getFullYear(), expires.getMonth() + 1, 0).getDate()),
     );
-  } else return false;
-  return expires <= now;
+  } else return Infinity;
+  return expires.getTime();
 }
-module.exports = { shouldLog, plannedLogAt, trashExpired };
+const trashExpired = (meta, retention, now = new Date()) => trashExpiresAt(meta, retention) <= now;
+module.exports = { shouldLog, plannedLogAt, trashExpired, trashExpiresAt };

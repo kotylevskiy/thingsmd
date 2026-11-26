@@ -33,6 +33,18 @@ test('Quick Find includes project navigation and preserves each reference contex
     ['Trip.md', 'Other.md'],
   );
 });
+test('Quick Find keeps legacy project aliases and deduplicates matching reference paths', () => {
+  const rows = [
+    { file: { path: 'A.md' }, meta: { type: 'thingsmd-project', title: 'Alpha', id: 'shared' } },
+    { file: { path: 'B.md' }, meta: { type: 'thingsmd-project', title: 'Beta', id: 'shared' } },
+    { ...task('Tickets', { project: 'shared' }), references: ['B.md'] },
+  ];
+  assert.deepEqual(
+    search(rows, 'Tickets', opts).map(({ path }) => path),
+    ['B.md', 'A.md'],
+  );
+  for (const title of ['Alpha', 'Beta']) assert.equal(search(rows, title, opts)[0].kind, 'project');
+});
 test('Quick Find respects hidden Inbox/Trash and ranks exact titles first', () => {
   assert.ok(
     !search([], '', {

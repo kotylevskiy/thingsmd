@@ -19,11 +19,15 @@ function fixture({ storageExists = true } = {}) {
         : localRequire(name),
   });
   const files = new Map();
+  const events = new Map();
   const plugin = {
     tasksChanged() {},
+    register() {},
+    registerEvent() {},
     app: {
-      workspace: { getLeavesOfType: () => [] },
+      workspace: { getLeavesOfType: () => [], on() {} },
       vault: {
+        on: (event, callback) => events.set(event, callback),
         adapter: {
           exists: async (path) => (path === 'ThingsMD' ? storageExists : files.has(path)),
           mkdir: async () => {
@@ -50,8 +54,79 @@ function fixture({ storageExists = true } = {}) {
   };
   module.exports(plugin);
   require('../plugin/tasks/task-actions.cjs')(plugin);
-  return { plugin, files };
+  return { plugin, files, events };
 }
+
+test('the vault index shares scans and rereads only the changed note or task', async () => {
+  const { plugin, files, events } = fixture();
+  const task = await plugin.createTask({ title: 'Original' }, 'indexed');
+  files.set('P.md', `![[${task.file.path}]]\n- [ ] Inline\n`);
+  files.set('Unrelated.md', 'Ordinary prose');
+  const reads = [];
+  for (const [owner, key] of [
+    [plugin.app.vault, 'read'],
+    [plugin.app.vault.adapter, 'read'],
+  ]) {
+    const read = owner[key];
+    owner[key] = async (file) => {
+      reads.push(typeof file === 'string' ? file : file.path);
+      return read(file);
+    };
+  }
+  const [records, other] = await Promise.all([
+    plugin.records(),
+    plugin.records(),
+    plugin.indexedTasks(),
+  ]);
+  assert.equal(other, records);
+  assert.deepEqual(reads.sort(), ['P.md', task.file.path, 'Unrelated.md'].sort());
+  const project = records.find((r) => r.file.path === 'P.md');
+  assert.equal(project.hasInlineTasks, true);
+  assert.equal(project.body, undefined);
+  reads.length = 0;
+  files.set('P.md', 'New prose');
+  events.get('modify')({ path: 'P.md', extension: 'md' });
+  const changed = await plugin.records();
+  assert.deepEqual(reads, ['P.md']);
+  assert.equal(changed.find((r) => r.file.path === task.file.path).references.length, 0);
+  reads.length = 0;
+  assert.equal(await plugin.records(), changed);
+  assert.deepEqual(reads, []);
+});
+
+test('a file change during an indexed read cannot publish the old note', async () => {
+  const { plugin, files, events } = fixture();
+  files.set('Project.md', 'Before');
+  let release, started;
+  const entered = new Promise((resolve) => {
+    started = resolve;
+  });
+  plugin.app.vault.read = async ({ path }) => {
+    const text = files.get(path);
+    if (text === 'Before') {
+      started();
+      await new Promise((resolve) => {
+        release = resolve;
+      });
+    }
+    return text;
+  };
+  const pending = plugin.records();
+  await entered;
+  files.set('Project.md', '- [ ] After');
+  events.get('modify')({ path: 'Project.md', extension: 'md' });
+  release();
+  assert.equal((await pending)[0].hasInlineTasks, true);
+});
+
+test('the fallback task probe finds an unannounced adapter-only file', async () => {
+  const { plugin, files } = fixture();
+  const task = await plugin.createTask({ title: 'First' }, 'first');
+  await plugin.indexedTasks();
+  files.set('ThingsMD/copy.md', files.get(task.file.path));
+  assert.equal(await plugin.probeTaskFiles(), true);
+  assert.equal((await plugin.indexedTasks())[0].conflicts[0].file.path, 'ThingsMD/copy.md');
+});
 
 test('placement ignores fenced, inline and frontmatter examples but indexes real references', async () => {
   const { plugin, files } = fixture();

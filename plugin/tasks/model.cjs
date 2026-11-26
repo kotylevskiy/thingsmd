@@ -33,14 +33,16 @@ const inToday = (meta, today) =>
     meta.deadlineDeferredOn !== today &&
     dateReached(meta.deadline, today));
 const inEvening = (meta, today) => meta.evening === today && inToday(meta, today);
-const upcomingDays = (tasks, today) => {
-  return [
-    ...new Set([
-      ...Array.from({ length: 7 }, (_, i) => addDays(today, i + 1)),
-      ...tasks.flatMap((task) => upcomingDates(task.meta, today)),
-    ]),
-  ].sort();
-};
+function upcomingGroups(tasks, today) {
+  const groups = new Map(Array.from({ length: 7 }, (_, i) => [addDays(today, i + 1), []]));
+  for (const task of tasks) {
+    for (const date of upcomingDates(task.meta, today)) {
+      if (!groups.has(date)) groups.set(date, []);
+      groups.get(date).push(task);
+    }
+  }
+  return [...groups.keys()].sort().map((date) => [date, groups.get(date)]);
+}
 const futureDate = (value, today) => validDate(value) && value > today;
 const inInbox = (task, today = localDay(new Date())) =>
   !task.meta.project && !task.references?.length && !task.meta.when && !inToday(task.meta, today);
@@ -63,10 +65,11 @@ function inList(
   captureDestination = 'inbox',
   enableWaiting = true,
   timeZone,
+  vaultToday,
 ) {
   if (list === 'trash') return !!task.meta.deleted;
   if (task.meta.deleted) return false;
-  const logged = isLogged(task.meta, timeZone ? undefined : today, mode, timeZone);
+  const logged = isLogged(task.meta, vaultToday ?? (timeZone ? undefined : today), mode, timeZone);
   if (list === 'logbook') return logged;
   if (logged) return false;
   if (list === 'repeating') return !!(task.meta.repeat || task.meta.repeatSource);
@@ -98,7 +101,7 @@ function inList(
 }
 module.exports = {
   inEvening,
-  upcomingDays,
+  upcomingGroups,
   isLogged,
   isHidden,
   inList,

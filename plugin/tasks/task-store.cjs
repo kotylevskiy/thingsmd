@@ -4,9 +4,9 @@ const { parseYaml, stringifyYaml } = require('obsidian');
 const { DEFAULT_FOLDER } = require('./task-folder-policy.cjs');
 const { noteAccess } = require('../shared/note-access.cjs');
 const { applySchedulePolicy } = require('./task-schedule.cjs');
-const { taskReferences } = require('../notes/task-references.cjs');
 const { canonicalType } = require('../legacy-identifiers.cjs');
 const { selectTaskVersions } = require('./task-identity.cjs');
+const installVaultIndex = require('./vault-index.cjs');
 const uid = () => crypto.randomUUID();
 function decode(text) {
   const record = require('../shared/markdown-document.cjs').decode(text, parseYaml);
@@ -26,6 +26,28 @@ async function readDuringScan(adapter, path, read) {
   }
 }
 
+const taskFolder = (plugin) => plugin.settings?.tasksFolder || DEFAULT_FOLDER;
+
+async function listTasks(plugin) {
+  const folder = taskFolder(plugin);
+  const { adapter } = plugin.app.vault;
+  if (!(await adapter.exists(folder))) return [];
+  const listing = await readDuringScan(adapter, folder, () => adapter.list(folder));
+  return (listing?.files || [])
+    .filter((path) => path.endsWith('.md'))
+    .sort()
+    .map((path) => ({ path, basename: path.split('/').pop().slice(0, -3) }));
+}
+
+async function scanTask(plugin, file) {
+  const text = await readDuringScan(plugin.app.vault.adapter, file.path, () =>
+    plugin.readTask(file.path),
+  );
+  if (text === null) return null;
+  const record = decode(text);
+  return record.meta.type === 'thingsmd-task' ? { file, ...record } : null;
+}
+
 const methods = {
   async readTask(file) {
     const path = typeof file === 'string' ? file : file.path;
@@ -37,68 +59,9 @@ const methods = {
     return { raw, ...decode(raw) };
   },
   async taskRecords() {
-    const TASKS = this.settings?.tasksFolder || DEFAULT_FOLDER;
-    const adapter = this.app.vault.adapter;
-    if (!(await adapter.exists(TASKS))) return [];
-    const listing = await readDuringScan(adapter, TASKS, () => adapter.list(TASKS));
-    if (!listing) return [];
-    const { files } = listing;
-    const records = await Promise.all(
-      files
-        .filter((path) => path.endsWith('.md'))
-        .sort()
-        .map(async (path) => {
-          const text = await readDuringScan(adapter, path, () => this.readTask(path));
-          return text === null
-            ? null
-            : {
-                file: { path, basename: path.split('/').pop().slice(0, -3) },
-                ...decode(text),
-              };
-        }),
-    );
-    return selectTaskVersions(records.filter((record) => record?.meta.type === 'thingsmd-task'));
-  },
-  async records() {
-    const tasks = await this.taskRecords();
-    const versions = tasks.flatMap((task) => [task, ...(task.conflicts || [])]);
-    const taskPaths = new Set(versions.map((task) => task.file.path));
-    const notesAccess = noteAccess(this.app);
-    const notes = (
-      await Promise.all(
-        this.app.vault
-          .getMarkdownFiles()
-          .filter((file) => !taskPaths.has(file.path))
-          .map(async (file) => {
-            const text = await readDuringScan(this.app.vault.adapter, file.path, () =>
-              notesAccess.read(file),
-            );
-            if (text === null) return null;
-            const record = decode(text);
-            if (record.meta.type === 'thingsmd-task') return null;
-            return {
-              file,
-              ...record,
-              meta: {
-                ...record.meta,
-                type: 'thingsmd-project',
-                id: record.meta.id || file.path,
-                title: record.meta.title || file.basename,
-              },
-            };
-          }),
-      )
-    ).filter(Boolean);
-    // Placement is determined by references in ordinary notes, not a folder or
-    // a mandatory project frontmatter property. Keep it separate from disk metadata.
-    const references = new Map();
-    for (const note of notes)
-      for (const path of new Set(taskReferences(note.body).map((reference) => reference.path))) {
-        if (!references.has(path)) references.set(path, []);
-        references.get(path).push(note.file.path);
-      }
-    for (const task of versions) task.references = references.get(task.file.path) || [];
-    return [...notes, ...tasks];
+    const files = await listTasks(this);
+    const records = await Promise.all(files.map((file) => scanTask(this, file)));
+    return selectTaskVersions(records.filter(Boolean));
   },
   async assertTaskAuthority(file, id) {
     if (typeof id !== 'string' || !id.trim()) return;
@@ -129,6 +92,7 @@ const methods = {
         throw new Error('This task changed elsewhere. Please try again.');
       if (indexed) await noteAccess(this.app).write(indexed, current, next, { save: true });
       else await this.app.vault.adapter.write(file.path, next);
+      this.invalidateVaultPath(file.path);
       this.tasksChanged();
       return { file: { path: file.path, basename: file.basename }, ...record };
     });
@@ -142,6 +106,7 @@ const methods = {
       const indexed = this.app.vault.getAbstractFileByPath?.(path);
       if (indexed) await this.app.vault.delete(indexed);
       else await this.app.vault.adapter.remove(path);
+      this.invalidateVaultPath(path);
       this.tasksChanged();
     });
   },
@@ -186,6 +151,7 @@ const methods = {
       const file = this.app.vault.create
         ? await this.app.vault.create(path, encode(record))
         : (await adapter.write(path, encode(record)), { path, basename: id });
+      this.invalidateVaultPath(path);
       this.tasksChanged();
       return { file: { path: file.path, basename: file.basename }, ...record };
     });
@@ -196,4 +162,14 @@ const methods = {
 module.exports = function installTaskStore(plugin) {
   plugin.taskQueue = new WriteQueue();
   Object.assign(plugin, methods);
+  const notes = noteAccess(plugin.app);
+  installVaultIndex(plugin, {
+    folder: () => taskFolder(plugin),
+    listTasks: () => listTasks(plugin),
+    readTask: (file) => scanTask(plugin, file),
+    readNote: async (file) => {
+      const raw = await readDuringScan(plugin.app.vault.adapter, file.path, () => notes.read(file));
+      return raw === null ? null : { raw, ...decode(raw) };
+    },
+  });
 };

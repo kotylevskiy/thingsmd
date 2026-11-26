@@ -13,7 +13,9 @@ function fixture(paths) {
     records: async () =>
       [...texts].map(([path, body]) => ({
         file: { path },
-        body,
+        referencePaths: require('../plugin/notes/task-references.cjs')
+          .taskReferences(body)
+          .map((ref) => ref.path),
         meta: { type: 'thingsmd-project' },
       })),
     app: {

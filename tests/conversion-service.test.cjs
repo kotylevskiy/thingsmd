@@ -9,6 +9,7 @@ function fixture(
   const files = new Map(Object.entries(initial));
   const file = (path) => ({ path, basename: path.split('/').pop().slice(0, -3), extension: 'md' });
   const vault = {
+    on() {},
     getAbstractFileByPath: (path) => (files.has(path) ? file(path) : null),
     getMarkdownFiles: () => [...files.keys()].map(file),
     read: async (f) => {
@@ -37,10 +38,11 @@ function fixture(
     },
   };
   const plugin = {
-    app: { vault, workspace: { getLeavesOfType: () => [] } },
+    app: { vault, workspace: { getLeavesOfType: () => [], on() {} } },
     settings: { tasksFolder: 'ThingsMD' },
     tasksChanged() {},
     register() {},
+    registerEvent() {},
     assertTaskAuthority: async () => {},
   };
   const filename = require.resolve('../plugin/tasks/task-store.cjs');

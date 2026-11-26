@@ -119,10 +119,13 @@ module.exports = function installRepeating(plugin) {
     await writeRule(task, next);
     return copy;
   };
-  const reconcile = async (now = new Date()) => {
+  const reconcile = async (now = new Date(), records) => {
     const today = calendarDay(now);
-    const templates = (await plugin.taskRecords()).filter((t) => t.meta.repeat && !t.meta.deleted);
+    records ??= await plugin.taskRecords();
+    const byId = new Map(records.map((task) => [task.meta.id, task]));
+    const templates = records.filter((t) => t.meta.repeat && !t.meta.deleted);
     const errors = [];
+    let moreDue = false;
     for (let task of templates) {
       if (disposed) return;
       try {
@@ -130,14 +133,14 @@ module.exports = function installRepeating(plugin) {
         validate(rule);
         if (rule.paused) continue;
         if (rule.mode === 'completion' && !rule.waitingFor && rule.lastCopy && rule.next) {
-          const previous = await find(rule.lastCopy);
+          const previous = byId.get(rule.lastCopy);
           if (previous && !previous.meta.deleted && !isFinished(previous.meta)) {
             rule = { ...rule, waitingFor: previous.meta.id, next: null };
             task = await writeRule(task, rule);
           }
         }
         if (rule.waitingFor) {
-          const previous = await find(rule.waitingFor);
+          const previous = byId.get(rule.waitingFor);
           if (isFinished(previous?.meta) && !previous.meta.deleted && previous.meta.completed) {
             const completed = new Date(previous.meta.completed);
             if (!Number.isNaN(completed.getTime())) {
@@ -157,14 +160,17 @@ module.exports = function installRepeating(plugin) {
           task = await find(task.meta.id);
           if (task.meta.repeat.mode === 'completion') break;
         }
+        moreDue ||= !!task.meta.repeat.next && availableDate(task.meta.repeat) <= today;
+        byId.set(task.meta.id, task);
       } catch (error) {
         errors.push(error);
       }
     }
     if (errors.length) throw new AggregateError(errors, errors.map((e) => e.message).join('\n'));
+    return moreDue;
   };
   const api = (plugin.repeating = {
-    tick: (now) => serial(() => reconcile(now)),
+    tick: (now, records) => serial(() => reconcile(now, records)),
     configure: (task, config) =>
       serial(async () => {
         const current = await find(task.meta.id);

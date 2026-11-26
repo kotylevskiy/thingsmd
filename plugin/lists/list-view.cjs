@@ -63,8 +63,6 @@ class ThingsMDView extends ItemView {
         if (!this.editing && !this.busy && !this.dragging) this.render();
       }, 180);
     };
-    for (const event of ['modify', 'create', 'delete', 'rename'])
-      this.registerEvent(this.app.vault.on(event, refresh));
     this.registerEvent(this.app.workspace.on('thingsmd-tasks-changed', refresh));
     this.registerEvent(
       this.app.workspace.on('thingsmd-calendar-changed', () => {
@@ -371,7 +369,9 @@ class ThingsMDView extends ItemView {
         check.checked = !done;
         return;
       }
-      const current = (await this.plugin.records()).find((t) => t.meta.id === task.meta.id);
+      const current = (await this.plugin.records()).find(
+        (t) => t.meta.type === 'thingsmd-task' && t.meta.id === task.meta.id,
+      );
       if (current)
         this.run(() =>
           this.plugin.patchTask(current, {

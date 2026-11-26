@@ -1,5 +1,6 @@
 const { taskReferences } = require('./task-references.cjs');
 const { nextFence } = require('../shared/markdown-fence.cjs');
+const { dayKey: vaultDay } = require('../shared/vault-time.cjs');
 const {
   editorLivePreviewField,
   editorInfoField,
@@ -9,6 +10,18 @@ const {
 const { StateField, StateEffect, Prec } = require('@codemirror/state');
 const { EditorView, Decoration, WidgetType } = require('@codemirror/view');
 
+function referenceStructureChanged({ changes, startState, newDoc }) {
+  // A changed line can alter a standalone embed, a code fence, or frontmatter.
+  // Inspect complete old and new lines so splitting or joining them counts too.
+  const structural = (doc, from, to) =>
+    /!\[\[|---|`{3}|~{3}/.test(doc.sliceString(doc.lineAt(from).from, doc.lineAt(to).to));
+  let changed = false;
+  changes.iterChangedRanges((fromA, toA, fromB, toB) => {
+    changed ||= structural(startState.doc, fromA, toA) || structural(newDoc, fromB, toB);
+  });
+  return changed;
+}
+
 module.exports = async function installNative(plugin) {
   const { isHidden: hiddenByPolicy } = require('../tasks/model.cjs');
   const isHidden = (meta) =>
@@ -16,7 +29,15 @@ module.exports = async function installNative(plugin) {
   const refresh = StateEffect.define();
   const editors = new Set();
   const cards = new Set();
-  let records = [];
+  let byPath = new Map();
+  let previous, policy;
+  const pathIndex = (records) =>
+    new Map(
+      records.flatMap((record) => [
+        [record.file.path, record],
+        ...(record.conflicts || []).map((copy) => [copy.file.path, record]),
+      ]),
+    );
   const pendingCreations = new Map();
   const deleteFromNote = require('../tasks/task-deletion-history.cjs')(plugin);
   const openOnCreate = new Set();
@@ -29,19 +50,25 @@ module.exports = async function installNative(plugin) {
     // Multiple Reading-view sections can need the task index in the same render.
     if (loading?.version === current) return loading.work;
     const work = plugin
-      .taskRecords()
+      .indexedTasks()
       .then((next) => {
         if (disposed || current !== version) return next;
-        records = [
-          ...next,
-          ...records.filter(
-            (r) =>
-              pendingCreations.has(r.file.path) && !next.some((n) => n.file.path === r.file.path),
-          ),
-        ];
-        for (const card of cards) card.render();
-        for (const view of editors) view.dispatch({ effects: refresh.of(null) });
-        return records;
+        const { enableWaiting, logbook, timeZone } = plugin.settings;
+        const currentPolicy = `${enableWaiting}/${logbook}/${vaultDay(new Date(), timeZone)}`;
+        const changed = next !== previous;
+        if (changed) {
+          const paths = pathIndex(next);
+          for (const path of pendingCreations.keys())
+            if (!paths.has(path) && byPath.has(path)) paths.set(path, byPath.get(path));
+          byPath = paths;
+          previous = next;
+          for (const view of editors) view.dispatch({ effects: refresh.of(null) });
+        }
+        if (changed || currentPolicy !== policy) {
+          policy = currentPolicy;
+          for (const card of cards) card.render();
+        }
+        return next;
       })
       .finally(() => {
         if (loading?.work === work) loading = undefined;
@@ -58,23 +85,10 @@ module.exports = async function installNative(plugin) {
     clearTimeout(timer);
     timer = setTimeout(() => reload()?.catch(console.error), delay);
   };
-  for (const event of ['modify', 'create', 'delete', 'rename'])
-    plugin.registerEvent(
-      plugin.app.vault.on(event, (file, oldPath) => {
-        const folder = plugin.settings.tasksFolder;
-        if ([file.path, oldPath].some((path) => path === folder || path?.startsWith(folder + '/')))
-          schedule(150);
-      }),
-    );
   plugin.registerEvent(plugin.app.workspace.on('thingsmd-tasks-changed', () => schedule(50)));
   await reload();
   if (disposed) return;
-  const lookup = (path) =>
-    records.find(
-      (r) =>
-        r.meta.type === 'thingsmd-task' &&
-        (r.file.path === path || r.conflicts?.some((copy) => copy.file.path === path)),
-    );
+  const lookup = (path) => byPath.get(path);
   const isTaskPath = (path) =>
     !!lookup(path) ||
     (path.startsWith(plugin.settings.tasksFolder + '/') &&
@@ -97,7 +111,12 @@ module.exports = async function installNative(plugin) {
         pendingCreations,
         openOnCreate,
         onSaved: (updated) => {
-          records = records.map((r) => (r.file.path === updated.file.path ? updated : r));
+          const previous = lookup(updated.file.path);
+          const task = previous?.conflicts
+            ? { ...updated, conflicts: previous.conflicts }
+            : updated;
+          byPath.set(task.file.path, task);
+          for (const copy of task.conflicts || []) byPath.set(copy.file.path, task);
         },
         onMount: (card) => cards.add(card),
         onDispose: (card) => cards.delete(card),
@@ -133,16 +152,9 @@ module.exports = async function installNative(plugin) {
     });
     const snapshot = needsReload ? await reload() : undefined;
     if (disposed) return;
-    const knownPaths =
-      snapshot &&
-      snapshot !== records &&
-      new Set(
-        snapshot.flatMap((record) => [
-          record.file.path,
-          ...(record.conflicts || []).map((copy) => copy.file.path),
-        ]),
-      );
+    const knownPaths = snapshot && pathIndex(snapshot);
     const usedLines = new Set();
+    const linesByText = new Map();
     for (const embed of element.querySelectorAll('.internal-embed')) {
       if (embed.closest('.ot-native')) continue;
       const source = embed.getAttribute('src') || '';
@@ -151,7 +163,8 @@ module.exports = async function installNative(plugin) {
       if (!isTaskPath(path) && !knownPaths?.has(path)) continue;
       const section = context.getSectionInfo(embed);
       if (!section) continue;
-      const lines = section.text.split('\n');
+      if (!linesByText.has(section.text)) linesByText.set(section.text, section.text.split('\n'));
+      const lines = linesByText.get(section.text);
       const reference = lines.slice(section.lineStart, section.lineEnd + 1);
       const offset = reference.findIndex(
         (line, index) => line === `![[${source}]]` && !usedLines.has(section.lineStart + index),
@@ -189,10 +202,9 @@ module.exports = async function installNative(plugin) {
   plugin.register(() => {
     for (const card of [...cards]) card.dispose();
   });
-  const build = (state) => {
-    if (!state.field(editorLivePreviewField, false)) return Decoration.none;
+  const build = (state, references) => {
     const ranges = [];
-    for (const reference of taskReferences(state.doc.toString())) {
+    for (const reference of references) {
       if (!isTaskPath(reference.path)) continue;
       ranges.push(
         Decoration.replace({
@@ -202,12 +214,24 @@ module.exports = async function installNative(plugin) {
         }).range(reference.from, state.doc.lineAt(reference.from).to),
       );
     }
-    return Decoration.set(ranges);
+    return { references, decorations: Decoration.set(ranges) };
   };
+  const empty = { references: [], decorations: Decoration.none };
+  const live = (state) => state.field(editorLivePreviewField, false);
+  const parse = (state) => build(state, taskReferences(state.doc.toString()));
   const field = StateField.define({
-    create: build,
-    update: (value, tr) => (tr.docChanged || tr.effects.length ? build(tr.state) : value),
-    provide: (f) => EditorView.decorations.from(f),
+    create: (state) => (live(state) ? parse(state) : empty),
+    update(value, tr) {
+      if (!live(tr.state)) return empty;
+      if (value === empty || (tr.docChanged && referenceStructureChanged(tr)))
+        return parse(tr.state);
+      const references = tr.docChanged
+        ? value.references.map((ref) => ({ ...ref, from: tr.changes.mapPos(ref.from, 1) }))
+        : value.references;
+      if (tr.effects.some((effect) => effect.is(refresh))) return build(tr.state, references);
+      return tr.docChanged ? { references, decorations: value.decorations.map(tr.changes) } : value;
+    },
+    provide: (f) => EditorView.decorations.from(f, (value) => value.decorations),
   });
   const { ViewPlugin } = require('@codemirror/view');
   plugin.registerEditorExtension([
@@ -236,10 +260,12 @@ module.exports = async function installNative(plugin) {
           this.column = 0;
           const taskWidgetAt = (line) => {
             let widget;
-            view.state.field(field).between(line.from, line.to, (from, to, decoration) => {
-              if (from === line.from && decoration.spec.widget instanceof TaskWidget)
-                widget = decoration.spec.widget;
-            });
+            view.state
+              .field(field)
+              .decorations.between(line.from, line.to, (from, to, decoration) => {
+                if (from === line.from && decoration.spec.widget instanceof TaskWidget)
+                  widget = decoration.spec.widget;
+              });
             return widget;
           };
           const taskAt = (line) => {
@@ -469,7 +495,7 @@ module.exports = async function installNative(plugin) {
           meta: { type: 'thingsmd-task', id, status: 'todo', ...fields },
           body: '',
         };
-        records.push(provisional);
+        byPath.set(path, provisional);
         openOnCreate.add(path);
         let writing;
         const ensureCreated = () => {
@@ -480,7 +506,7 @@ module.exports = async function installNative(plugin) {
               // Adopt creation defaults once, before its first draft save;
               // later reloads must keep their normal conflict protection.
               Object.assign(provisional, task);
-              records = records.map((r) => (r.file.path === path ? task : r));
+              byPath.set(path, task);
               pendingCreations.delete(path);
               return task;
             },

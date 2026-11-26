@@ -28,6 +28,7 @@ folders. Tests stay in `tests/`; browser fixtures load plugin modules recursivel
 | Responsibility                                                 | Modules                                                                        |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | Task persistence and optimistic conflict checks                | `task-store`, `note-access`, `write-queue`                                     |
+| Shared task and project reads                                  | `vault-index`                                                                  |
 | Markdown structure and task placements                         | `markdown-document`, `markdown-fence`, `task-references`                       |
 | Scheduling, repetition, list membership and presentation rules | `task-status`, `task-schedule`, `repeat-model`, `model`, `task-presentation`   |
 | Settings validation and persistence                            | `settings-model`, `settings-service`                                           |
@@ -53,6 +54,14 @@ List notices consider membership of both the selected version and the extra
 copies. Writes recheck selection so a draft opened before sync cannot modify an
 extra copy or silently redirect itself to the newly selected document. This is a
 document-selection heuristic, not a merge of offline edits or a sync transaction.
+
+Lists, badges, search, embedded cards and conversion availability share the
+vault index. Vault and open-editor changes invalidate affected paths. Project
+entries keep metadata, standalone reference paths and checkbox availability.
+Write-time task identity and note checks still read current files and buffers.
+Background work uses the shared task snapshot, calendar boundaries and the next
+Trash expiry. A periodic folder probe catches adapter changes that arrive
+before Obsidian's vault events.
 
 Native Obsidian owns Markdown body editing. The public editor-extension bridge in
 `task-note-frontmatter` applies checked metadata updates without replacing the

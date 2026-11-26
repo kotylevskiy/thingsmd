@@ -1,6 +1,6 @@
 const { setIcon, Notice } = require('obsidian');
-const { upcomingDays, upcomingDates, inEvening } = require('../tasks/model.cjs');
-const { today, dayAfter } = require('../shared/local-date.cjs');
+const { upcomingGroups, inEvening } = require('../tasks/model.cjs');
+const { today, addDays } = require('../shared/local-date.cjs');
 const { button } = require('../shared/dom.cjs');
 const { renderProgress } = require('../tasks/project-progress.cjs');
 
@@ -27,8 +27,18 @@ module.exports = function renderListContents(view, paper, active, progress) {
       view.group(section, tasks, key);
     }
   } else if (view.page === 'upcoming') {
-    const dates = upcomingDays(active, today());
-    for (const date of dates) {
+    const day = today();
+    const tomorrow = addDays(day, 1),
+      week = addDays(day, 7),
+      year = Number(day.slice(0, 4));
+    const weekday = new Intl.DateTimeFormat('en', { weekday: 'long' });
+    const dated = new Intl.DateTimeFormat('en', { weekday: 'long', month: 'short' });
+    const datedWithYear = new Intl.DateTimeFormat('en', {
+      weekday: 'long',
+      month: 'short',
+      year: 'numeric',
+    });
+    for (const [date, tasks] of upcomingGroups(active, day)) {
       const section = paper.createEl('section', {
         cls: 'ot-section',
         attr: { 'data-date': date },
@@ -40,38 +50,29 @@ module.exports = function renderListContents(view, paper, active, progress) {
       dayHeading.createSpan({
         cls: 'ot-day-name',
         text:
-          date === dayAfter(1)
+          date === tomorrow
             ? 'Tomorrow'
-            : new Intl.DateTimeFormat('en', {
-                weekday: 'long',
-                ...(date > dayAfter(7)
-                  ? {
-                      month: 'short',
-                      ...(y !== new Date().getFullYear() ? { year: 'numeric' } : {}),
-                    }
-                  : {}),
-              }).format(new Date(y, m - 1, d, 12)),
+            : (date <= week ? weekday : y === year ? dated : datedWithYear).format(
+                new Date(y, m - 1, d, 12),
+              ),
       });
-      if (date <= dayAfter(7))
+      if (date <= week)
         section.createDiv({ cls: 'ot-calendar', attr: { 'data-calendar-date': date } });
-      view.group(
-        section,
-        active.filter((task) => upcomingDates(task.meta, today()).includes(date)),
-        date,
-      );
+      view.group(section, tasks, date);
     }
   } else if (view.page === 'today') {
-    const waiting =
-      view.plugin.settings.enableWaiting !== false && view.plugin.settings.showWaitingInToday
-        ? active.filter((task) => task.meta.is_waiting === true)
-        : [];
-    const regular = active.filter((task) => !waiting.includes(task));
-    view.group(
-      paper,
-      regular.filter((task) => !inEvening(task.meta, today())),
-      null,
-    );
-    const evening = regular.filter((task) => inEvening(task.meta, today()));
+    const day = today();
+    const waiting = [],
+      regular = [],
+      evening = [];
+    const groupWaiting =
+      view.plugin.settings.enableWaiting !== false && view.plugin.settings.showWaitingInToday;
+    for (const task of active) {
+      if (groupWaiting && task.meta.is_waiting === true) waiting.push(task);
+      else if (inEvening(task.meta, day)) evening.push(task);
+      else regular.push(task);
+    }
+    view.group(paper, regular, null);
     if (evening.length) {
       const section = paper.createEl('section', { cls: 'ot-section ot-evening-section' });
       const h = section.createEl('h2');

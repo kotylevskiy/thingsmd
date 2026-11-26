@@ -6,8 +6,7 @@ const mainWorkspaceLeaf = require('../workspace-leaf.cjs');
 async function destinations(plugin, task) {
   return (await plugin.records()).filter(
     (record) =>
-      record.meta.type === 'thingsmd-project' &&
-      taskReferences(record.body).some((reference) => reference.path === task.file.path),
+      record.meta.type === 'thingsmd-project' && record.referencePaths.includes(task.file.path),
   );
 }
 async function open(plugin, task, project) {

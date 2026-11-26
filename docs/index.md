@@ -4,6 +4,10 @@ layout: thingsmd
 
 <div class="section-block" id="reference" markdown="1">
 
+## Installation
+
+In Obsidian, go to **Settings → Community plugins → Browse**, search for **ThingsMD**, then choose **Install** and **Enable**. You can also find ThingsMD in the [Obsidian Community Plugins directory](https://community.obsidian.md/plugins/thingsmd).
+
 {% include admonition.html id="recommended-theme" title="Recommended theme" body="In **Settings → Appearance → Themes → Manage**, search for [**Things**](https://community.obsidian.md/themes/things) by Colin Eckert and choose **Install and use**." %}
 
 ## Tasks
@@ -58,6 +62,8 @@ Use **ThingsMD: Quick Find** to search list, project, and task titles. **Continu
 {: #logbook-and-trash }
 
 Check off a task to complete it or choose **Mark as Canceled** in the task menu. Both count as finished. The default **Daily** Logbook policy archives finished tasks at the next vault midnight. Adjust it in ThingsMD settings or run **ThingsMD: Log Completed**.
+
+Each Logbook section shows how many completed and canceled tasks it contains.
 
 **First day of the week** in ThingsMD settings controls the date picker grid and where the Logbook starts a new week. **Automatic** uses the browser locale.
 

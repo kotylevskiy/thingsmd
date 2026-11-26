@@ -41,6 +41,7 @@ module.exports = function installArchives(plugin, hasOpenDraft) {
           throw new Error('Task changed during cleanup; its file was retained.');
         await plugin.assertTaskAuthority?.(task.file, current.meta.id);
         await plugin.app.vault.adapter.remove(path);
+        plugin.invalidateVaultPath?.(path);
         plugin.tasksChanged();
       } catch (error) {
         const failures = await rollbackNotes(edits, (file, before, after) =>
@@ -55,21 +56,17 @@ module.exports = function installArchives(plugin, hasOpenDraft) {
   plugin.register?.(() => {
     disposed = true;
   });
-  plugin.maintainArchives = (now = new Date()) => {
+  plugin.maintainArchives = (now = new Date(), records) => {
     if (maintenance) return maintenance;
     maintenance = (async () => {
-      const tasks = await plugin.taskRecords();
+      const tasks = records ?? (await plugin.taskRecords());
+      const day = vaultDay(now, plugin.settings.timeZone);
       for (const t of tasks) {
         if (disposed || plugin.conversionBusy) return;
         if (
           !t.meta.deleted &&
           !t.meta.loggedAt &&
-          isLogged(
-            t.meta,
-            vaultDay(now, plugin.settings.timeZone),
-            plugin.settings.logbook,
-            plugin.settings.timeZone,
-          )
+          isLogged(t.meta, day, plugin.settings.logbook, plugin.settings.timeZone)
         ) {
           const loggedAt = plannedLogAt(t.meta, plugin.settings.logbook, plugin.settings.timeZone);
           if (loggedAt) await plugin.patchTask(t, { loggedAt });

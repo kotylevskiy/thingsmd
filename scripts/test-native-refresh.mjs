@@ -15,7 +15,7 @@ try {
     await page.evaluate(
       async ({ note, id, mode }) => {
         const file = app.vault.getAbstractFileByPath(note);
-        await app.vault.modify(file, `![[ThingsMD/${id}]]\n`);
+        await app.vault.modify(file, `Prose\n\n![[ThingsMD/${id}]]\n`);
         const leaf = app.plugins.getPlugin('thingsmd').mainWorkspaceLeaf();
         await leaf.openFile(file);
         await leaf.setViewState({
@@ -34,6 +34,26 @@ try {
       { id, prefix },
     );
     await card.locator(`.ot-task[data-task-id="${id}"]`).waitFor();
+    if (mode === 'source') {
+      await page.evaluate(() => {
+        app.workspace.activeLeaf.view.editor.replaceRange('Extra prose\n', { line: 0, ch: 2 });
+      });
+      await card.locator(`.ot-task[data-task-id="${id}"]`).waitFor();
+      await page.evaluate(
+        ({ id }) => {
+          app.workspace.activeLeaf.view.editor.setValue(`\`\`\`md\n![[ThingsMD/${id}]]\n\`\`\`\n`);
+        },
+        { id },
+      );
+      await card.waitFor({ state: 'hidden' });
+      await page.evaluate(
+        ({ id }) => {
+          app.workspace.activeLeaf.view.editor.setValue(`Prose\n\n![[ThingsMD/${id}]]\n`);
+        },
+        { id },
+      );
+      await card.locator(`.ot-task[data-task-id="${id}"]`).waitFor();
+    }
     await page.evaluate(
       (id) => app.plugins.getPlugin('thingsmd').deleteTask(`ThingsMD/${id}.md`),
       id,

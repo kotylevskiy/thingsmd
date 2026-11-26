@@ -67,12 +67,7 @@ module.exports = function install(plugin) {
         this.input.focus();
       };
       this.status = this.contentEl.createDiv({ cls: 'ot-search-status', attr: { role: 'status' } });
-      this.events = ['thingsmd-tasks-changed'].map((e) =>
-        plugin.app.workspace.on(e, () => this.refresh()),
-      );
-      this.vaultEvents = ['modify', 'create', 'delete', 'rename'].map((e) =>
-        plugin.app.vault.on(e, () => this.refresh()),
-      );
+      this.changeEvent = plugin.app.workspace.on('thingsmd-tasks-changed', () => this.refresh());
       // Populate keyboard navigation before the asynchronous index read finishes.
       this.draw();
       this.refresh();
@@ -90,12 +85,11 @@ module.exports = function install(plugin) {
       }
     }
     draw() {
-      this.results = search(this.records, this.input.value, {
+      this.results = search(this.input.value.trim() ? this.records : [], this.input.value, {
         broad: this.broad,
         today: day(),
         settings: plugin.settings,
       });
-      if (!this.input.value.trim()) this.results = this.results.filter((r) => r.kind === 'list');
       this.list.empty();
       this.scopeLabel.empty();
       if (this.broad)
@@ -146,8 +140,7 @@ module.exports = function install(plugin) {
     }
     onClose() {
       this.version++;
-      for (const e of this.events || []) plugin.app.workspace.offref(e);
-      for (const e of this.vaultEvents || []) plugin.app.vault.offref(e);
+      if (this.changeEvent) plugin.app.workspace.offref(this.changeEvent);
       if (plugin.searchModal === this) plugin.searchModal = null;
       this.contentEl.empty();
     }

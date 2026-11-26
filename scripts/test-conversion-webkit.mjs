@@ -50,7 +50,7 @@ try {
         },
         workspace: { getLeavesOfType: () => [], getActiveViewOfType: () => view, on() {} },
       },
-      taskRecords: async () => [],
+      records: async () => [],
       planConversion: async (args) => args,
       runConversion: async (plan) => {
         window.calls.push(plan);
