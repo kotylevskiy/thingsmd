@@ -17,7 +17,13 @@ module.exports = function renderListContents(view, paper, active, progress) {
         cls: 'ot-section ot-logbook-section',
         attr: { 'data-period': key },
       });
-      section.createEl('h2', { text: title });
+      const heading = section.createEl('h2', { cls: 'ot-logbook-heading' });
+      heading.createSpan({ text: title });
+      heading.append(' ');
+      heading.createSpan({
+        cls: 'ot-logbook-count',
+        text: `${tasks.length} ${tasks.length === 1 ? 'task' : 'tasks'}`,
+      });
       view.group(section, tasks, key);
     }
   } else if (view.page === 'upcoming') {

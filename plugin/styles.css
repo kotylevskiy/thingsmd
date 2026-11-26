@@ -117,6 +117,16 @@
   padding-bottom: var(--size-4-1);
   margin: 0 0 var(--size-4-2);
 }
+.ot-logbook-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--size-4-2);
+}
+.ot-logbook-count {
+  font-weight: var(--font-normal);
+  letter-spacing: normal;
+}
 .ot-section + .ot-section {
   margin-top: calc(var(--size-4-1) * 7.5);
 }
@@ -1079,12 +1089,15 @@ body.ot-task-drag-active .workspace * {
 .ot-list-link[data-list='trash'] .ot-list-link-icon {
   color: var(--text-muted);
 }
-.ot-archive-date {
+.ot-archive-date,
+.ot-logbook-count {
   color: var(--text-faint);
   font-size: 12px;
+  white-space: nowrap;
+}
+.ot-archive-date {
   flex: 0 0 8em;
   width: 8em;
-  white-space: nowrap;
 }
 .ot-task.ot-archive-task:not(.is-expanded) .ot-task-title {
   flex: 1;

@@ -5,13 +5,15 @@ const require = createRequire(import.meta.url);
 const { logbookGroups } = require('../plugin/lists/logbook-groups.cjs');
 const { addDays } = require('../plugin/shared/local-date.cjs');
 const { dayKey } = require('../plugin/shared/vault-time.cjs');
-const { browser, page } = await connectTestVault({
-  settings: { logbook: 'immediately', timeZone: 'UTC' },
-});
 const prefix = `Logbook grouping ${Date.now()}`;
 const now = new Date();
 const today = dayKey(now, 'UTC');
-const stamps = [0, 1, 2, 6, 7, 40, 400].map((age) => `${addDays(today, -age)}T12:00:00Z`);
+// Keep three days ago in the current week regardless of when the test runs.
+const weekStartsOn = (now.getUTCDay() - 3 + 7) % 7;
+const { browser, page } = await connectTestVault({
+  settings: { logbook: 'immediately', timeZone: 'UTC', weekStartsOn },
+});
+const stamps = [0, 1, 3, 6, 7, 40, 400].map((age) => `${addDays(today, -age)}T12:00:00Z`);
 let tasks = [];
 try {
   tasks = await page.evaluate(
@@ -32,16 +34,38 @@ try {
     },
     { prefix, stamps },
   );
-  const locale = await page.evaluate(() => require('@electron/remote').app.getSystemLocale());
-  const expected = logbookGroups(tasks, { now, timeZone: 'UTC', locale });
+  const locale = await page.evaluate(() => new Intl.DateTimeFormat().resolvedOptions().locale);
+  const expected = logbookGroups(tasks, { now, timeZone: 'UTC', locale, weekStartsOn });
   const active = page.locator('.workspace-leaf.mod-active');
   for (const group of expected) {
     const section = active.locator(`.ot-logbook-section[data-period="${group.key}"]`);
-    await section.getByRole('heading', { name: group.title, exact: true }).waitFor();
+    await section
+      .getByRole('heading', {
+        name: `${group.title} ${group.tasks.length} ${group.tasks.length === 1 ? 'task' : 'tasks'}`,
+        exact: true,
+      })
+      .waitFor();
     for (const task of group.tasks)
       await section.getByRole('option', { name: task.meta.title, exact: true }).waitFor();
   }
-  await active.getByRole('heading', { name: 'Last Week', exact: true }).waitFor();
+  await active.getByRole('heading', { name: 'Yesterday 1 task', exact: true }).waitFor();
+  await active.getByRole('heading', { name: '3 Days Ago 1 task', exact: true }).waitFor();
+  const lastWeek = active.getByRole('heading', { name: 'Last Week 2 tasks', exact: true });
+  assert.deepEqual(
+    await lastWeek.evaluate((heading) => {
+      const count = heading.querySelector('.ot-logbook-count');
+      const date = heading.closest('section').querySelector('.ot-archive-date');
+      const countStyle = getComputedStyle(count);
+      const dateStyle = getComputedStyle(date);
+      return {
+        rightAligned:
+          Math.abs(count.getBoundingClientRect().right - heading.getBoundingClientRect().right) < 1,
+        matchesDateStyle:
+          countStyle.color === dateStyle.color && countStyle.fontSize === dateStyle.fontSize,
+      };
+    }),
+    { rightAligned: true, matchesDateStyle: true },
+  );
   const first = active.getByRole('option', { name: tasks[0].meta.title, exact: true });
   await first.focus();
   await page.keyboard.press('ArrowDown');
@@ -53,8 +77,14 @@ try {
   );
   await first.getByRole('button', { name: 'Restore', exact: true }).click();
   await first.waitFor({ state: 'hidden' });
+  await active
+    .getByRole('heading', { name: 'Today 1 task', exact: true })
+    .waitFor({ state: 'hidden' });
+  const lastWeekTask = active.getByRole('option', { name: tasks[4].meta.title, exact: true });
+  await lastWeekTask.getByRole('button', { name: 'Restore', exact: true }).click();
+  await active.getByRole('heading', { name: 'Last Week 1 task', exact: true }).waitFor();
   console.log(
-    'PASS Logbook daily/monthly sections, completion-based grouping, canceled tasks, cross-section keyboard navigation and Restore',
+    'PASS Logbook section counts, completion-based grouping, canceled tasks, cross-section keyboard navigation and Restore',
   );
 } finally {
   await page.evaluate(async (tasks) => {
