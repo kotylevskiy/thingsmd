@@ -9,7 +9,7 @@ const { browser, page } = await browserFixture({
 try {
   const css = await readFile(new URL('../plugin/styles.css', import.meta.url), 'utf8');
   await page.setContent(
-    `<style>${css}</style><div><div class="folder-fixture">ThingsMD</div><div>Zulu</div><div>Alpha</div></div>`,
+    `<style>${css}</style><div><div class="nav-folder folder-fixture">ThingsMD</div><div>Zulu</div><div>Alpha</div></div>`,
   );
   const row = page.locator('.folder-fixture');
   const before = await row.boundingBox();

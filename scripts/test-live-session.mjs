@@ -93,7 +93,7 @@ try {
   const id = await page.evaluate(async (prefix) => {
     const p = app.plugins.getPlugin('thingsmd');
     const t = await p.createTask(
-      { title: prefix + ' Письма в СерДизель должны быть доставлены', deadline: '2099-10-20' },
+      { title: prefix + ' Учебные материалы нужно разложить по папкам', deadline: '2099-10-20' },
       undefined,
       'Notes',
     );

@@ -4,6 +4,10 @@ import { connectTestVault } from './obsidian-connection.mjs';
 const { browser, page } = await connectTestVault({ settings: { enableWaiting: true } });
 page.setDefaultTimeout(10000);
 const folder = `Sidebar reveal ${Date.now()}`;
+const notes = Array.from(
+  { length: 40 },
+  (_, index) => `${folder} Note ${String(index).padStart(2, '0')}.md`,
+);
 const wasMobile = await page.evaluate(() => !!localStorage.getItem('EmulateMobile'));
 const ready = () =>
   page.waitForFunction(
@@ -20,7 +24,10 @@ const reveal = async () => {
   await page.waitForFunction(() => {
     const nav = document.querySelector('.ot-list-links');
     const box = nav?.getBoundingClientRect();
-    return box?.width > 100 && box.height > 100 && box.left >= -0.1;
+    if (!box || box.width <= 100 || box.height <= 100 || box.left < -0.1) return false;
+    // Obsidian can still block input with its backdrop after the drawer reaches its open position.
+    const target = document.elementFromPoint(box.x + 40, box.y + box.height / 2);
+    return target && !target.closest('.workspace-drawer-backdrop');
   });
 };
 try {
@@ -34,13 +41,20 @@ try {
   await page.waitForFunction(
     () => getComputedStyle(document.querySelector('.ot-list-links')).transform !== 'none',
   );
-  await page.evaluate(async (folder) => {
-    await app.vault.createFolder(folder);
-    for (let i = 0; i < 40; i++)
-      await app.vault.create(`${folder}/Note ${String(i).padStart(2, '0')}.md`, 'Sidebar fixture');
-  }, folder);
-  await page.locator(`.nav-folder-title[data-path="${folder}"]`).click();
-  await page.locator(`.nav-file-title[data-path="${folder}/Note 00.md"]`).waitFor();
+  await page.evaluate(
+    async ({ folder, notes }) => {
+      await app.vault.createFolder(folder);
+      for (const path of notes) await app.vault.create(path, 'Sidebar fixture');
+    },
+    { folder, notes },
+  );
+  await page.locator(`.nav-folder-title[data-path="${folder}"]`).waitFor();
+  await page.waitForFunction(() => {
+    const files = document
+      .querySelector('.ot-list-links')
+      .parentElement.querySelector('.nav-files-container');
+    return files && files.scrollHeight - files.clientHeight >= 300;
+  });
   await page.evaluate(() => {
     const files = app.workspace
       .getLeavesOfType('file-explorer')[0]
@@ -93,7 +107,7 @@ try {
     assert.equal(
       state.hit,
       true,
-      'All shortcuts are visible and hit-testable immediately after reveal',
+      'All shortcuts are visible and hit-testable once the drawer accepts input',
     );
     assert.equal(state.scroll, 300, 'Revealing the drawer does not scroll the notes');
     assert.notEqual(state.layer, 'none');
@@ -142,10 +156,17 @@ try {
       if (probe) probe.plugin.mountListLinks = probe.original;
       delete window.sidebarMountProbe;
     });
-    await page.evaluate(async (folder) => {
-      const file = app.vault.getAbstractFileByPath(folder);
-      if (file) await app.vault.delete(file, true);
-    }, folder);
+    await page.evaluate(
+      async ({ folder, notes }) => {
+        for (const path of notes) {
+          const file = app.vault.getAbstractFileByPath(path);
+          if (file) await app.vault.delete(file);
+        }
+        const directory = app.vault.getAbstractFileByPath(folder);
+        if (directory) await app.vault.delete(directory, true);
+      },
+      { folder, notes },
+    );
     if (!wasMobile) {
       await page.evaluate(() => app.emulateMobile(false));
       await ready();

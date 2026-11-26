@@ -31,31 +31,30 @@ try {
         window.app?.workspace?.layoutReady && app.plugins.getPlugin('thingsmd')?.paintTaskFolder,
     );
     await page.setViewportSize(mobile ? { width: 390, height: 844 } : { width: 1100, height: 800 });
-    await page.evaluate(async () => {
-      const leaf = app.workspace.getLeavesOfType('file-explorer')[0];
-      await leaf.loadIfDeferred?.();
-      await app.workspace.revealLeaf(leaf);
-      app.workspace.leftSplit.expand();
-    });
-    await page.evaluate(async () => {
-      await app.plugins.getPlugin('thingsmd').updateSettings({ tasksFolderDisplay: 'hidden' });
-      app.setting.open();
-      app.setting.openTabById('thingsmd');
-    });
-    const settings = (activeSettings = await settingsPage(page));
-    settingsViewport = await settings.evaluate(() => ({
-      width: innerWidth,
-      height: innerHeight,
-    }));
-    await settings.setViewportSize(
-      mobile ? { width: 390, height: 844 } : { width: 1100, height: 800 },
+    await page.evaluate(() =>
+      app.plugins.getPlugin('thingsmd').updateSettings({ tasksFolderDisplay: 'hidden' }),
     );
-    await settings.bringToFront();
-    const hide = settings.getByLabel('Hide ThingsMD folder', { exact: true });
-    await hide.scrollIntoViewIfNeeded();
-    assert.equal(await hide.evaluate((el) => el.classList.contains('is-enabled')), true);
-    assert.equal(await settings.locator('option').filter({ hasText: 'Show last' }).count(), 0);
     for (const mode of ['normal', 'hidden']) {
+      await page.evaluate(() => {
+        app.setting.open();
+        app.setting.openTabById('thingsmd');
+      });
+      const settings = (activeSettings = await settingsPage(page));
+      settingsViewport = await settings.evaluate(() => ({
+        width: innerWidth,
+        height: innerHeight,
+      }));
+      await settings.setViewportSize(
+        mobile ? { width: 390, height: 844 } : { width: 1100, height: 800 },
+      );
+      await settings.bringToFront();
+      const hide = settings.getByLabel('Hide ThingsMD folder', { exact: true });
+      await hide.scrollIntoViewIfNeeded();
+      assert.equal(
+        await hide.evaluate((el) => el.classList.contains('is-enabled')),
+        mode === 'normal',
+      );
+      assert.equal(await settings.locator('option').filter({ hasText: 'Show last' }).count(), 0);
       await hide.click();
       await waitForAsync(
         page,
@@ -67,24 +66,35 @@ try {
         await hide.evaluate((el) => el.classList.contains('is-enabled')),
         mode === 'hidden',
       );
-      assert.equal(
-        await page.evaluate(() => {
-          const p = app.plugins.getPlugin('thingsmd');
-          const root = app.workspace.getLeavesOfType('file-explorer')[0].view.containerEl;
-          const title = [...root.querySelectorAll('.nav-folder-title')].find(
-            (el) => el.dataset.path === p.settings.tasksFolder,
-          );
-          return getComputedStyle(title.closest('.nav-folder')).display === 'none';
-        }),
-        mode === 'hidden',
-      );
+      if (mode === 'hidden')
+        await settings.screenshot({
+          path: `artifacts/task-folder-toggle-${mobile ? 'mobile' : 'desktop'}.png`,
+        });
+      await settings.setViewportSize(settingsViewport);
+      activeSettings = undefined;
+      // Mobile Settings can unmount the explorer rows until the drawer is opened again.
+      await page.evaluate(async () => {
+        app.setting.close();
+        const workspace = app.workspace;
+        const leaf = workspace.getLeavesOfType('file-explorer')[0];
+        await leaf.loadIfDeferred?.();
+        await workspace.revealLeaf(leaf);
+        workspace.leftSplit.expand();
+      });
+      await page.waitForFunction((hidden) => {
+        const p = app.plugins.getPlugin('thingsmd');
+        const root = app.workspace.getLeavesOfType('file-explorer')[0].view.containerEl;
+        const title = [...root.querySelectorAll('.nav-folder-title')].find(
+          (el) => el.dataset.path === p.settings.tasksFolder,
+        );
+        const row = title?.closest('.nav-folder');
+        return (
+          root.getBoundingClientRect().height > 0 &&
+          row &&
+          (getComputedStyle(row).display === 'none') === hidden
+        );
+      }, mode === 'hidden');
     }
-    await settings.screenshot({
-      path: `artifacts/task-folder-toggle-${mobile ? 'mobile' : 'desktop'}.png`,
-    });
-    await settings.setViewportSize(settingsViewport);
-    activeSettings = undefined;
-    await page.evaluate(() => app.setting.close());
     const result = await page.evaluate(async () => {
       const p = app.plugins.getPlugin('thingsmd');
       const explorer = app.workspace.getLeavesOfType('file-explorer')[0].view;

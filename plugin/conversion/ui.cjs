@@ -24,41 +24,61 @@ module.exports = function installConversionUI(plugin) {
         await plugin.planConversion({ direction: 'inline', path, taskPath: task.file.path }),
       ),
     );
-  const cache = new Map(),
-    eligible = new Set(),
-    rendered = new WeakMap(),
+  const notes = noteAccess(app);
+  const rendered = new WeakMap(),
     sections = new WeakMap();
+  let cache = new Map(),
+    eligible = new Set();
   let timer,
     disposed = false,
-    version = 0;
+    refreshing = false,
+    pending = false;
   async function refresh() {
-    const current = ++version;
-    const tasks = await plugin.taskRecords();
-    const entries = [];
-    for (const file of app.vault.getMarkdownFiles())
-      if (!file.path.startsWith(plugin.settings.tasksFolder + '/'))
-        entries.push([file.path, await noteAccess(app).read(file)]);
-    if (disposed || current !== version) return;
-    cache.clear();
-    eligible.clear();
-    for (const task of tasks)
-      if (task.meta.conversion?.version === 1 && !task.conflicts?.length && !task.meta.deleted)
-        eligible.add(task.file.path);
-    for (const [path, text] of entries) cache.set(path, available(text));
+    // Keep one scan in flight, with at most one follow-up for changes during it.
+    if (disposed || refreshing) return;
+    refreshing = true;
+    pending = false;
+    try {
+      const tasks = await plugin.taskRecords();
+      if (disposed) return;
+      const nextEligible = new Set();
+      for (const task of tasks)
+        if (task.meta.conversion?.version === 1 && !task.conflicts?.length && !task.meta.deleted)
+          nextEligible.add(task.file.path);
+      const nextCache = new Map();
+      for (const file of app.vault.getMarkdownFiles()) {
+        const path = file.path;
+        if (!supported(file)) continue;
+        const text = await notes.read(file);
+        if (disposed) return;
+        // Store availability as each read finishes so a scan can release note text.
+        nextCache.set(path, available(text, undefined, nextEligible));
+      }
+      cache = nextCache;
+      eligible = nextEligible;
+    } catch (error) {
+      if (!disposed) console.error(error);
+    } finally {
+      refreshing = false;
+      if (pending && timer === undefined) void refresh();
+    }
   }
   const schedule = () => {
+    pending = true;
     clearTimeout(timer);
-    timer = setTimeout(() => refresh().catch(console.error), 100);
+    timer = setTimeout(() => {
+      timer = undefined;
+      void refresh();
+    }, 100);
   };
   for (const event of ['create', 'modify', 'delete', 'rename'])
     plugin.registerEvent(app.vault.on(event, schedule));
   plugin.registerEvent(app.workspace.on('thingsmd-tasks-changed', schedule));
-  void refresh().catch(console.error);
-  const available = (text, ranges) => {
+  const available = (text, ranges, restorable = eligible) => {
     const touches = (item) => !ranges || ranges.some((r) => item.from < r.to && item.to > r.from);
     return {
       thingsmd: scan(text).tasks.some(touches),
-      inline: taskReferences(text).some((ref) => eligible.has(ref.path) && touches(ref)),
+      inline: taskReferences(text).some((ref) => restorable.has(ref.path) && touches(ref)),
     };
   };
   const run = async (direction, path, text, ranges) => {
@@ -73,6 +93,7 @@ module.exports = function installConversionUI(plugin) {
     }
   };
   const supported = (file) => file && !file.path.startsWith(plugin.settings.tasksFolder + '/');
+  void refresh();
   function choicesFor(file, text, ranges) {
     if (!supported(file)) return {};
     return text === undefined ? cache.get(file.path) || {} : available(text, ranges);
@@ -140,8 +161,10 @@ module.exports = function installConversionUI(plugin) {
     const info = context.getSectionInfo(element);
     if (!info) return;
     sections.set(element, { ...info, path: context.sourcePath });
+    const items = element.querySelectorAll('li.task-list-item');
+    if (!items.length) return;
     const parsed = scan(info.text).tasks;
-    for (const node of element.querySelectorAll('li.task-list-item')) {
+    for (const node of items) {
       const number = info.lineStart + Number(node.dataset.line);
       const task = parsed.find((task) => task.number === number);
       if (task)

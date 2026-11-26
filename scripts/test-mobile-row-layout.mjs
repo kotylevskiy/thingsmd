@@ -19,7 +19,7 @@ const browser = await browserType.launch({
 });
 try {
   const page = await browser.newPage();
-  const title = 'Письма в СерДизель должны быть доставлены';
+  const title = 'Учебные материалы нужно разложить по папкам';
   const fixture = `<!doctype html><meta charset="utf-8"><style>
     :root { --size-4-1:4px; --size-4-2:8px; --size-4-3:12px; --size-4-4:16px;
       --size-2-1:2px; --size-2-3:6px; --line-height-tight:1.3; --file-margins:16px;

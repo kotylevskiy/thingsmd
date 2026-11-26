@@ -20,44 +20,55 @@ module.exports = async function installNative(plugin) {
   const pendingCreations = new Map();
   const deleteFromNote = require('../tasks/task-deletion-history.cjs')(plugin);
   const openOnCreate = new Set();
-  let timer;
+  let timer, loading;
   let disposed = false,
     version = 0;
-  const reload = async () => {
-    if (plugin.movingTasks) return;
-    const current = ++version;
-    const next = await plugin.records();
-    if (disposed || current !== version) return next;
-    records = [
-      ...next,
-      ...records.filter(
-        (r) => pendingCreations.has(r.file.path) && !next.some((n) => n.file.path === r.file.path),
-      ),
-    ];
-    for (const card of cards) card.render();
-    for (const view of editors) view.dispatch({ effects: refresh.of(null) });
-    return next;
+  const reload = () => {
+    if (disposed || plugin.movingTasks) return;
+    const current = version;
+    // Multiple Reading-view sections can need the task index in the same render.
+    if (loading?.version === current) return loading.work;
+    const work = plugin
+      .taskRecords()
+      .then((next) => {
+        if (disposed || current !== version) return next;
+        records = [
+          ...next,
+          ...records.filter(
+            (r) =>
+              pendingCreations.has(r.file.path) && !next.some((n) => n.file.path === r.file.path),
+          ),
+        ];
+        for (const card of cards) card.render();
+        for (const view of editors) view.dispatch({ effects: refresh.of(null) });
+        return records;
+      })
+      .finally(() => {
+        if (loading?.work === work) loading = undefined;
+      });
+    loading = { version: current, work };
+    return work;
   };
-  await reload();
-  for (const event of ['modify', 'create', 'delete', 'rename'])
-    plugin.registerEvent(
-      plugin.app.vault.on(event, () => {
-        version++;
-        clearTimeout(timer);
-        timer = setTimeout(() => reload().catch(console.error), 150);
-      }),
-    );
-  plugin.registerEvent(
-    plugin.app.workspace.on('thingsmd-tasks-changed', () => {
-      version++;
-      clearTimeout(timer);
-      timer = setTimeout(() => reload().catch(console.error), 50);
-    }),
-  );
   plugin.register(() => {
     disposed = true;
     clearTimeout(timer);
   });
+  const schedule = (delay) => {
+    version++;
+    clearTimeout(timer);
+    timer = setTimeout(() => reload()?.catch(console.error), delay);
+  };
+  for (const event of ['modify', 'create', 'delete', 'rename'])
+    plugin.registerEvent(
+      plugin.app.vault.on(event, (file, oldPath) => {
+        const folder = plugin.settings.tasksFolder;
+        if ([file.path, oldPath].some((path) => path === folder || path?.startsWith(folder + '/')))
+          schedule(150);
+      }),
+    );
+  plugin.registerEvent(plugin.app.workspace.on('thingsmd-tasks-changed', () => schedule(50)));
+  await reload();
+  if (disposed) return;
   const lookup = (path) =>
     records.find(
       (r) =>
@@ -113,28 +124,31 @@ module.exports = async function installNative(plugin) {
     // Await once, then query and replace the live nodes without yielding between
     // them. A newer refresh can supersede this one; its snapshot still proves
     // these paths are tasks and lets their cards show loading placeholders.
-    const needsReload = [...element.querySelectorAll('.internal-embed')].some((embed) => {
+    const embeds = [...element.querySelectorAll('.internal-embed')];
+    if (!embeds.length) return;
+    const needsReload = embeds.some((embed) => {
       const source = embed.getAttribute('src') || '';
       const path = source.endsWith('.md') ? source : source + '.md';
       return !lookup(path) && path.startsWith(plugin.settings.tasksFolder + '/');
     });
-    const snapshot = needsReload ? await reload() : records;
+    const snapshot = needsReload ? await reload() : undefined;
     if (disposed) return;
-    const knownPaths = new Set(
-      (snapshot || [])
-        .filter((record) => record.meta.type === 'thingsmd-task')
-        .flatMap((record) => [
+    const knownPaths =
+      snapshot &&
+      snapshot !== records &&
+      new Set(
+        snapshot.flatMap((record) => [
           record.file.path,
           ...(record.conflicts || []).map((copy) => copy.file.path),
         ]),
-    );
+      );
     const usedLines = new Set();
     for (const embed of element.querySelectorAll('.internal-embed')) {
       if (embed.closest('.ot-native')) continue;
       const source = embed.getAttribute('src') || '';
       if (/[#|]/.test(source)) continue;
       const path = source.endsWith('.md') ? source : source + '.md';
-      if (!isTaskPath(path) && !knownPaths.has(path)) continue;
+      if (!isTaskPath(path) && !knownPaths?.has(path)) continue;
       const section = context.getSectionInfo(embed);
       if (!section) continue;
       const lines = section.text.split('\n');
@@ -220,14 +234,24 @@ module.exports = async function installNative(plugin) {
               ).catch((error) => new Notice(error.message)),
           );
           this.column = 0;
-          const taskAt = (line) => {
-            let found;
+          const taskWidgetAt = (line) => {
+            let widget;
             view.state.field(field).between(line.from, line.to, (from, to, decoration) => {
-              if (from !== line.from || !(decoration.spec.widget instanceof TaskWidget)) return;
-              const task = lookup(decoration.spec.widget.path);
-              if (task) found = isHidden(task.meta) ? 'hidden' : 'visible';
+              if (from === line.from && decoration.spec.widget instanceof TaskWidget)
+                widget = decoration.spec.widget;
             });
-            return found;
+            return widget;
+          };
+          const taskAt = (line) => {
+            const widget = taskWidgetAt(line);
+            const task = widget && lookup(widget.path);
+            if (task) return isHidden(task.meta) ? 'hidden' : 'visible';
+          };
+          const taskBeyondEmptyLines = (doc, number, step) => {
+            for (let n = number + step; n >= 1 && n <= doc.lines; n += step) {
+              const neighbor = doc.line(n);
+              if (neighbor.length) return taskWidgetAt(neighbor);
+            }
           };
           const nextLine = (line, direction) => {
             for (
@@ -279,9 +303,30 @@ module.exports = async function installNative(plugin) {
               view.state.selection.ranges.length === 1 &&
               view.state.selection.main.empty
             ) {
+              const { doc, selection } = view.state;
+              const position = selection.main.head;
+              const line = doc.lineAt(position);
+              if (
+                !line.length &&
+                taskBeyondEmptyLines(doc, line.number, -1) &&
+                taskBeyondEmptyLines(doc, line.number, 1)
+              ) {
+                // Keep one newline between the embeds and edit the note through native history.
+                const backward = e.key === 'Backspace';
+                const from = backward ? position - 1 : position;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                view.dispatch({
+                  changes: { from, to: from + 1 },
+                  selection: { anchor: from },
+                  userEvent: backward ? 'delete.backward' : 'delete.forward',
+                  scrollIntoView: true,
+                });
+                return;
+              }
               const reference = require('./task-reference-deletion.cjs').deletionTarget(
-                view.state.doc.toString(),
-                view.state.selection.main.head,
+                doc.toString(),
+                position,
                 e.key,
               );
               const task = reference && lookup(reference.path);
